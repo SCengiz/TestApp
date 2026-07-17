@@ -1,6 +1,8 @@
 import SwiftUI
 
 struct ContentView: View {
+    @Environment(\.modelContext) private var modelContext
+
     var body: some View {
         TabView {
             SummaryView()
@@ -17,6 +19,9 @@ struct ContentView: View {
                 .tabItem {
                     Label("Sabit Ödemeler", systemImage: "creditcard")
                 }
+        }
+        .onAppear {
+            seedSampleDataIfNeeded(modelContext)
         }
     }
 }
