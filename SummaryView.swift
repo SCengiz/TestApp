@@ -2,9 +2,18 @@ import SwiftUI
 import SwiftData
 import Charts
 
+// Grafik dönemi
+enum ChartRange: String, CaseIterable, Identifiable {
+    case month = "Bu Ay"
+    case yearly = "Aylık"
+    case allYears = "Yıllık"
+    var id: String { rawValue }
+}
+
 struct SummaryView: View {
     @Query(sort: \Expense.date, order: .reverse) private var expenses: [Expense]
     @Query private var payments: [FixedPayment]
+    @State private var range: ChartRange = .month
 
     private var calendar: Calendar { .current }
 
@@ -20,30 +29,56 @@ struct SummaryView: View {
         payments.reduce(0) { $0 + $1.amount }
     }
 
-    // Son 7 günün gün gün toplamları
-    private var last7Days: [(date: Date, total: Double)] {
-        let today = calendar.startOfDay(for: .now)
-        return (0..<7).reversed().map { offset in
-            let day = calendar.date(byAdding: .day, value: -offset, to: today)!
-            return (day, totalIn(day, unit: .day))
+    // Seçili döneme göre grafik verisi
+    private var chartData: [(date: Date, total: Double)] {
+        switch range {
+        case .month:
+            // Ayın 1'inden bugüne, gün gün
+            let start = calendar.dateInterval(of: .month, for: .now)!.start
+            let today = calendar.startOfDay(for: .now)
+            let dayCount = (calendar.dateComponents([.day], from: start, to: today).day ?? 0) + 1
+            return (0..<dayCount).map { offset in
+                let day = calendar.date(byAdding: .day, value: offset, to: start)!
+                return (day, totalIn(day, unit: .day))
+            }
+        case .yearly:
+            // Son 12 ay, ay ay
+            let thisMonth = calendar.dateInterval(of: .month, for: .now)!.start
+            return (0..<12).reversed().map { offset in
+                let month = calendar.date(byAdding: .month, value: -offset, to: thisMonth)!
+                return (month, totalIn(month, unit: .month))
+            }
+        case .allYears:
+            // Son 5 yıl, yıl yıl
+            let thisYear = calendar.dateInterval(of: .year, for: .now)!.start
+            return (0..<5).reversed().map { offset in
+                let year = calendar.date(byAdding: .year, value: -offset, to: thisYear)!
+                return (year, totalIn(year, unit: .year))
+            }
         }
     }
 
-    // Son 6 ayın toplamları
-    private var last6Months: [(date: Date, total: Double)] {
-        let thisMonth = calendar.dateInterval(of: .month, for: .now)!.start
-        return (0..<6).reversed().map { offset in
-            let month = calendar.date(byAdding: .month, value: -offset, to: thisMonth)!
-            return (month, totalIn(month, unit: .month))
+    private var chartUnit: Calendar.Component {
+        switch range {
+        case .month:    return .day
+        case .yearly:   return .month
+        case .allYears: return .year
         }
     }
 
-    // Son 5 yılın toplamları
-    private var last5Years: [(date: Date, total: Double)] {
-        let thisYear = calendar.dateInterval(of: .year, for: .now)!.start
-        return (0..<5).reversed().map { offset in
-            let year = calendar.date(byAdding: .year, value: -offset, to: thisYear)!
-            return (year, totalIn(year, unit: .year))
+    private var axisFormat: Date.FormatStyle {
+        switch range {
+        case .month:    return .dateTime.day()
+        case .yearly:   return .dateTime.month(.narrow)
+        case .allYears: return .dateTime.year()
+        }
+    }
+
+    private var chartColors: [Color] {
+        switch range {
+        case .month:    return [.blue, .indigo]
+        case .yearly:   return [.teal, .green]
+        case .allYears: return [.purple, .pink]
         }
     }
 
@@ -73,20 +108,42 @@ struct SummaryView: View {
                         colors: [.indigo, .blue]
                     )
 
-                    chartCard(title: "Son 7 Gün", icon: "calendar") {
-                        barChart(last7Days, unit: .day, colors: [.blue, .indigo],
-                                 axis: .dateTime.weekday(.abbreviated))
-                    }
+                    // Seçimli grafik kartı
+                    VStack(alignment: .leading, spacing: 14) {
+                        Label("Harcama Grafiği", systemImage: "chart.bar.fill")
+                            .font(.headline)
 
-                    chartCard(title: "Aylık Gidişat", icon: "chart.line.uptrend.xyaxis") {
-                        barChart(last6Months, unit: .month, colors: [.teal, .green],
-                                 axis: .dateTime.month(.abbreviated))
-                    }
+                        Picker("Dönem", selection: $range) {
+                            ForEach(ChartRange.allCases) { r in
+                                Text(r.rawValue).tag(r)
+                            }
+                        }
+                        .pickerStyle(.segmented)
 
-                    chartCard(title: "Yıllık Gidişat", icon: "calendar.badge.clock") {
-                        barChart(last5Years, unit: .year, colors: [.purple, .pink],
-                                 axis: .dateTime.year())
+                        Chart(chartData, id: \.date) { item in
+                            BarMark(
+                                x: .value("Dönem", item.date, unit: chartUnit),
+                                y: .value("Tutar", item.total)
+                            )
+                            .foregroundStyle(
+                                LinearGradient(colors: chartColors, startPoint: .top, endPoint: .bottom)
+                            )
+                            .cornerRadius(5)
+                        }
+                        .chartXAxis {
+                            AxisMarks(values: .automatic(desiredCount: 6)) {
+                                AxisValueLabel(format: axisFormat)
+                            }
+                        }
+                        .frame(height: 220)
+                        .animation(.easeInOut, value: range)
                     }
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding()
+                    .background(
+                        RoundedRectangle(cornerRadius: 20, style: .continuous)
+                            .fill(Color(.secondarySystemGroupedBackground))
+                    )
                 }
                 .padding()
             }
@@ -100,50 +157,6 @@ struct SummaryView: View {
         expenses
             .filter { calendar.isDate($0.date, equalTo: date, toGranularity: unit) }
             .reduce(0) { $0 + $1.amount }
-    }
-
-    // Ortak çubuk grafik
-    private func barChart(
-        _ data: [(date: Date, total: Double)],
-        unit: Calendar.Component,
-        colors: [Color],
-        axis: Date.FormatStyle
-    ) -> some View {
-        Chart(data, id: \.date) { item in
-            BarMark(
-                x: .value("Dönem", item.date, unit: unit),
-                y: .value("Tutar", item.total)
-            )
-            .foregroundStyle(
-                LinearGradient(colors: colors, startPoint: .top, endPoint: .bottom)
-            )
-            .cornerRadius(6)
-        }
-        .chartXAxis {
-            AxisMarks(values: .stride(by: unit)) {
-                AxisValueLabel(format: axis)
-            }
-        }
-        .frame(height: 180)
-    }
-
-    // Grafikleri saran beyaz köşeli kart
-    private func chartCard<Content: View>(
-        title: String,
-        icon: String,
-        @ViewBuilder content: () -> Content
-    ) -> some View {
-        VStack(alignment: .leading, spacing: 12) {
-            Label(title, systemImage: icon)
-                .font(.headline)
-            content()
-        }
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .padding()
-        .background(
-            RoundedRectangle(cornerRadius: 20, style: .continuous)
-                .fill(Color(.secondarySystemGroupedBackground))
-        )
     }
 }
 
