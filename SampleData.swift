@@ -16,34 +16,29 @@ func seedSampleDataIfNeeded(_ context: ModelContext) {
     let calendar = Calendar.current
     let now = Date.now
 
-    // Farklı kategoriler ve gerçekçi tutar aralıkları (min, max TL)
-    let categories: [(name: String, min: Int, max: Int)] = [
-        ("Market", 150, 1200),
-        ("Kafe", 60, 400),
-        ("Restoran", 200, 1500),
-        ("Akaryakıt", 500, 2500),
-        ("Ulaşım", 30, 300),
-        ("Giyim", 300, 3000),
-        ("Eczane", 80, 800),
-        ("Elektronik", 500, 8000),
-        ("Eğlence", 100, 1000),
-        ("Spor", 100, 1500),
-        ("Sağlık", 150, 2000),
-        ("Kozmetik", 100, 900),
-        ("Kitap", 80, 600),
-        ("Hediye", 150, 2000),
-        ("Abonelik", 50, 500),
-        ("Fatura", 200, 2500),
+    // Kategorilere göre gerçekçi tutar aralıkları ve örnek açıklamalar
+    let samples: [(category: String, titles: [String], min: Int, max: Int)] = [
+        ("Market", ["Market alışverişi", "Haftalık market", "Manav"], 150, 1200),
+        ("Kafe & Restoran", ["Kahve", "Öğle yemeği", "Akşam yemeği"], 60, 1500),
+        ("Ulaşım", ["Otobüs", "Taksi", "Metro kart"], 30, 300),
+        ("Akaryakıt", ["Benzin", "Motorin"], 500, 2500),
+        ("Online Alışveriş", ["Trendyol", "Hepsiburada", "Amazon"], 200, 5000),
+        ("Kıyafet", ["Tişört", "Ayakkabı", "Pantolon"], 300, 3000),
+        ("Fatura", ["Elektrik", "Su", "İnternet", "Doğalgaz"], 200, 2500),
+        ("Sağlık", ["Eczane", "Muayene", "Vitamin"], 80, 2000),
+        ("Eğlence", ["Sinema", "Konser", "Oyun"], 100, 1000),
+        ("Abonelik", ["Netflix", "Spotify", "YouTube Premium"], 50, 500),
     ]
 
     func addExpenses(on day: Date, count: Int) {
         let startOfDay = calendar.startOfDay(for: day)
         for _ in 0..<count {
-            let c = categories.randomElement()!
+            let s = samples.randomElement()!
             let date = calendar.date(byAdding: .hour, value: Int.random(in: 8...22), to: startOfDay) ?? day
-            context.insert(Expense(title: c.name,
-                                   amount: Double(Int.random(in: c.min...c.max)),
-                                   date: date))
+            context.insert(Expense(title: s.titles.randomElement()!,
+                                   amount: Double(Int.random(in: s.min...s.max)),
+                                   date: date,
+                                   category: s.category))
         }
     }
 

@@ -7,11 +7,13 @@ final class Expense {
     var title: String
     var amount: Double
     var date: Date
+    var category: String = "Diğer"
 
-    init(title: String, amount: Double, date: Date = .now) {
+    init(title: String, amount: Double, date: Date = .now, category: String = "Diğer") {
         self.title = title
         self.amount = amount
         self.date = date
+        self.category = category
     }
 }
 

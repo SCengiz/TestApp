@@ -83,6 +83,17 @@ struct SummaryView: View {
         }
     }
 
+    // Bu ay kategori kategori toplamlar (büyükten küçüğe)
+    private var categoryTotals: [(category: ExpenseCategory, total: Double)] {
+        let monthExpenses = expenses.filter {
+            calendar.isDate($0.date, equalTo: .now, toGranularity: .month)
+        }
+        let groups = Dictionary(grouping: monthExpenses) { $0.category }
+        return groups
+            .map { (ExpenseCategory.named($0.key), $0.value.reduce(0) { $0 + $1.amount }) }
+            .sorted { $0.total > $1.total }
+    }
+
     var body: some View {
         NavigationStack {
             ScrollView {
@@ -107,6 +118,60 @@ struct SummaryView: View {
                         amount: thisMonthTotal + fixedTotal,
                         icon: "chart.pie.fill",
                         colors: [.indigo, .blue]
+                    )
+
+                    // Bu ay kategori dağılımı: halka grafik + liste
+                    VStack(alignment: .leading, spacing: 14) {
+                        Label("Bu Ay Kategoriler", systemImage: "chart.pie.fill")
+                            .font(.headline)
+
+                        if categoryTotals.isEmpty {
+                            Text("Bu ay henüz harcama yok.")
+                                .foregroundStyle(.secondary)
+                        } else {
+                            Chart(categoryTotals, id: \.category) { item in
+                                SectorMark(
+                                    angle: .value("Tutar", item.total),
+                                    innerRadius: .ratio(0.62),
+                                    angularInset: 2
+                                )
+                                .foregroundStyle(item.category.color.gradient)
+                                .cornerRadius(4)
+                            }
+                            .frame(height: 210)
+                            .chartBackground { _ in
+                                VStack(spacing: 2) {
+                                    Text("Toplam")
+                                        .font(.caption)
+                                        .foregroundStyle(.secondary)
+                                    Text(thisMonthTotal, format: .currency(code: "TRY"))
+                                        .font(.headline)
+                                }
+                            }
+
+                            ForEach(categoryTotals, id: \.category) { item in
+                                HStack(spacing: 12) {
+                                    RowIcon(systemName: item.category.icon, color: item.category.color)
+                                    Text(item.category.name)
+                                    Spacer()
+                                    VStack(alignment: .trailing, spacing: 2) {
+                                        Text(item.total, format: .currency(code: "TRY"))
+                                            .font(.callout.weight(.semibold))
+                                        Text(thisMonthTotal > 0
+                                             ? "%\(Int((item.total / thisMonthTotal * 100).rounded()))"
+                                             : "%0")
+                                            .font(.caption)
+                                            .foregroundStyle(.secondary)
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding()
+                    .background(
+                        RoundedRectangle(cornerRadius: 20, style: .continuous)
+                            .fill(Color(.secondarySystemGroupedBackground))
                     )
 
                     // Seçimli grafik kartı
@@ -145,6 +210,7 @@ struct SummaryView: View {
                         RoundedRectangle(cornerRadius: 20, style: .continuous)
                             .fill(Color(.secondarySystemGroupedBackground))
                     )
+
                 }
                 .padding()
             }

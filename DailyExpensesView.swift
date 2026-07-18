@@ -45,9 +45,15 @@ struct DailyExpensesView: View {
                 ForEach(groupedByDay, id: \.day) { group in
                     Section {
                         ForEach(group.items) { expense in
+                            let cat = ExpenseCategory.named(expense.category)
                             HStack(spacing: 12) {
-                                RowIcon(systemName: "cart.fill", color: .blue)
-                                Text(expense.title)
+                                RowIcon(systemName: cat.icon, color: cat.color)
+                                VStack(alignment: .leading, spacing: 2) {
+                                    Text(expense.title)
+                                    Text(cat.name)
+                                        .font(.caption)
+                                        .foregroundStyle(.secondary)
+                                }
                                 Spacer()
                                 Text(expense.amount, format: .currency(code: "TRY"))
                                     .font(.callout.weight(.semibold))
@@ -107,6 +113,7 @@ struct AddExpenseView: View {
     @State private var title = ""
     @State private var amount: Double?
     @State private var date = Date.now
+    @State private var category = "Market"
 
     var body: some View {
         NavigationStack {
@@ -115,6 +122,12 @@ struct AddExpenseView: View {
                     let parsed = parseSpokenExpense(spoken)
                     if let spokenTitle = parsed.title { title = spokenTitle }
                     if let spokenAmount = parsed.amount { amount = spokenAmount }
+                    // Söylenenin içinde kategori adı geçiyorsa otomatik seç
+                    if let match = ExpenseCategory.all.first(where: {
+                        spoken.localizedCaseInsensitiveContains($0.name)
+                    }) {
+                        category = match.name
+                    }
                 }
 
                 Section("Elle Gir") {
@@ -122,6 +135,12 @@ struct AddExpenseView: View {
 
                     TextField("Tutar (TL)", value: $amount, format: .number)
                         .keyboardType(.decimalPad)
+
+                    Picker("Kategori", selection: $category) {
+                        ForEach(ExpenseCategory.all) { cat in
+                            Label(cat.name, systemImage: cat.icon).tag(cat.name)
+                        }
+                    }
 
                     DatePicker("Tarih", selection: $date, displayedComponents: .date)
                 }
@@ -144,7 +163,7 @@ struct AddExpenseView: View {
 
     private func save() {
         guard let amount else { return }
-        modelContext.insert(Expense(title: title, amount: amount, date: date))
+        modelContext.insert(Expense(title: title, amount: amount, date: date, category: category))
         dismiss()
     }
 }
