@@ -7,6 +7,7 @@ struct SummaryView: View {
     @Query(sort: \Expense.date, order: .reverse) private var expenses: [Expense]
     @Query private var payments: [FixedPayment]
     @State private var selectedMonth: Date? // grafikte dokunulan ay
+    @State private var selectedCategory: ExpenseCategory? // detayı açılan kategori
 
     private var calendar: Calendar { .current }
 
@@ -119,20 +120,28 @@ struct SummaryView: View {
                             }
 
                             ForEach(categoryTotals, id: \.category) { item in
-                                HStack(spacing: 12) {
-                                    RowIcon(systemName: item.category.icon, color: item.category.color)
-                                    Text(item.category.name)
-                                    Spacer()
-                                    VStack(alignment: .trailing, spacing: 2) {
-                                        Text(item.total, format: .currency(code: "TRY"))
-                                            .font(.callout.weight(.semibold))
-                                        Text(thisMonthTotal > 0
-                                             ? "%\(Int((item.total / thisMonthTotal * 100).rounded()))"
-                                             : "%0")
-                                            .font(.caption)
-                                            .foregroundStyle(.secondary)
+                                Button {
+                                    selectedCategory = item.category
+                                } label: {
+                                    HStack(spacing: 12) {
+                                        RowIcon(systemName: item.category.icon, color: item.category.color)
+                                        Text(item.category.name)
+                                        Spacer()
+                                        VStack(alignment: .trailing, spacing: 2) {
+                                            Text(item.total, format: .currency(code: "TRY"))
+                                                .font(.callout.weight(.semibold))
+                                            Text(thisMonthTotal > 0
+                                                 ? "%\(Int((item.total / thisMonthTotal * 100).rounded()))"
+                                                 : "%0")
+                                                .font(.caption)
+                                                .foregroundStyle(.secondary)
+                                        }
+                                        Image(systemName: "chevron.right")
+                                            .font(.caption.weight(.semibold))
+                                            .foregroundStyle(.tertiary)
                                     }
                                 }
+                                .buttonStyle(.plain)
                             }
                         }
                     }
@@ -214,6 +223,15 @@ struct SummaryView: View {
             }
             .background(Color(.systemGroupedBackground))
             .navigationTitle("Özet")
+            // Kategoriye dokununca alttan açılan yarım ekran detay paneli
+            .sheet(item: $selectedCategory) { category in
+                CategoryDetailSheet(
+                    category: category,
+                    expenses: monthExpenses(for: category)
+                )
+                .presentationDetents([.medium, .large])
+                .presentationDragIndicator(.visible)
+            }
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {
                     Menu {
@@ -240,6 +258,16 @@ struct SummaryView: View {
             .reduce(0) { $0 + $1.amount }
     }
 
+    // Bu ay, seçilen kategorideki harcamalar (yeniden eskiye)
+    private func monthExpenses(for category: ExpenseCategory) -> [Expense] {
+        expenses
+            .filter {
+                $0.category == category.name &&
+                calendar.isDate($0.date, equalTo: .now, toGranularity: .month)
+            }
+            .sorted { $0.date > $1.date }
+    }
+
     // Dokunulan ayın detay baloncuğu
     private func tooltip(for sel: (date: Date, fixed: Double, isFuture: Bool)) -> some View {
         VStack(alignment: .leading, spacing: 5) {
@@ -264,6 +292,61 @@ struct SummaryView: View {
                 .fontWeight(bold ? .bold : .regular)
         }
         .font(.footnote)
+    }
+}
+
+// Kategoriye dokununca açılan yarım ekran detay paneli
+struct CategoryDetailSheet: View {
+    let category: ExpenseCategory
+    let expenses: [Expense]
+
+    private var total: Double {
+        expenses.reduce(0) { $0 + $1.amount }
+    }
+
+    var body: some View {
+        NavigationStack {
+            List {
+                Section {
+                    HStack(spacing: 12) {
+                        RowIcon(systemName: category.icon, color: category.color)
+                        Text("Bu Ay Toplam")
+                            .font(.headline)
+                        Spacer()
+                        Text(total, format: .currency(code: "TRY"))
+                            .font(.title3.bold())
+                            .foregroundStyle(category.color)
+                    }
+                }
+
+                Section {
+                    ForEach(expenses) { expense in
+                        HStack {
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text(expense.title)
+                                Text(expense.date, format: .dateTime.day().month(.wide).weekday(.wide))
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                            }
+                            Spacer()
+                            Text(expense.amount, format: .currency(code: "TRY"))
+                                .font(.callout.weight(.semibold))
+                        }
+                    }
+                }
+            }
+            .navigationTitle(category.name)
+            .navigationBarTitleDisplayMode(.inline)
+            .overlay {
+                if expenses.isEmpty {
+                    ContentUnavailableView(
+                        "Bu ay harcama yok",
+                        systemImage: category.icon,
+                        description: Text("\(category.name) kategorisinde bu ay kayıt bulunmuyor.")
+                    )
+                }
+            }
+        }
     }
 }
 
