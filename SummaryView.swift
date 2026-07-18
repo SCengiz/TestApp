@@ -16,17 +16,25 @@ struct SummaryView: View {
             .reduce(0) { $0 + $1.amount }
     }
 
-    // Aylık sabit ödemelerin toplamı
+    // Bu ay geçerli olan sabit ödemelerin toplamı
     private var fixedTotal: Double {
-        payments.reduce(0) { $0 + $1.amount }
+        payments
+            .filter { $0.isActive(inMonth: .now, calendar: calendar) }
+            .reduce(0) { $0 + $1.amount }
     }
 
-    // Son 12 ayın durumu: her ay için günlük harcamalar + sabit ödemeler
-    private var monthlyStatus: [(date: Date, expenses: Double, fixed: Double)] {
+    // Aylık durum: 6 ay geri + bu ay + 6 ay ileri
+    // Geçmiş: gerçek harcamalar + o ay geçerli sabit ödemeler
+    // Gelecek: sadece o ay hâlâ devam edecek sabit ödemeler (plan)
+    private var monthlyStatus: [(date: Date, expenses: Double, fixed: Double, isFuture: Bool)] {
         let thisMonth = calendar.dateInterval(of: .month, for: .now)!.start
-        return (0..<12).reversed().map { offset in
-            let month = calendar.date(byAdding: .month, value: -offset, to: thisMonth)!
-            return (month, totalIn(month, unit: .month), fixedTotal)
+        return (-6...6).map { offset in
+            let month = calendar.date(byAdding: .month, value: offset, to: thisMonth)!
+            let spent = offset > 0 ? 0 : totalIn(month, unit: .month)
+            let fixed = payments
+                .filter { $0.isActive(inMonth: month, calendar: calendar) }
+                .reduce(0) { $0 + $1.amount }
+            return (month, spent, fixed, offset > 0)
         }
     }
 
@@ -45,6 +53,7 @@ struct SummaryView: View {
         NavigationStack {
             ScrollView {
                 VStack(spacing: 16) {
+
                     HStack(spacing: 12) {
                         StatCard(
                             title: "Bu Ay Harcama",
@@ -121,10 +130,13 @@ struct SummaryView: View {
                             .fill(Color(.secondarySystemGroupedBackground))
                     )
 
-                    // Aylık durum: son 12 ay, günlük harcamalar + sabit ödemeler
+                    // Aylık durum: 6 ay geri + bu ay + 6 ay ileri (gelecek = plan)
                     VStack(alignment: .leading, spacing: 14) {
                         Label("Aylık Durum", systemImage: "chart.bar.fill")
                             .font(.headline)
+                        Text("6 ay geriye · 6 ay ileriye plan")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
 
                         Chart {
                             ForEach(monthlyStatus, id: \.date) { item in
@@ -141,7 +153,18 @@ struct SummaryView: View {
                                 )
                                 .foregroundStyle(by: .value("Tür", "Sabit Ödemeler"))
                                 .cornerRadius(3)
+                                .opacity(item.isFuture ? 0.45 : 1)
                             }
+
+                            // Bugünü işaretle
+                            RuleMark(x: .value("Bugün", Date.now, unit: .month))
+                                .foregroundStyle(.secondary.opacity(0.5))
+                                .lineStyle(StrokeStyle(lineWidth: 1, dash: [4, 4]))
+                                .annotation(position: .top, alignment: .center) {
+                                    Text("Bu Ay")
+                                        .font(.caption2.weight(.semibold))
+                                        .foregroundStyle(.secondary)
+                                }
                         }
                         .chartForegroundStyleScale([
                             "Harcamalar": LinearGradient(colors: [.blue, .indigo],
@@ -162,6 +185,7 @@ struct SummaryView: View {
                         RoundedRectangle(cornerRadius: 20, style: .continuous)
                             .fill(Color(.secondarySystemGroupedBackground))
                     )
+
 
 
                 }

@@ -24,9 +24,34 @@ final class FixedPayment {
     var amount: Double
     var dueDay: Int // ayın kaçında ödeniyor (1-28)
 
-    init(name: String, amount: Double, dueDay: Int) {
+    // Taksitli ödemeler için (nil = süresiz, fatura/abonelik gibi)
+    var totalInstallments: Int? = nil // toplam taksit sayısı (örn. 12)
+    var firstPaymentDate: Date? = nil // ilk taksitin ödendiği ay
+
+    init(name: String, amount: Double, dueDay: Int,
+         totalInstallments: Int? = nil, firstPaymentDate: Date? = nil) {
         self.name = name
         self.amount = amount
         self.dueDay = dueDay
+        self.totalInstallments = totalInstallments
+        self.firstPaymentDate = firstPaymentDate
+    }
+}
+
+extension FixedPayment {
+    // Verilen ay için kaçıncı taksit? (taksit aralığı dışındaysa nil)
+    func installmentNumber(inMonth month: Date, calendar: Calendar = .current) -> Int? {
+        guard let total = totalInstallments, let first = firstPaymentDate else { return nil }
+        let firstMonth = calendar.dateInterval(of: .month, for: first)!.start
+        let thatMonth = calendar.dateInterval(of: .month, for: month)!.start
+        let diff = calendar.dateComponents([.month], from: firstMonth, to: thatMonth).month ?? 0
+        let number = diff + 1
+        return (1...total).contains(number) ? number : nil
+    }
+
+    // Bu ödeme verilen ayda geçerli mi? (süresizler her zaman geçerli)
+    func isActive(inMonth month: Date, calendar: Calendar = .current) -> Bool {
+        guard totalInstallments != nil, firstPaymentDate != nil else { return true }
+        return installmentNumber(inMonth: month, calendar: calendar) != nil
     }
 }

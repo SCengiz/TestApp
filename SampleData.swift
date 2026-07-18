@@ -59,10 +59,18 @@ func seedSampleDataIfNeeded(_ context: ModelContext) {
     }
 
     // Örnek sabit ödemeler
+    // Süresizler (fatura/abonelik gibi)
     context.insert(FixedPayment(name: "Kredi Kartı Ekstresi", amount: 4500, dueDay: 10))
-    context.insert(FixedPayment(name: "Kredi Taksidi", amount: 3200, dueDay: 15))
-    context.insert(FixedPayment(name: "Telefon Faturası", amount: 450, dueDay: 20))
     context.insert(FixedPayment(name: "Abonelikler (Netflix vb.)", amount: 350, dueDay: 5))
+
+    // Taksitliler: "İhtiyaç Kredisi" 12 taksidin 5'i ödendi → 7 ay sonra bitecek
+    context.insert(FixedPayment(name: "İhtiyaç Kredisi", amount: 3200, dueDay: 15,
+                                totalInstallments: 12,
+                                firstPaymentDate: calendar.date(byAdding: .month, value: -4, to: now)))
+    // "Telefon Taksidi" 6 taksidin 4'ü ödendi → 2 ay sonra bitecek
+    context.insert(FixedPayment(name: "Telefon Taksidi", amount: 1500, dueDay: 20,
+                                totalInstallments: 6,
+                                firstPaymentDate: calendar.date(byAdding: .month, value: -3, to: now)))
 
     try? context.save()
 }
