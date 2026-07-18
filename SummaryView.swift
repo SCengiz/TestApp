@@ -76,6 +76,7 @@ struct SummaryView: View {
                             colors: [.blue, .cyan]
                         )
                     }
+                    .fixedSize(horizontal: false, vertical: true)
 
                     // Bu ay kategori dağılımı: halka grafik + liste
                     VStack(alignment: .leading, spacing: 14) {

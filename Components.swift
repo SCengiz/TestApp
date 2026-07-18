@@ -18,7 +18,7 @@ struct StatCard: View {
                 .lineLimit(1)
                 .minimumScaleFactor(0.5)
         }
-        .frame(maxWidth: .infinity, alignment: .leading)
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .leading)
         .padding()
         .background(
             RoundedRectangle(cornerRadius: 20, style: .continuous)
