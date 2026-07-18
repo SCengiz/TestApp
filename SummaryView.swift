@@ -11,7 +11,7 @@ struct SummaryView: View {
     private var calendar: Calendar { .current }
 
     // Dokunulan ayın verileri
-    private var selectedStatus: (date: Date, expenses: Double, fixed: Double, isFuture: Bool)? {
+    private var selectedStatus: (date: Date, fixed: Double, isFuture: Bool)? {
         guard let selectedMonth else { return nil }
         return monthlyStatus.first {
             calendar.isDate($0.date, equalTo: selectedMonth, toGranularity: .month)
@@ -32,18 +32,17 @@ struct SummaryView: View {
             .reduce(0) { $0 + $1.amount }
     }
 
-    // Aylık durum: 6 ay geri + bu ay + 6 ay ileri
-    // Geçmiş: gerçek harcamalar + o ay geçerli sabit ödemeler
-    // Gelecek: sadece o ay hâlâ devam edecek sabit ödemeler (plan)
-    private var monthlyStatus: [(date: Date, expenses: Double, fixed: Double, isFuture: Bool)] {
+    // Aylık durum: 6 ay geri + bu ay + 6 ay ileri, sadece sabit giderler
+    // (Günlük harcamalar kredi kartıyla yapılıp ekstre olarak sabitlerde ödendiği
+    //  için toplam gider = sabit giderler; ayrıca toplamak çift sayma olur.)
+    private var monthlyStatus: [(date: Date, fixed: Double, isFuture: Bool)] {
         let thisMonth = calendar.dateInterval(of: .month, for: .now)!.start
         return (-6...6).map { offset in
             let month = calendar.date(byAdding: .month, value: offset, to: thisMonth)!
-            let spent = offset > 0 ? 0 : totalIn(month, unit: .month)
             let fixed = payments
                 .filter { $0.isActive(inMonth: month, calendar: calendar) }
                 .reduce(0) { $0 + $1.amount }
-            return (month, spent, fixed, offset > 0)
+            return (month, fixed, offset > 0)
         }
     }
 
@@ -77,13 +76,6 @@ struct SummaryView: View {
                             colors: [.orange, .yellow]
                         )
                     }
-
-                    StatCard(
-                        title: "Bu Ay Toplam Gider",
-                        amount: thisMonthTotal + fixedTotal,
-                        icon: "chart.pie.fill",
-                        colors: [.indigo, .blue]
-                    )
 
                     // Bu ay kategori dağılımı: halka grafik + liste
                     VStack(alignment: .leading, spacing: 14) {
@@ -139,7 +131,7 @@ struct SummaryView: View {
                             .fill(Color(.secondarySystemGroupedBackground))
                     )
 
-                    // Aylık durum: 6 ay geri + bu ay + 6 ay ileri (gelecek = plan)
+                    // Aylık durum: 6 ay geri + bu ay + 6 ay ileri, sabit giderler (gelecek = plan)
                     VStack(alignment: .leading, spacing: 14) {
                         Label("Aylık Durum", systemImage: "chart.bar.fill")
                             .font(.headline)
@@ -148,17 +140,13 @@ struct SummaryView: View {
                             ForEach(monthlyStatus, id: \.date) { item in
                                 BarMark(
                                     x: .value("Ay", item.date, unit: .month),
-                                    y: .value("Tutar", item.expenses)
-                                )
-                                .foregroundStyle(by: .value("Tür", "Harcamalar"))
-                                .cornerRadius(3)
-
-                                BarMark(
-                                    x: .value("Ay", item.date, unit: .month),
                                     y: .value("Tutar", item.fixed)
                                 )
-                                .foregroundStyle(by: .value("Tür", "Sabit Ödemeler"))
-                                .cornerRadius(3)
+                                .foregroundStyle(
+                                    LinearGradient(colors: [.orange, .yellow],
+                                                   startPoint: .top, endPoint: .bottom)
+                                )
+                                .cornerRadius(4)
                                 .opacity(item.isFuture ? 0.45 : 1)
                             }
 
@@ -193,12 +181,6 @@ struct SummaryView: View {
                                 }
                             }
                         }
-                        .chartForegroundStyleScale([
-                            "Harcamalar": LinearGradient(colors: [.blue, .indigo],
-                                                         startPoint: .top, endPoint: .bottom),
-                            "Sabit Ödemeler": LinearGradient(colors: [.orange, .yellow],
-                                                             startPoint: .top, endPoint: .bottom),
-                        ])
                         .chartXAxis {
                             AxisMarks(values: .stride(by: .month)) {
                                 AxisValueLabel(format: .dateTime.month(.narrow))
@@ -247,18 +229,11 @@ struct SummaryView: View {
     }
 
     // Dokunulan ayın detay baloncuğu
-    private func tooltip(for sel: (date: Date, expenses: Double, fixed: Double, isFuture: Bool)) -> some View {
+    private func tooltip(for sel: (date: Date, fixed: Double, isFuture: Bool)) -> some View {
         VStack(alignment: .leading, spacing: 5) {
             Text(sel.date, format: .dateTime.month(.wide).year())
                 .font(.subheadline.bold())
-            if sel.isFuture {
-                tooltipRow("Plan", sel.fixed, bold: true)
-            } else {
-                tooltipRow("Harcama", sel.expenses)
-                tooltipRow("Sabit", sel.fixed)
-                Divider()
-                tooltipRow("Toplam", sel.expenses + sel.fixed, bold: true)
-            }
+            tooltipRow(sel.isFuture ? "Plan" : "Sabit Gider", sel.fixed, bold: true)
         }
         .padding(12)
         .background(
