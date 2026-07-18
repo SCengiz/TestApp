@@ -6,8 +6,17 @@ struct SummaryView: View {
     @Binding var loggedInUser: String?
     @Query(sort: \Expense.date, order: .reverse) private var expenses: [Expense]
     @Query private var payments: [FixedPayment]
+    @State private var selectedMonth: Date? // grafikte dokunulan ay
 
     private var calendar: Calendar { .current }
+
+    // Dokunulan ayın verileri
+    private var selectedStatus: (date: Date, expenses: Double, fixed: Double, isFuture: Bool)? {
+        guard let selectedMonth else { return nil }
+        return monthlyStatus.first {
+            calendar.isDate($0.date, equalTo: selectedMonth, toGranularity: .month)
+        }
+    }
 
     // Bu ayın günlük harcama toplamı
     private var thisMonthTotal: Double {
@@ -156,16 +165,59 @@ struct SummaryView: View {
                                 .opacity(item.isFuture ? 0.45 : 1)
                             }
 
-                            // Bugünü işaretle
-                            RuleMark(x: .value("Bugün", Date.now, unit: .month))
-                                .foregroundStyle(.secondary.opacity(0.5))
-                                .lineStyle(StrokeStyle(lineWidth: 1, dash: [4, 4]))
-                                .annotation(position: .top, alignment: .center) {
-                                    Text("Bu Ay")
-                                        .font(.caption2.weight(.semibold))
-                                        .foregroundStyle(.secondary)
-                                }
+                            // Bugünü işaretle (dokunulu değilken)
+                            if selectedStatus == nil {
+                                RuleMark(x: .value("Bugün", Date.now, unit: .month))
+                                    .foregroundStyle(.secondary.opacity(0.5))
+                                    .lineStyle(StrokeStyle(lineWidth: 1, dash: [4, 4]))
+                                    .annotation(position: .top, alignment: .center) {
+                                        Text("Bu Ay")
+                                            .font(.caption2.weight(.semibold))
+                                            .foregroundStyle(.secondary)
+                                    }
+                            }
+
+                            // Dokunulan ayın detayı
+                            if let sel = selectedStatus {
+                                RuleMark(x: .value("Seçili", sel.date, unit: .month))
+                                    .foregroundStyle(.secondary.opacity(0.35))
+                                    .annotation(
+                                        position: .top,
+                                        alignment: .center,
+                                        overflowResolution: .init(x: .fit(to: .chart), y: .disabled)
+                                    ) {
+                                        VStack(alignment: .leading, spacing: 3) {
+                                            Text(sel.date, format: .dateTime.month(.wide).year())
+                                                .font(.caption.bold())
+                                            if sel.isFuture {
+                                                LabeledContent("Plan") {
+                                                    Text(sel.fixed, format: .currency(code: "TRY"))
+                                                }
+                                            } else {
+                                                LabeledContent("Harcama") {
+                                                    Text(sel.expenses, format: .currency(code: "TRY"))
+                                                }
+                                                LabeledContent("Sabit") {
+                                                    Text(sel.fixed, format: .currency(code: "TRY"))
+                                                }
+                                                LabeledContent("Toplam") {
+                                                    Text(sel.expenses + sel.fixed, format: .currency(code: "TRY"))
+                                                        .bold()
+                                                }
+                                            }
+                                        }
+                                        .font(.caption2)
+                                        .labeledContentStyle(TooltipLabelStyle())
+                                        .padding(10)
+                                        .background(
+                                            RoundedRectangle(cornerRadius: 10, style: .continuous)
+                                                .fill(Color(.systemBackground))
+                                                .shadow(color: .black.opacity(0.15), radius: 6, y: 2)
+                                        )
+                                    }
+                            }
                         }
+                        .chartXSelection(value: $selectedMonth)
                         .chartForegroundStyleScale([
                             "Harcamalar": LinearGradient(colors: [.blue, .indigo],
                                                          startPoint: .top, endPoint: .bottom),
