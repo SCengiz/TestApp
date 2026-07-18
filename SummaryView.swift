@@ -2,19 +2,10 @@ import SwiftUI
 import SwiftData
 import Charts
 
-// Grafik dönemi
-enum ChartRange: String, CaseIterable, Identifiable {
-    case month = "Bu Ay"
-    case yearly = "Aylık"
-    case allYears = "Yıllık"
-    var id: String { rawValue }
-}
-
 struct SummaryView: View {
     @Binding var loggedInUser: String?
     @Query(sort: \Expense.date, order: .reverse) private var expenses: [Expense]
     @Query private var payments: [FixedPayment]
-    @State private var range: ChartRange = .month
 
     private var calendar: Calendar { .current }
 
@@ -30,56 +21,12 @@ struct SummaryView: View {
         payments.reduce(0) { $0 + $1.amount }
     }
 
-    // Seçili döneme göre grafik verisi
-    private var chartData: [(date: Date, total: Double)] {
-        switch range {
-        case .month:
-            // Ayın 1'inden bugüne, gün gün
-            let start = calendar.dateInterval(of: .month, for: .now)!.start
-            let today = calendar.startOfDay(for: .now)
-            let dayCount = (calendar.dateComponents([.day], from: start, to: today).day ?? 0) + 1
-            return (0..<dayCount).map { offset in
-                let day = calendar.date(byAdding: .day, value: offset, to: start)!
-                return (day, totalIn(day, unit: .day))
-            }
-        case .yearly:
-            // Son 12 ay, ay ay
-            let thisMonth = calendar.dateInterval(of: .month, for: .now)!.start
-            return (0..<12).reversed().map { offset in
-                let month = calendar.date(byAdding: .month, value: -offset, to: thisMonth)!
-                return (month, totalIn(month, unit: .month))
-            }
-        case .allYears:
-            // Son 5 yıl, yıl yıl
-            let thisYear = calendar.dateInterval(of: .year, for: .now)!.start
-            return (0..<5).reversed().map { offset in
-                let year = calendar.date(byAdding: .year, value: -offset, to: thisYear)!
-                return (year, totalIn(year, unit: .year))
-            }
-        }
-    }
-
-    private var chartUnit: Calendar.Component {
-        switch range {
-        case .month:    return .day
-        case .yearly:   return .month
-        case .allYears: return .year
-        }
-    }
-
-    private var axisFormat: Date.FormatStyle {
-        switch range {
-        case .month:    return .dateTime.day()
-        case .yearly:   return .dateTime.month(.narrow)
-        case .allYears: return .dateTime.year()
-        }
-    }
-
-    private var chartColors: [Color] {
-        switch range {
-        case .month:    return [.blue, .indigo]
-        case .yearly:   return [.teal, .green]
-        case .allYears: return [.purple, .pink]
+    // Son 12 ayın durumu: her ay için günlük harcamalar + sabit ödemeler
+    private var monthlyStatus: [(date: Date, expenses: Double, fixed: Double)] {
+        let thisMonth = calendar.dateInterval(of: .month, for: .now)!.start
+        return (0..<12).reversed().map { offset in
+            let month = calendar.date(byAdding: .month, value: -offset, to: thisMonth)!
+            return (month, totalIn(month, unit: .month), fixedTotal)
         }
     }
 
@@ -174,35 +121,40 @@ struct SummaryView: View {
                             .fill(Color(.secondarySystemGroupedBackground))
                     )
 
-                    // Seçimli grafik kartı
+                    // Aylık durum: son 12 ay, günlük harcamalar + sabit ödemeler
                     VStack(alignment: .leading, spacing: 14) {
-                        Label("Harcama Grafiği", systemImage: "chart.bar.fill")
+                        Label("Aylık Durum", systemImage: "chart.bar.fill")
                             .font(.headline)
 
-                        Picker("Dönem", selection: $range) {
-                            ForEach(ChartRange.allCases) { r in
-                                Text(r.rawValue).tag(r)
+                        Chart {
+                            ForEach(monthlyStatus, id: \.date) { item in
+                                BarMark(
+                                    x: .value("Ay", item.date, unit: .month),
+                                    y: .value("Tutar", item.expenses)
+                                )
+                                .foregroundStyle(by: .value("Tür", "Harcamalar"))
+                                .cornerRadius(3)
+
+                                BarMark(
+                                    x: .value("Ay", item.date, unit: .month),
+                                    y: .value("Tutar", item.fixed)
+                                )
+                                .foregroundStyle(by: .value("Tür", "Sabit Ödemeler"))
+                                .cornerRadius(3)
                             }
                         }
-                        .pickerStyle(.segmented)
-
-                        Chart(chartData, id: \.date) { item in
-                            BarMark(
-                                x: .value("Dönem", item.date, unit: chartUnit),
-                                y: .value("Tutar", item.total)
-                            )
-                            .foregroundStyle(
-                                LinearGradient(colors: chartColors, startPoint: .top, endPoint: .bottom)
-                            )
-                            .cornerRadius(5)
-                        }
+                        .chartForegroundStyleScale([
+                            "Harcamalar": LinearGradient(colors: [.blue, .indigo],
+                                                         startPoint: .top, endPoint: .bottom),
+                            "Sabit Ödemeler": LinearGradient(colors: [.orange, .yellow],
+                                                             startPoint: .top, endPoint: .bottom),
+                        ])
                         .chartXAxis {
-                            AxisMarks(values: .automatic(desiredCount: 6)) {
-                                AxisValueLabel(format: axisFormat)
+                            AxisMarks(values: .stride(by: .month)) {
+                                AxisValueLabel(format: .dateTime.month(.narrow))
                             }
                         }
                         .frame(height: 220)
-                        .animation(.easeInOut, value: range)
                     }
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .padding()
@@ -210,6 +162,7 @@ struct SummaryView: View {
                         RoundedRectangle(cornerRadius: 20, style: .continuous)
                             .fill(Color(.secondarySystemGroupedBackground))
                     )
+
 
                 }
                 .padding()
