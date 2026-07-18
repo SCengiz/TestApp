@@ -28,18 +28,6 @@ struct StatCard: View {
     }
 }
 
-// Grafik baloncuğundaki "Etiket   Değer" satırı
-struct TooltipLabelStyle: LabeledContentStyle {
-    func makeBody(configuration: Configuration) -> some View {
-        HStack {
-            configuration.label
-                .foregroundStyle(.secondary)
-            Spacer(minLength: 16)
-            configuration.content
-        }
-    }
-}
-
 // Liste satırlarının solundaki yuvarlak ikon
 struct RowIcon: View {
     let systemName: String
