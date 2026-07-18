@@ -15,9 +15,9 @@ struct FixedPaymentsView: View {
             List {
                 Section {
                     StatCard(
-                        title: "Aylık Sabit Yük",
+                        title: "Ödemelerim",
                         amount: monthlyTotal,
-                        icon: "creditcard.fill",
+                        icon: "building.columns.fill",
                         colors: [.blue, .cyan]
                     )
                     .listRowInsets(EdgeInsets())

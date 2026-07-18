@@ -64,13 +64,13 @@ struct SummaryView: View {
 
                     HStack(spacing: 12) {
                         StatCard(
-                            title: "Aylık Harcamalar",
+                            title: "Kart Harcamalarım",
                             amount: thisMonthTotal,
                             icon: "creditcard.fill",
                             colors: [.pink, .red]
                         )
                         StatCard(
-                            title: "Ödemeler",
+                            title: "Ödemelerim",
                             amount: fixedTotal,
                             icon: "building.columns.fill",
                             colors: [.blue, .cyan]
@@ -79,7 +79,7 @@ struct SummaryView: View {
 
                     // Bu ay kategori dağılımı: halka grafik + liste
                     VStack(alignment: .leading, spacing: 14) {
-                        Label("Aylık Harcamalar", systemImage: "chart.pie.fill")
+                        Label("Harcama Dağılımı", systemImage: "chart.pie.fill")
                             .font(.headline)
 
                         if categoryTotals.isEmpty {
@@ -133,7 +133,7 @@ struct SummaryView: View {
 
                     // Aylık durum: 6 ay geri + bu ay + 6 ay ileri, sabit giderler (gelecek = plan)
                     VStack(alignment: .leading, spacing: 14) {
-                        Label("Aylık Durum", systemImage: "chart.bar.fill")
+                        Label("Ödeme Planı", systemImage: "chart.bar.fill")
                             .font(.headline)
 
                         Chart {
