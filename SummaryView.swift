@@ -73,7 +73,7 @@ struct SummaryView: View {
                             title: "Sabit Yük",
                             amount: fixedTotal,
                             icon: "creditcard.fill",
-                            colors: [.orange, .yellow]
+                            colors: [.blue, .cyan]
                         )
                     }
 
@@ -143,7 +143,7 @@ struct SummaryView: View {
                                     y: .value("Tutar", item.fixed)
                                 )
                                 .foregroundStyle(
-                                    LinearGradient(colors: [.orange, .yellow],
+                                    LinearGradient(colors: [.blue, .cyan],
                                                    startPoint: .top, endPoint: .bottom)
                                 )
                                 .cornerRadius(4)

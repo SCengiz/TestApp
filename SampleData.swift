@@ -59,18 +59,23 @@ func seedSampleDataIfNeeded(_ context: ModelContext) {
     }
 
     // Örnek sabit ödemeler
-    // Süresizler (fatura/abonelik gibi)
-    context.insert(FixedPayment(name: "Kredi Kartı Ekstresi", amount: 4500, dueDay: 10))
-    context.insert(FixedPayment(name: "Abonelikler (Netflix vb.)", amount: 350, dueDay: 5))
+    // Kredi kartları (süresiz)
+    context.insert(FixedPayment(name: "ING Kredi Kartı", amount: 10000, dueDay: 10))
+    context.insert(FixedPayment(name: "Yapı Kredi Kredi Kartı", amount: 50000, dueDay: 12))
 
-    // Taksitliler: "İhtiyaç Kredisi" 12 taksidin 5'i ödendi → 7 ay sonra bitecek
-    context.insert(FixedPayment(name: "İhtiyaç Kredisi", amount: 3200, dueDay: 15,
+    // Krediler (taksitli)
+    // ING Kredi - 1: 12 taksidin 5'i ödendi → 7 ay sonra bitecek
+    context.insert(FixedPayment(name: "ING Kredi - 1", amount: 12000, dueDay: 15,
                                 totalInstallments: 12,
                                 firstPaymentDate: calendar.date(byAdding: .month, value: -4, to: now)))
-    // "Telefon Taksidi" 6 taksidin 4'ü ödendi → 2 ay sonra bitecek
-    context.insert(FixedPayment(name: "Telefon Taksidi", amount: 1500, dueDay: 20,
-                                totalInstallments: 6,
-                                firstPaymentDate: calendar.date(byAdding: .month, value: -3, to: now)))
+    // ING Kredi - 2: 24 taksidin 10'u ödendi → 14 ay sonra bitecek
+    context.insert(FixedPayment(name: "ING Kredi - 2", amount: 12000, dueDay: 20,
+                                totalInstallments: 24,
+                                firstPaymentDate: calendar.date(byAdding: .month, value: -9, to: now)))
+    // Garanti Kredi: 18 taksidin 15'i ödendi → 3 ay sonra bitecek
+    context.insert(FixedPayment(name: "Garanti Kredi", amount: 5000, dueDay: 25,
+                                totalInstallments: 18,
+                                firstPaymentDate: calendar.date(byAdding: .month, value: -14, to: now)))
 
     try? context.save()
 }

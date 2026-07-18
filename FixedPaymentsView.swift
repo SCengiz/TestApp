@@ -18,7 +18,7 @@ struct FixedPaymentsView: View {
                         title: "Aylık Sabit Yük",
                         amount: monthlyTotal,
                         icon: "creditcard.fill",
-                        colors: [.orange, .yellow]
+                        colors: [.blue, .cyan]
                     )
                     .listRowInsets(EdgeInsets())
                     .listRowBackground(Color.clear)
@@ -27,7 +27,7 @@ struct FixedPaymentsView: View {
                 Section("Sabit Ödemeler") {
                     ForEach(payments) { payment in
                         HStack(spacing: 12) {
-                            RowIcon(systemName: "creditcard.fill", color: .orange)
+                            RowIcon(systemName: "creditcard.fill", color: .blue)
                             VStack(alignment: .leading, spacing: 2) {
                                 Text(payment.name)
                                 Text(subtitle(for: payment))
