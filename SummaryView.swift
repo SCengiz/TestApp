@@ -143,9 +143,36 @@ struct SummaryView: View {
                     VStack(alignment: .leading, spacing: 14) {
                         Label("Aylık Durum", systemImage: "chart.bar.fill")
                             .font(.headline)
-                        Text("6 ay geriye · 6 ay ileriye plan")
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
+
+                        // Dokunulan ayın bilgisi (sabit yükseklik: grafik hiç oynamaz)
+                        Group {
+                            if let sel = selectedStatus {
+                                HStack {
+                                    Text(sel.date, format: .dateTime.month(.wide).year())
+                                        .font(.caption.bold())
+                                    Spacer()
+                                    if sel.isFuture {
+                                        Text("Plan: \(sel.fixed, format: .currency(code: "TRY"))")
+                                            .font(.caption)
+                                            .foregroundStyle(.secondary)
+                                    } else {
+                                        Text("Harcama \(sel.expenses, format: .currency(code: "TRY")) · Sabit \(sel.fixed, format: .currency(code: "TRY")) · Toplam \(sel.expenses + sel.fixed, format: .currency(code: "TRY"))")
+                                            .font(.caption2)
+                                            .foregroundStyle(.secondary)
+                                            .lineLimit(1)
+                                            .minimumScaleFactor(0.7)
+                                    }
+                                }
+                            } else {
+                                HStack {
+                                    Text("Bir çubuğa dokun")
+                                        .font(.caption)
+                                        .foregroundStyle(.tertiary)
+                                    Spacer()
+                                }
+                            }
+                        }
+                        .frame(height: 18)
 
                         Chart {
                             ForEach(monthlyStatus, id: \.date) { item in
@@ -165,56 +192,20 @@ struct SummaryView: View {
                                 .opacity(item.isFuture ? 0.45 : 1)
                             }
 
-                            // Bugünü işaretle (dokunulu değilken)
-                            if selectedStatus == nil {
-                                RuleMark(x: .value("Bugün", Date.now, unit: .month))
-                                    .foregroundStyle(.secondary.opacity(0.5))
-                                    .lineStyle(StrokeStyle(lineWidth: 1, dash: [4, 4]))
-                                    .annotation(position: .top, alignment: .center) {
-                                        Text("Bu Ay")
-                                            .font(.caption2.weight(.semibold))
-                                            .foregroundStyle(.secondary)
-                                    }
-                            }
+                            // Bugünü işaretle
+                            RuleMark(x: .value("Bugün", Date.now, unit: .month))
+                                .foregroundStyle(.secondary.opacity(0.5))
+                                .lineStyle(StrokeStyle(lineWidth: 1, dash: [4, 4]))
+                                .annotation(position: .top, alignment: .center) {
+                                    Text("Bu Ay")
+                                        .font(.caption2.weight(.semibold))
+                                        .foregroundStyle(.secondary)
+                                }
 
-                            // Dokunulan ayın detayı
+                            // Dokunulan ayı ince çizgiyle vurgula
                             if let sel = selectedStatus {
                                 RuleMark(x: .value("Seçili", sel.date, unit: .month))
                                     .foregroundStyle(.secondary.opacity(0.35))
-                                    .annotation(
-                                        position: .top,
-                                        alignment: .center,
-                                        overflowResolution: .init(x: .fit(to: .chart), y: .disabled)
-                                    ) {
-                                        VStack(alignment: .leading, spacing: 3) {
-                                            Text(sel.date, format: .dateTime.month(.wide).year())
-                                                .font(.caption.bold())
-                                            if sel.isFuture {
-                                                LabeledContent("Plan") {
-                                                    Text(sel.fixed, format: .currency(code: "TRY"))
-                                                }
-                                            } else {
-                                                LabeledContent("Harcama") {
-                                                    Text(sel.expenses, format: .currency(code: "TRY"))
-                                                }
-                                                LabeledContent("Sabit") {
-                                                    Text(sel.fixed, format: .currency(code: "TRY"))
-                                                }
-                                                LabeledContent("Toplam") {
-                                                    Text(sel.expenses + sel.fixed, format: .currency(code: "TRY"))
-                                                        .bold()
-                                                }
-                                            }
-                                        }
-                                        .font(.caption2)
-                                        .labeledContentStyle(TooltipLabelStyle())
-                                        .padding(10)
-                                        .background(
-                                            RoundedRectangle(cornerRadius: 10, style: .continuous)
-                                                .fill(Color(.systemBackground))
-                                                .shadow(color: .black.opacity(0.15), radius: 6, y: 2)
-                                        )
-                                    }
                             }
                         }
                         .chartXSelection(value: $selectedMonth)
