@@ -62,20 +62,31 @@ struct SummaryView: View {
             ScrollView {
                 VStack(spacing: 16) {
 
+                    // Kutulara dokununca ilgili sayfa açılır
                     HStack(spacing: 12) {
-                        StatCard(
-                            title: "Harcamalarım",
-                            amount: thisMonthTotal,
-                            icon: "creditcard.fill",
-                            colors: [.pink, .red]
-                        )
-                        StatCard(
-                            title: "Ödemelerim",
-                            amount: fixedTotal,
-                            icon: "building.columns.fill",
-                            colors: [.blue, .cyan]
-                        )
+                        NavigationLink {
+                            DailyExpensesView()
+                        } label: {
+                            StatCard(
+                                title: "Harcamalarım",
+                                amount: thisMonthTotal,
+                                icon: "creditcard.fill",
+                                colors: [.pink, .red]
+                            )
+                        }
+
+                        NavigationLink {
+                            FixedPaymentsView()
+                        } label: {
+                            StatCard(
+                                title: "Ödemelerim",
+                                amount: fixedTotal,
+                                icon: "building.columns.fill",
+                                colors: [.blue, .cyan]
+                            )
+                        }
                     }
+                    .buttonStyle(.plain)
                     .fixedSize(horizontal: false, vertical: true)
 
                     // Bu ay kategori dağılımı: halka grafik + liste

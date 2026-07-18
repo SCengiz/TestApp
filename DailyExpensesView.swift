@@ -29,67 +29,65 @@ struct DailyExpensesView: View {
     }
 
     var body: some View {
-        NavigationStack {
-            List {
-                Section {
-                    StatCard(
-                        title: "Bu Ay Toplam",
-                        amount: thisMonthTotal,
-                        icon: "cart.fill",
-                        colors: [.pink, .red]
-                    )
-                    .listRowInsets(EdgeInsets())
-                    .listRowBackground(Color.clear)
-                }
+        List {
+            Section {
+                StatCard(
+                    title: "Bu Ay Toplam",
+                    amount: thisMonthTotal,
+                    icon: "cart.fill",
+                    colors: [.pink, .red]
+                )
+                .listRowInsets(EdgeInsets())
+                .listRowBackground(Color.clear)
+            }
 
-                ForEach(groupedByDay, id: \.day) { group in
-                    Section {
-                        ForEach(group.items) { expense in
-                            let cat = ExpenseCategory.named(expense.category)
-                            HStack(spacing: 12) {
-                                RowIcon(systemName: cat.icon, color: cat.color)
-                                VStack(alignment: .leading, spacing: 2) {
-                                    Text(expense.title)
-                                    Text(cat.name)
-                                        .font(.caption)
-                                        .foregroundStyle(.secondary)
-                                }
-                                Spacer()
-                                Text(expense.amount, format: .currency(code: "TRY"))
-                                    .font(.callout.weight(.semibold))
+            ForEach(groupedByDay, id: \.day) { group in
+                Section {
+                    ForEach(group.items) { expense in
+                        let cat = ExpenseCategory.named(expense.category)
+                        HStack(spacing: 12) {
+                            RowIcon(systemName: cat.icon, color: cat.color)
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text(expense.title)
+                                Text(cat.name)
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
                             }
-                        }
-                        .onDelete { offsets in
-                            deleteExpenses(group.items, at: offsets)
-                        }
-                    } header: {
-                        HStack {
-                            Text(group.day, format: .dateTime.day().month(.wide).weekday(.wide))
                             Spacer()
-                            Text(dayTotal(group.items), format: .currency(code: "TRY"))
+                            Text(expense.amount, format: .currency(code: "TRY"))
+                                .font(.callout.weight(.semibold))
                         }
+                    }
+                    .onDelete { offsets in
+                        deleteExpenses(group.items, at: offsets)
+                    }
+                } header: {
+                    HStack {
+                        Text(group.day, format: .dateTime.day().month(.wide).weekday(.wide))
+                        Spacer()
+                        Text(dayTotal(group.items), format: .currency(code: "TRY"))
                     }
                 }
             }
-            .navigationTitle("Günlük Harcamalar")
-            .toolbar {
-                Button {
-                    showingAddSheet = true
-                } label: {
-                    Label("Harcama Ekle", systemImage: "plus")
-                }
+        }
+        .navigationTitle("Günlük Harcamalar")
+        .toolbar {
+            Button {
+                showingAddSheet = true
+            } label: {
+                Label("Harcama Ekle", systemImage: "plus")
             }
-            .sheet(isPresented: $showingAddSheet) {
-                AddExpenseView()
-            }
-            .overlay {
-                if expenses.isEmpty {
-                    ContentUnavailableView(
-                        "Henüz harcama yok",
-                        systemImage: "cart",
-                        description: Text("Sağ üstteki + ile ilk harcamanı ekle.")
-                    )
-                }
+        }
+        .sheet(isPresented: $showingAddSheet) {
+            AddExpenseView()
+        }
+        .overlay {
+            if expenses.isEmpty {
+                ContentUnavailableView(
+                    "Henüz harcama yok",
+                    systemImage: "cart",
+                    description: Text("Sağ üstteki + ile ilk harcamanı ekle.")
+                )
             }
         }
     }

@@ -10,25 +10,10 @@ struct ContentView: View {
         if loggedInUser == nil {
             LoginView(loggedInUser: $loggedInUser)
         } else {
-            TabView {
-                SummaryView(loggedInUser: $loggedInUser)
-                    .tabItem {
-                        Label("Özet", systemImage: "chart.bar.fill")
-                    }
-
-                DailyExpensesView()
-                    .tabItem {
-                        Label("Günlük", systemImage: "cart")
-                    }
-
-                FixedPaymentsView()
-                    .tabItem {
-                        Label("Sabit Ödemeler", systemImage: "creditcard")
-                    }
-            }
-            .onAppear {
-                seedSampleDataIfNeeded(modelContext)
-            }
+            SummaryView(loggedInUser: $loggedInUser)
+                .onAppear {
+                    seedSampleDataIfNeeded(modelContext)
+                }
         }
     }
 }

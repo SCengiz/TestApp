@@ -11,56 +11,54 @@ struct FixedPaymentsView: View {
     }
 
     var body: some View {
-        NavigationStack {
-            List {
-                Section {
-                    StatCard(
-                        title: "Ödemelerim",
-                        amount: monthlyTotal,
-                        icon: "building.columns.fill",
-                        colors: [.blue, .cyan]
-                    )
-                    .listRowInsets(EdgeInsets())
-                    .listRowBackground(Color.clear)
-                }
+        List {
+            Section {
+                StatCard(
+                    title: "Ödemelerim",
+                    amount: monthlyTotal,
+                    icon: "building.columns.fill",
+                    colors: [.blue, .cyan]
+                )
+                .listRowInsets(EdgeInsets())
+                .listRowBackground(Color.clear)
+            }
 
-                Section("Sabit Ödemeler") {
-                    ForEach(payments) { payment in
-                        HStack(spacing: 12) {
-                            RowIcon(systemName: "creditcard.fill", color: .blue)
-                            VStack(alignment: .leading, spacing: 2) {
-                                Text(payment.name)
-                                Text(subtitle(for: payment))
-                                    .font(.caption)
-                                    .foregroundStyle(.secondary)
-                            }
-                            Spacer()
-                            Text(payment.amount, format: .currency(code: "TRY"))
-                                .font(.callout.weight(.semibold))
+            Section("Sabit Ödemeler") {
+                ForEach(payments) { payment in
+                    HStack(spacing: 12) {
+                        RowIcon(systemName: "creditcard.fill", color: .blue)
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text(payment.name)
+                            Text(subtitle(for: payment))
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
                         }
+                        Spacer()
+                        Text(payment.amount, format: .currency(code: "TRY"))
+                            .font(.callout.weight(.semibold))
                     }
-                    .onDelete(perform: deletePayments)
                 }
+                .onDelete(perform: deletePayments)
             }
-            .navigationTitle("Sabit Ödemeler")
-            .toolbar {
-                Button {
-                    showingAddSheet = true
-                } label: {
-                    Label("Sabit Ödeme Ekle", systemImage: "plus")
-                }
+        }
+        .navigationTitle("Sabit Ödemeler")
+        .toolbar {
+            Button {
+                showingAddSheet = true
+            } label: {
+                Label("Sabit Ödeme Ekle", systemImage: "plus")
             }
-            .sheet(isPresented: $showingAddSheet) {
-                AddFixedPaymentView()
-            }
-            .overlay {
-                if payments.isEmpty {
-                    ContentUnavailableView(
-                        "Henüz sabit ödeme yok",
-                        systemImage: "creditcard",
-                        description: Text("Kredi kartı ekstresi, kredi taksidi gibi her ay tekrarlayan ödemeleri + ile ekle.")
-                    )
-                }
+        }
+        .sheet(isPresented: $showingAddSheet) {
+            AddFixedPaymentView()
+        }
+        .overlay {
+            if payments.isEmpty {
+                ContentUnavailableView(
+                    "Henüz sabit ödeme yok",
+                    systemImage: "creditcard",
+                    description: Text("Kredi kartı ekstresi, kredi taksidi gibi her ay tekrarlayan ödemeleri + ile ekle.")
+                )
             }
         }
     }
