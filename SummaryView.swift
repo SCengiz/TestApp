@@ -64,22 +64,22 @@ struct SummaryView: View {
 
                     HStack(spacing: 12) {
                         StatCard(
-                            title: "Bu Ay Harcama",
+                            title: "Aylık Harcamalar",
                             amount: thisMonthTotal,
-                            icon: "cart.fill",
+                            icon: "creditcard.fill",
                             colors: [.pink, .red]
                         )
                         StatCard(
-                            title: "Sabit Yük",
+                            title: "Ödemeler",
                             amount: fixedTotal,
-                            icon: "creditcard.fill",
+                            icon: "building.columns.fill",
                             colors: [.blue, .cyan]
                         )
                     }
 
                     // Bu ay kategori dağılımı: halka grafik + liste
                     VStack(alignment: .leading, spacing: 14) {
-                        Label("Bu Ay Kategoriler", systemImage: "chart.pie.fill")
+                        Label("Aylık Harcamalar", systemImage: "chart.pie.fill")
                             .font(.headline)
 
                         if categoryTotals.isEmpty {
