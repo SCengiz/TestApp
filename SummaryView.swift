@@ -64,7 +64,7 @@ struct SummaryView: View {
 
                     HStack(spacing: 12) {
                         StatCard(
-                            title: "Kart Harcamalarım",
+                            title: "Harcamalarım",
                             amount: thisMonthTotal,
                             icon: "creditcard.fill",
                             colors: [.pink, .red]

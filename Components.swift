@@ -12,6 +12,8 @@ struct StatCard: View {
             Label(title, systemImage: icon)
                 .font(.subheadline.weight(.semibold))
                 .foregroundStyle(.white.opacity(0.9))
+                .lineLimit(1)
+                .minimumScaleFactor(0.75)
             Text(amount, format: .currency(code: "TRY"))
                 .font(.title2.bold())
                 .foregroundStyle(.white)
