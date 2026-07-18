@@ -144,36 +144,6 @@ struct SummaryView: View {
                         Label("Aylık Durum", systemImage: "chart.bar.fill")
                             .font(.headline)
 
-                        // Dokunulan ayın bilgisi (sabit yükseklik: grafik hiç oynamaz)
-                        Group {
-                            if let sel = selectedStatus {
-                                HStack {
-                                    Text(sel.date, format: .dateTime.month(.wide).year())
-                                        .font(.caption.bold())
-                                    Spacer()
-                                    if sel.isFuture {
-                                        Text("Plan: \(sel.fixed, format: .currency(code: "TRY"))")
-                                            .font(.caption)
-                                            .foregroundStyle(.secondary)
-                                    } else {
-                                        Text("Harcama \(sel.expenses, format: .currency(code: "TRY")) · Sabit \(sel.fixed, format: .currency(code: "TRY")) · Toplam \(sel.expenses + sel.fixed, format: .currency(code: "TRY"))")
-                                            .font(.caption2)
-                                            .foregroundStyle(.secondary)
-                                            .lineLimit(1)
-                                            .minimumScaleFactor(0.7)
-                                    }
-                                }
-                            } else {
-                                HStack {
-                                    Text("Bir çubuğa dokun")
-                                        .font(.caption)
-                                        .foregroundStyle(.tertiary)
-                                    Spacer()
-                                }
-                            }
-                        }
-                        .frame(height: 18)
-
                         Chart {
                             ForEach(monthlyStatus, id: \.date) { item in
                                 BarMark(
@@ -192,15 +162,10 @@ struct SummaryView: View {
                                 .opacity(item.isFuture ? 0.45 : 1)
                             }
 
-                            // Bugünü işaretle
+                            // Bugünü işaretle (yazısız, sadece kesikli çizgi)
                             RuleMark(x: .value("Bugün", Date.now, unit: .month))
                                 .foregroundStyle(.secondary.opacity(0.5))
                                 .lineStyle(StrokeStyle(lineWidth: 1, dash: [4, 4]))
-                                .annotation(position: .top, alignment: .center) {
-                                    Text("Bu Ay")
-                                        .font(.caption2.weight(.semibold))
-                                        .foregroundStyle(.secondary)
-                                }
 
                             // Dokunulan ayı ince çizgiyle vurgula
                             if let sel = selectedStatus {
@@ -209,6 +174,25 @@ struct SummaryView: View {
                             }
                         }
                         .chartXSelection(value: $selectedMonth)
+                        // Baloncuk yüzen katmanda çizilir: yerleşimi etkilemez, grafik kaymaz
+                        .chartOverlay { proxy in
+                            GeometryReader { geo in
+                                if let sel = selectedStatus,
+                                   let plotAnchor = proxy.plotFrame,
+                                   let center = calendar.date(byAdding: .day, value: 15, to: sel.date),
+                                   let xInPlot = proxy.position(forX: center) {
+                                    let plotFrame = geo[plotAnchor]
+                                    let bubbleWidth: CGFloat = 190
+                                    let rawX = plotFrame.minX + xInPlot
+                                    let x = min(max(rawX, bubbleWidth / 2 + 2),
+                                                geo.size.width - bubbleWidth / 2 - 2)
+                                    tooltip(for: sel)
+                                        .frame(width: bubbleWidth)
+                                        .position(x: x, y: 52)
+                                        .allowsHitTesting(false)
+                                }
+                            }
+                        }
                         .chartForegroundStyleScale([
                             "Harcamalar": LinearGradient(colors: [.blue, .indigo],
                                                          startPoint: .top, endPoint: .bottom),
@@ -260,6 +244,39 @@ struct SummaryView: View {
         expenses
             .filter { calendar.isDate($0.date, equalTo: date, toGranularity: unit) }
             .reduce(0) { $0 + $1.amount }
+    }
+
+    // Dokunulan ayın detay baloncuğu
+    private func tooltip(for sel: (date: Date, expenses: Double, fixed: Double, isFuture: Bool)) -> some View {
+        VStack(alignment: .leading, spacing: 5) {
+            Text(sel.date, format: .dateTime.month(.wide).year())
+                .font(.subheadline.bold())
+            if sel.isFuture {
+                tooltipRow("Plan", sel.fixed, bold: true)
+            } else {
+                tooltipRow("Harcama", sel.expenses)
+                tooltipRow("Sabit", sel.fixed)
+                Divider()
+                tooltipRow("Toplam", sel.expenses + sel.fixed, bold: true)
+            }
+        }
+        .padding(12)
+        .background(
+            RoundedRectangle(cornerRadius: 12, style: .continuous)
+                .fill(Color(.systemBackground))
+                .shadow(color: .black.opacity(0.18), radius: 8, y: 3)
+        )
+    }
+
+    private func tooltipRow(_ label: String, _ amount: Double, bold: Bool = false) -> some View {
+        HStack {
+            Text(label)
+                .foregroundStyle(.secondary)
+            Spacer()
+            Text(amount, format: .currency(code: "TRY"))
+                .fontWeight(bold ? .bold : .regular)
+        }
+        .font(.footnote)
     }
 }
 
