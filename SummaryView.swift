@@ -90,59 +90,27 @@ struct SummaryView: View {
                     .buttonStyle(.plain)
                     .fixedSize(horizontal: false, vertical: true)
 
-                    // Bu ay kategori dağılımı: halka grafik + liste
+                    // Bu ay kategori dağılımı: akış (sankey) grafiği
                     VStack(alignment: .leading, spacing: 14) {
-                        Label("Harcama Dağılımı", systemImage: "chart.pie.fill")
-                            .font(.headline)
+                        HStack {
+                            Label("Harcama Dağılımı", systemImage: "arrow.triangle.branch")
+                                .font(.headline)
+                            Spacer()
+                            Text(thisMonthTotal, format: .currency(code: "TRY"))
+                                .font(.subheadline.bold())
+                                .foregroundStyle(.secondary)
+                        }
 
                         if categoryTotals.isEmpty {
                             Text("Bu ay henüz harcama yok.")
                                 .foregroundStyle(.secondary)
                         } else {
-                            Chart(categoryTotals, id: \.category) { item in
-                                SectorMark(
-                                    angle: .value("Tutar", item.total),
-                                    innerRadius: .ratio(0.62),
-                                    angularInset: 2
-                                )
-                                .foregroundStyle(item.category.color.gradient)
-                                .cornerRadius(4)
-                            }
-                            .frame(height: 210)
-                            .chartBackground { _ in
-                                VStack(spacing: 2) {
-                                    Text("Toplam")
-                                        .font(.caption)
-                                        .foregroundStyle(.secondary)
-                                    Text(thisMonthTotal, format: .currency(code: "TRY"))
-                                        .font(.headline)
-                                }
-                            }
-
-                            ForEach(categoryTotals, id: \.category) { item in
-                                Button {
-                                    selectedCategory = item.category
-                                } label: {
-                                    HStack(spacing: 12) {
-                                        RowIcon(systemName: item.category.icon, color: item.category.color)
-                                        Text(item.category.name)
-                                        Spacer()
-                                        VStack(alignment: .trailing, spacing: 2) {
-                                            Text(item.total, format: .currency(code: "TRY"))
-                                                .font(.callout.weight(.semibold))
-                                            Text(thisMonthTotal > 0
-                                                 ? "%\(Int((item.total / thisMonthTotal * 100).rounded()))"
-                                                 : "%0")
-                                                .font(.caption)
-                                                .foregroundStyle(.secondary)
-                                        }
-                                        Image(systemName: "chevron.right")
-                                            .font(.caption.weight(.semibold))
-                                            .foregroundStyle(.tertiary)
-                                    }
-                                }
-                                .buttonStyle(.plain)
-                            }
+                            SpendingFlowView(
+                                items: categoryTotals.map {
+                                    .init(category: $0.category, amount: $0.total)
+                                },
+                                onSelect: { selectedCategory = $0 }
+                            )
                         }
                     }
                     .frame(maxWidth: .infinity, alignment: .leading)
