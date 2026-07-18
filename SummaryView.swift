@@ -11,6 +11,7 @@ enum ChartRange: String, CaseIterable, Identifiable {
 }
 
 struct SummaryView: View {
+    @Binding var loggedInUser: String?
     @Query(sort: \Expense.date, order: .reverse) private var expenses: [Expense]
     @Query private var payments: [FixedPayment]
     @State private var range: ChartRange = .month
@@ -149,6 +150,22 @@ struct SummaryView: View {
             }
             .background(Color(.systemGroupedBackground))
             .navigationTitle("Özet")
+            .toolbar {
+                ToolbarItem(placement: .topBarTrailing) {
+                    Menu {
+                        if let user = loggedInUser {
+                            Text("Giriş: \(user)")
+                        }
+                        Button(role: .destructive) {
+                            loggedInUser = nil
+                        } label: {
+                            Label("Çıkış Yap", systemImage: "rectangle.portrait.and.arrow.right")
+                        }
+                    } label: {
+                        Image(systemName: "person.crop.circle.fill")
+                    }
+                }
+            }
         }
     }
 
@@ -161,6 +178,6 @@ struct SummaryView: View {
 }
 
 #Preview {
-    SummaryView()
+    SummaryView(loggedInUser: .constant("soray"))
         .modelContainer(for: [Expense.self, FixedPayment.self], inMemory: true)
 }

@@ -2,26 +2,31 @@ import SwiftUI
 
 struct ContentView: View {
     @Environment(\.modelContext) private var modelContext
+    @State private var loggedInUser: String?
 
     var body: some View {
-        TabView {
-            SummaryView()
-                .tabItem {
-                    Label("Özet", systemImage: "chart.bar.fill")
-                }
+        if loggedInUser == nil {
+            LoginView(loggedInUser: $loggedInUser)
+        } else {
+            TabView {
+                SummaryView(loggedInUser: $loggedInUser)
+                    .tabItem {
+                        Label("Özet", systemImage: "chart.bar.fill")
+                    }
 
-            DailyExpensesView()
-                .tabItem {
-                    Label("Günlük", systemImage: "cart")
-                }
+                DailyExpensesView()
+                    .tabItem {
+                        Label("Günlük", systemImage: "cart")
+                    }
 
-            FixedPaymentsView()
-                .tabItem {
-                    Label("Sabit Ödemeler", systemImage: "creditcard")
-                }
-        }
-        .onAppear {
-            seedSampleDataIfNeeded(modelContext)
+                FixedPaymentsView()
+                    .tabItem {
+                        Label("Sabit Ödemeler", systemImage: "creditcard")
+                    }
+            }
+            .onAppear {
+                seedSampleDataIfNeeded(modelContext)
+            }
         }
     }
 }
