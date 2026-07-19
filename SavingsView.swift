@@ -78,6 +78,21 @@ struct SavingsView: View {
         assets.reduce(0) { $0 + $1.value }
     }
 
+    // Tüm hesapların kümülatif kar/zararı
+    private var cumulativeProfit: Double {
+        accounts.reduce(0) { $0 + $1.totalProfit }
+    }
+
+    private var cumulativeProfitPercent: Double? {
+        let invested = assets.reduce(0) { $0 + $1.netInvested }
+        guard invested > 0 else { return nil }
+        return cumulativeProfit / invested * 100
+    }
+
+    private var hasAnyInvestment: Bool {
+        accounts.contains { $0.netInvestedNonZero }
+    }
+
     // Bir ayın dökümü: geçmişte kayıtlı toplam, bu ay hesap hesap
     private func breakdown(for month: Date) -> [(name: String, amount: Double, color: Color)] {
         let thisMonth = calendar.dateInterval(of: .month, for: .now)!.start
@@ -120,7 +135,9 @@ struct SavingsView: View {
                         title: "Toplam Birikimim",
                         amount: total,
                         icon: "chart.line.uptrend.xyaxis",
-                        colors: [.purple, .indigo]
+                        colors: [.purple, .indigo],
+                        profit: hasAnyInvestment ? cumulativeProfit : nil,
+                        profitPercent: cumulativeProfitPercent
                     )
                     .listRowInsets(EdgeInsets())
                     .listRowBackground(Color.clear)
@@ -387,31 +404,18 @@ struct AccountDetailView: View {
     }
 
     private var summaryCard: some View {
-        Group {
-            Section {
-                StatCard(
-                    title: accountModel.name,
-                    amount: accountTotal,
-                    icon: account.icon,
-                    colors: [account.color, account.color.opacity(0.6)]
-                )
-                .listRowInsets(EdgeInsets())
-                .listRowBackground(Color.clear)
-            }
-
-            // Hesap bazlı kar/zarar
-            if account != .cash, accountModel.netInvestedNonZero {
-                Section {
-                    HStack {
-                        Text("Toplam Kar/Zarar")
-                            .font(.headline)
-                        Spacer()
-                        ProfitText(profit: accountModel.totalProfit,
-                                   percent: accountModel.totalProfitPercent)
-                            .font(.callout.weight(.bold))
-                    }
-                }
-            }
+        Section {
+            StatCard(
+                title: accountModel.name,
+                amount: accountTotal,
+                icon: account.icon,
+                colors: [account.color, account.color.opacity(0.6)],
+                profit: (account != .cash && accountModel.netInvestedNonZero)
+                    ? accountModel.totalProfit : nil,
+                profitPercent: accountModel.totalProfitPercent
+            )
+            .listRowInsets(EdgeInsets())
+            .listRowBackground(Color.clear)
         }
     }
 

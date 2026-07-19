@@ -1,11 +1,13 @@
 import SwiftUI
 
-// Renkli özet kartı: başlık + tutar, degrade arka plan
+// Renkli özet kartı: başlık + tutar (+ isteğe bağlı kar/zarar rozeti)
 struct StatCard: View {
     let title: String
     let amount: Double
     let icon: String
     let colors: [Color]
+    var profit: Double? = nil
+    var profitPercent: Double? = nil
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
@@ -19,6 +21,29 @@ struct StatCard: View {
                 .foregroundStyle(.white)
                 .lineLimit(1)
                 .minimumScaleFactor(0.5)
+
+            // Kar/zarar rozeti (verilmişse)
+            if let profit {
+                let isGain = profit >= 0
+                let sign = isGain ? "+" : "-"
+                let amountText = abs(profit).formatted(.currency(code: "TRY").precision(.fractionLength(0)))
+                let pctText = profitPercent.map {
+                    " · \(sign)%" + abs($0).formatted(.number.precision(.fractionLength(1)))
+                } ?? ""
+                HStack(spacing: 4) {
+                    Image(systemName: isGain ? "arrow.up.right" : "arrow.down.right")
+                    Text("\(sign)\(amountText)\(pctText)")
+                }
+                .font(.caption.weight(.bold))
+                .foregroundStyle(.white)
+                .lineLimit(1)
+                .minimumScaleFactor(0.7)
+                .padding(.horizontal, 9)
+                .padding(.vertical, 4)
+                .background(
+                    Capsule().fill((isGain ? Color.green : Color.red).opacity(0.85))
+                )
+            }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .leading)
         .padding()
