@@ -9,6 +9,13 @@ let useSampleData = true
 func seedSampleDataIfNeeded(_ context: ModelContext) {
     guard useSampleData else { return }
 
+    // Örnek gelirler (harcamalardan bağımsız kontrol edilir)
+    let existingIncomes = (try? context.fetchCount(FetchDescriptor<IncomeSource>())) ?? 0
+    if existingIncomes == 0 {
+        context.insert(IncomeSource(name: "Maaş", amount: 150000))
+        context.insert(IncomeSource(name: "Kira Geliri", amount: 30000))
+    }
+
     // Zaten veri varsa dokunma (tekrar tekrar eklemeyi önler)
     let existing = (try? context.fetchCount(FetchDescriptor<Expense>())) ?? 0
     guard existing == 0 else { return }

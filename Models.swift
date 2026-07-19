@@ -17,6 +17,19 @@ final class Expense {
     }
 }
 
+// Aylık gelir kaynağı: maaş, kira geliri gibi (çoğu zaman sabit,
+// her ay yeniden girilmez; değişince güncellenir)
+@Model
+final class IncomeSource {
+    var name: String
+    var amount: Double
+
+    init(name: String, amount: Double) {
+        self.name = name
+        self.amount = amount
+    }
+}
+
 // Her ay tekrarlayan sabit ödeme: kredi kartı ekstresi, kredi taksidi gibi
 @Model
 final class FixedPayment {
