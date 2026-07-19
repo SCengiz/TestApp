@@ -7,6 +7,16 @@ let appUsers: [String: String] = [
     "soray": "1",
 ]
 
+// Kullanıcının geçerli şifresi: değiştirilmişse saklanan, yoksa varsayılan
+func currentPassword(for user: String) -> String? {
+    UserDefaults.standard.string(forKey: "password_\(user)") ?? appUsers[user]
+}
+
+// Yeni şifreyi kalıcı olarak kaydet
+func setPassword(_ password: String, for user: String) {
+    UserDefaults.standard.set(password, forKey: "password_\(user)")
+}
+
 struct LoginView: View {
     @Binding var loggedInUser: String?
 
@@ -89,7 +99,7 @@ struct LoginView: View {
 
     private func login() {
         let name = username.trimmingCharacters(in: .whitespaces).lowercased()
-        if appUsers[name] == password {
+        if let expected = currentPassword(for: name), expected == password {
             loggedInUser = name
         } else {
             errorMessage = "Kullanıcı adı veya şifre hatalı"

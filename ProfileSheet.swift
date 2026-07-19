@@ -74,7 +74,7 @@ struct ProfileSheet: View {
                 // Ayarlar ekranına giriş
                 Section {
                     NavigationLink {
-                        SettingsView()
+                        SettingsView(user: loggedInUser ?? "")
                     } label: {
                         Label("Ayarlar", systemImage: "gearshape.fill")
                     }
@@ -103,6 +103,7 @@ struct ProfileSheet: View {
 
 // Ayarlar ekranı (yeni ayarlar buraya eklenecek)
 struct SettingsView: View {
+    let user: String
     @AppStorage("appTheme") private var themeRaw = AppTheme.system.rawValue
 
     var body: some View {
@@ -122,6 +123,14 @@ struct SettingsView: View {
                 Text("\"Sistem\" seçiliyken telefonun açık/koyu ayarına uyar.")
             }
 
+            Section("Hesap") {
+                NavigationLink {
+                    ChangePasswordView(user: user)
+                } label: {
+                    Label("Şifre Değiştir", systemImage: "key.fill")
+                }
+            }
+
             Section("Hakkında") {
                 HStack {
                     Label("Uygulama Sürümü", systemImage: "info.circle")
@@ -133,6 +142,65 @@ struct SettingsView: View {
         }
         .navigationTitle("Ayarlar")
         .navigationBarTitleDisplayMode(.inline)
+    }
+}
+
+// Şifre değiştirme ekranı
+struct ChangePasswordView: View {
+    let user: String
+
+    @Environment(\.dismiss) private var dismiss
+    @State private var oldPassword = ""
+    @State private var newPassword = ""
+    @State private var newPasswordAgain = ""
+    @State private var message: String?
+    @State private var isSuccess = false
+
+    var body: some View {
+        Form {
+            Section {
+                SecureField("Mevcut şifre", text: $oldPassword)
+                SecureField("Yeni şifre", text: $newPassword)
+                SecureField("Yeni şifre (tekrar)", text: $newPasswordAgain)
+            } footer: {
+                if let message {
+                    Text(message)
+                        .foregroundStyle(isSuccess ? .green : .red)
+                }
+            }
+
+            Section {
+                Button("Şifreyi Değiştir") {
+                    changePassword()
+                }
+                .frame(maxWidth: .infinity)
+                .disabled(oldPassword.isEmpty || newPassword.isEmpty || newPasswordAgain.isEmpty)
+            }
+        }
+        .navigationTitle("Şifre Değiştir")
+        .navigationBarTitleDisplayMode(.inline)
+    }
+
+    private func changePassword() {
+        isSuccess = false
+        guard currentPassword(for: user) == oldPassword else {
+            message = "Mevcut şifre hatalı."
+            return
+        }
+        guard newPassword == newPasswordAgain else {
+            message = "Yeni şifreler birbiriyle uyuşmuyor."
+            return
+        }
+        guard newPassword != oldPassword else {
+            message = "Yeni şifre eskisiyle aynı olamaz."
+            return
+        }
+        setPassword(newPassword, for: user)
+        isSuccess = true
+        message = "Şifren değiştirildi. Bir sonraki girişte yeni şifreni kullan."
+        oldPassword = ""
+        newPassword = ""
+        newPasswordAgain = ""
     }
 }
 
