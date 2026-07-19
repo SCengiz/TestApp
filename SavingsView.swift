@@ -296,6 +296,20 @@ struct SavingsView: View {
             }
         }
 
+        // Hisseler: BIST fiyatları otomatik (Yahoo Finance)
+        let stockAssets = assets.filter {
+            $0.accountKind == "stock" && !($0.code ?? "").isEmpty
+        }
+        for asset in stockAssets {
+            guard let code = asset.code else { continue }
+            if let price = try? await PriceService.fetchBistStockPrice(code: code) {
+                asset.unitPrice = price
+                asset.priceUpdatedAt = .now
+            } else if priceError == nil {
+                priceError = "\(code.uppercased()) hisse fiyatı alınamadı; son bilinen fiyat kullanılıyor."
+            }
+        }
+
         try? modelContext.save()
         syncSavingsSnapshot(modelContext)
     }
@@ -509,7 +523,7 @@ struct AssetDetailView: View {
                 if account == .fund {
                     Text("Tera Portföy fonlarının fiyatı otomatik güncellenir (Birikimler'i aşağı çekerek yenile). Diğer fonlarda fiyatı buradan elle girebilirsin.")
                 } else if account == .stock {
-                    Text("Fiyat değişince buradan güncelle; değer otomatik yeniden hesaplanır.")
+                    Text("BIST hisselerinin fiyatı otomatik güncellenir (Birikimler'i aşağı çekerek yenile). Gerekirse buradan elle de girebilirsin.")
                 }
             }
 

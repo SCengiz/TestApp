@@ -152,6 +152,26 @@ enum PriceService {
         return price
     }
 
+    // BIST hisse fiyatı (Yahoo Finance, "THYAO" → THYAO.IS)
+    static func fetchBistStockPrice(code: String) async throws -> Double {
+        let symbol = code.uppercased()
+        // query2 ana, query1 yedek
+        for host in ["query2", "query1"] {
+            guard let url = URL(string: "https://\(host).finance.yahoo.com/v8/finance/chart/\(symbol).IS?interval=1d&range=1d") else { continue }
+            var request = URLRequest(url: url)
+            request.setValue("Mozilla/5.0", forHTTPHeaderField: "User-Agent")
+            guard let (data, _) = try? await URLSession.shared.data(for: request),
+                  let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+                  let chart = json["chart"] as? [String: Any],
+                  let results = chart["result"] as? [[String: Any]],
+                  let meta = results.first?["meta"] as? [String: Any],
+                  let price = parseNumber(meta["regularMarketPrice"]),
+                  price > 0 else { continue }
+            return price
+        }
+        throw URLError(.resourceUnavailable)
+    }
+
     // Fonu tanıyan ilk sağlayıcıdan fiyatı getir (yeni şirketler buraya eklenir)
     static func fetchAnyFundPrice(code: String, teraHomePage: String? = nil) async -> Double? {
         if let price = try? await fetchTeraFundPrice(code: code, homePage: teraHomePage) {
