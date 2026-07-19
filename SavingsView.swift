@@ -911,6 +911,7 @@ struct TransactionFormView: View {
                     }
 
                     DatePicker(tr("Tarih", "Date"), selection: $date, displayedComponents: .date)
+                        .id(date)
                 } footer: {
                     if account == .cash {
                         if isBuy {

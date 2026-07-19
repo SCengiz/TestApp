@@ -280,6 +280,7 @@ struct DebtFormView: View {
                     }
 
                     DatePicker(tr("Borç tarihi", "Borrow date"), selection: $date, displayedComponents: .date)
+                        .id(date)
                 } footer: {
                     if kind == .tl {
                         Text(tr("TL borcu olduğu gibi toplama eklenir.", "TL debts are added as-is."))

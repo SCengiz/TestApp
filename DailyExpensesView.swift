@@ -197,6 +197,7 @@ struct AddExpenseView: View {
                     }
 
                     DatePicker(tr("Tarih", "Date"), selection: $date, displayedComponents: .date)
+                        .id(date)
                 }
 
                 // Peşin / Taksitli seçimi
