@@ -122,6 +122,7 @@ func guessCategory(from text: String) -> String? {
         ("Sağlık", ["eczane", "ilaç", "doktor", "hastane", "muayene", "diş", "sağlık", "vitamin"]),
         ("Abonelik", ["abonelik", "netflix", "spotify", "youtube"]),
         ("Eğlence", ["sinema", "konser", "tiyatro", "oyun", "eğlence"]),
+        ("Eğitim", ["eğitim", "okul", "kurs", "dershane", "üniversite", "kitap", "kırtasiye", "harç"]),
         ("Alışveriş", ["alışveriş", "trendyol", "hepsiburada", "amazon", "n11", "mağaza"]),
     ]
     for rule in rules where rule.keywords.contains(where: { t.contains($0) }) {
