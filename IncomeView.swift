@@ -1,14 +1,36 @@
 import SwiftUI
 import SwiftData
+import Charts
 
 struct IncomeView: View {
     @Environment(\.modelContext) private var modelContext
     @Query(sort: \IncomeSource.amount, order: .reverse) private var incomes: [IncomeSource]
     @State private var showingAddSheet = false
     @State private var editingIncome: IncomeSource?
+    @State private var selectedMonth: Date? // grafikte dokunulan ay
+
+    private var calendar: Calendar { .current }
 
     private var monthlyTotal: Double {
         incomes.reduce(0) { $0 + $1.amount }
+    }
+
+    // Gelir planı: 6 ay geri + bu ay + 6 ay ileri
+    // (Gelirler sabit kabul edilir; güncellenince tüm aylara yansır)
+    private var monthlyIncome: [(date: Date, total: Double, isFuture: Bool)] {
+        let thisMonth = calendar.dateInterval(of: .month, for: .now)!.start
+        return (-6...6).map { offset in
+            let month = calendar.date(byAdding: .month, value: offset, to: thisMonth)!
+            return (month, monthlyTotal, offset > 0)
+        }
+    }
+
+    // Dokunulan ayın verisi
+    private var selectedStatus: (date: Date, total: Double, isFuture: Bool)? {
+        guard let selectedMonth else { return nil }
+        return monthlyIncome.first {
+            calendar.isDate($0.date, equalTo: selectedMonth, toGranularity: .month)
+        }
     }
 
     var body: some View {
@@ -51,6 +73,66 @@ struct IncomeView: View {
                 } footer: {
                     Text("Gelirlerin çoğu zaman sabittir: her ay yeniden girmek yerine, değiştiğinde üzerine dokunup güncelle.")
                 }
+
+                // Gelir planı grafiği (Ödeme Planı ile aynı tarz)
+                Section {
+                    VStack(alignment: .leading, spacing: 14) {
+                        Label("Gelir Planı", systemImage: "chart.bar.fill")
+                            .font(.headline)
+
+                        Chart {
+                            ForEach(monthlyIncome, id: \.date) { item in
+                                BarMark(
+                                    x: .value("Ay", item.date, unit: .month),
+                                    y: .value("Tutar", item.total)
+                                )
+                                .foregroundStyle(
+                                    LinearGradient(colors: [.green, .mint],
+                                                   startPoint: .top, endPoint: .bottom)
+                                )
+                                .cornerRadius(4)
+                                .opacity(item.isFuture ? 0.45 : 1)
+                            }
+
+                            // Bugünü işaretle (kesikli çizgi)
+                            RuleMark(x: .value("Bugün", Date.now, unit: .month))
+                                .foregroundStyle(.secondary.opacity(0.5))
+                                .lineStyle(StrokeStyle(lineWidth: 1, dash: [4, 4]))
+
+                            // Dokunulan ayı vurgula
+                            if let sel = selectedStatus {
+                                RuleMark(x: .value("Seçili", sel.date, unit: .month))
+                                    .foregroundStyle(.secondary.opacity(0.35))
+                            }
+                        }
+                        .chartXSelection(value: $selectedMonth)
+                        // Baloncuk yüzen katmanda: grafik kaymaz
+                        .chartOverlay { proxy in
+                            GeometryReader { geo in
+                                if let sel = selectedStatus,
+                                   let plotAnchor = proxy.plotFrame,
+                                   let center = calendar.date(byAdding: .day, value: 15, to: sel.date),
+                                   let xInPlot = proxy.position(forX: center) {
+                                    let plotFrame = geo[plotAnchor]
+                                    let bubbleWidth: CGFloat = 190
+                                    let rawX = plotFrame.minX + xInPlot
+                                    let x = min(max(rawX, bubbleWidth / 2 + 2),
+                                                geo.size.width - bubbleWidth / 2 - 2)
+                                    incomeTooltip(for: sel)
+                                        .frame(width: bubbleWidth)
+                                        .position(x: x, y: 46)
+                                        .allowsHitTesting(false)
+                                }
+                            }
+                        }
+                        .chartXAxis {
+                            AxisMarks(values: .stride(by: .month)) {
+                                AxisValueLabel(format: .dateTime.month(.narrow))
+                            }
+                        }
+                        .frame(height: 200)
+                    }
+                }
             }
             .navigationTitle("Gelirler")
             .toolbar {
@@ -82,6 +164,28 @@ struct IncomeView: View {
         for index in offsets {
             modelContext.delete(incomes[index])
         }
+    }
+
+    // Dokunulan ayın gelir baloncuğu
+    private func incomeTooltip(for sel: (date: Date, total: Double, isFuture: Bool)) -> some View {
+        VStack(alignment: .leading, spacing: 5) {
+            Text(sel.date, format: .dateTime.month(.wide).year())
+                .font(.subheadline.bold())
+            HStack {
+                Text(sel.isFuture ? "Plan" : "Gelir")
+                    .foregroundStyle(.secondary)
+                Spacer()
+                Text(sel.total, format: .currency(code: "TRY"))
+                    .fontWeight(.bold)
+            }
+            .font(.footnote)
+        }
+        .padding(12)
+        .background(
+            RoundedRectangle(cornerRadius: 12, style: .continuous)
+                .fill(Color(.systemBackground))
+                .shadow(color: .black.opacity(0.18), radius: 8, y: 3)
+        )
     }
 }
 
