@@ -62,6 +62,8 @@ struct DebtsView: View {
     @State private var showingAddSheet = false
     @State private var editingDebt: Debt?
     @State private var priceError: String?
+    @State private var isRefreshing = false
+    @State private var lastUpdate: Date?
 
     private var totalTL: Double {
         debts.reduce(0) { $0 + $1.valueTL }
@@ -127,10 +129,19 @@ struct DebtsView: View {
                     }
                     .onDelete(perform: deleteDebts)
                 } header: {
-                    Text("Borçlarım")
+                    HStack {
+                        Text("Borçlarım")
+                        Spacer()
+                        if isRefreshing {
+                            ProgressView()
+                                .controlSize(.mini)
+                        }
+                    }
                 } footer: {
                     if let priceError {
                         Text("⚠️ \(priceError)")
+                    } else if let lastUpdate {
+                        Text("Kurlar güncel · son güncelleme \(lastUpdate.formatted(date: .omitted, time: .shortened)). Aşağı çekerek yenileyebilirsin; ödediğin borca dokunup silebilirsin.")
                     } else {
                         Text("Altın ve dolar borçları güncel satış kurundan TL'ye çevrilir; aşağı çekerek kurları yenile. Ödediğin borca dokunup silebilirsin.")
                     }
@@ -162,8 +173,8 @@ struct DebtsView: View {
                     )
                 }
             }
-            .task {
-                await refreshRates()
+            .onAppear {
+                Task { await refreshRates() }
             }
             .onChange(of: debts.count) {
                 Task { await refreshRates() }
@@ -192,6 +203,8 @@ struct DebtsView: View {
     private func refreshRates() async {
         let fxDebts = debts.filter { $0.kind != "tl" }
         guard !fxDebts.isEmpty else { return }
+        isRefreshing = true
+        defer { isRefreshing = false }
         priceError = nil
         guard let market = try? await PriceService.fetchMarketPrices() else {
             priceError = "Kurlar alınamadı; son bilinen kurlar kullanılıyor."
@@ -212,6 +225,7 @@ struct DebtsView: View {
             }
         }
         try? modelContext.save()
+        lastUpdate = .now
     }
 }
 
