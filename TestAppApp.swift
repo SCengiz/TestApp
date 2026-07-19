@@ -7,6 +7,6 @@ struct TestAppApp: App {
         WindowGroup {
             ContentView()
         }
-        .modelContainer(for: [Expense.self, FixedPayment.self, IncomeSource.self])
+        .modelContainer(for: [Expense.self, FixedPayment.self, IncomeSource.self, IncomeSnapshot.self])
     }
 }

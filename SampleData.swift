@@ -9,6 +9,9 @@ let useSampleData = true
 func seedSampleDataIfNeeded(_ context: ModelContext) {
     guard useSampleData else { return }
 
+    let calendar = Calendar.current
+    let now = Date.now
+
     // Örnek gelirler (harcamalardan bağımsız kontrol edilir)
     let existingIncomes = (try? context.fetchCount(FetchDescriptor<IncomeSource>())) ?? 0
     if existingIncomes == 0 {
@@ -16,12 +19,21 @@ func seedSampleDataIfNeeded(_ context: ModelContext) {
         context.insert(IncomeSource(name: "Kira Geliri", amount: 30000))
     }
 
+    // Geçmiş ayların gelir fotoğrafları: 3 ay önce zam senaryosu
+    // (eski aylar 160b, sonrası 180b — geçmişin donduğunu gösterir)
+    let existingSnapshots = (try? context.fetchCount(FetchDescriptor<IncomeSnapshot>())) ?? 0
+    if existingSnapshots == 0 {
+        let thisMonth = calendar.dateInterval(of: .month, for: now)!.start
+        for offset in -6...(-1) {
+            let month = calendar.date(byAdding: .month, value: offset, to: thisMonth)!
+            let total: Double = offset <= -3 ? 160000 : 180000
+            context.insert(IncomeSnapshot(monthStart: month, total: total))
+        }
+    }
+
     // Zaten veri varsa dokunma (tekrar tekrar eklemeyi önler)
     let existing = (try? context.fetchCount(FetchDescriptor<Expense>())) ?? 0
     guard existing == 0 else { return }
-
-    let calendar = Calendar.current
-    let now = Date.now
 
     // Kategorilere göre gerçekçi tutar aralıkları ve örnek açıklamalar
     let samples: [(category: String, titles: [String], min: Int, max: Int)] = [

@@ -5,6 +5,7 @@ import Charts
 struct IncomeView: View {
     @Environment(\.modelContext) private var modelContext
     @Query(sort: \IncomeSource.amount, order: .reverse) private var incomes: [IncomeSource]
+    @Query(sort: \IncomeSnapshot.monthStart) private var snapshots: [IncomeSnapshot]
     @State private var showingAddSheet = false
     @State private var editingIncome: IncomeSource?
     @State private var selectedMonth: Date? // grafikte dokunulan ay
@@ -16,13 +17,28 @@ struct IncomeView: View {
     }
 
     // Gelir planı: 6 ay geri + bu ay + 6 ay ileri
-    // (Gelirler sabit kabul edilir; güncellenince tüm aylara yansır)
+    // Geçmiş aylar: o ayın kayıtlı fotoğrafı (silme/ekleme geçmişi DEĞİŞTİRMEZ)
+    // Bu ay ve gelecek: güncel kaynakların toplamı (adaptif)
     private var monthlyIncome: [(date: Date, total: Double, isFuture: Bool)] {
         let thisMonth = calendar.dateInterval(of: .month, for: .now)!.start
         return (-6...6).map { offset in
             let month = calendar.date(byAdding: .month, value: offset, to: thisMonth)!
-            return (month, monthlyTotal, offset > 0)
+            let total = offset >= 0 ? monthlyTotal : historicalTotal(for: month)
+            return (month, total, offset > 0)
         }
+    }
+
+    // Geçmiş bir ayın geliri: o ayın fotoğrafı; yoksa en yakın önceki fotoğraf
+    private func historicalTotal(for month: Date) -> Double {
+        if let exact = snapshots.first(where: {
+            calendar.isDate($0.monthStart, equalTo: month, toGranularity: .month)
+        }) {
+            return exact.total
+        }
+        if let earlier = snapshots.last(where: { $0.monthStart < month }) {
+            return earlier.total
+        }
+        return monthlyTotal
     }
 
     // Dokunulan ayın verisi
@@ -157,6 +173,13 @@ struct IncomeView: View {
                     )
                 }
             }
+            .onAppear {
+                syncIncomeSnapshot(modelContext)
+            }
+            .onChange(of: monthlyTotal) {
+                // Ekleme/silme/güncelleme sonrası bu ayın fotoğrafını tazele
+                syncIncomeSnapshot(modelContext)
+            }
         }
     }
 
@@ -210,6 +233,18 @@ struct IncomeFormView: View {
                 } footer: {
                     Text("Bu tutar her ay için geçerli sayılır. Zam veya değişiklik olunca buradan güncelle.")
                 }
+
+                // Var olan geliri silme (geçmiş aylar etkilenmez, gelecek plan güncellenir)
+                if income != nil {
+                    Section {
+                        Button("Geliri Sil", role: .destructive) {
+                            deleteIncome()
+                        }
+                        .frame(maxWidth: .infinity)
+                    } footer: {
+                        Text("Silince geçmiş ayların geliri değişmez; sadece bu ay ve gelecek plan güncellenir.")
+                    }
+                }
             }
             .navigationTitle(income == nil ? "Gelir Ekle" : "Geliri Güncelle")
             .navigationBarTitleDisplayMode(.inline)
@@ -242,6 +277,15 @@ struct IncomeFormView: View {
         } else {
             modelContext.insert(IncomeSource(name: name, amount: amount))
         }
+        syncIncomeSnapshot(modelContext)
+        dismiss()
+    }
+
+    private func deleteIncome() {
+        if let income {
+            modelContext.delete(income)
+        }
+        syncIncomeSnapshot(modelContext)
         dismiss()
     }
 }

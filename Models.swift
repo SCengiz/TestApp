@@ -30,6 +30,38 @@ final class IncomeSource {
     }
 }
 
+// Aylık gelir fotoğrafı: her ayın toplam geliri kaydedilir.
+// Böylece gelir silinse/değişse bile geçmiş aylar olduğu gibi kalır,
+// sadece bu ay ve gelecek aylar yeni duruma göre güncellenir.
+@Model
+final class IncomeSnapshot {
+    var monthStart: Date
+    var total: Double
+
+    init(monthStart: Date, total: Double) {
+        self.monthStart = monthStart
+        self.total = total
+    }
+}
+
+// Bu ayın gelir fotoğrafını güncel toplamla eşitle (geçmiş aylara dokunmaz)
+@MainActor
+func syncIncomeSnapshot(_ context: ModelContext) {
+    let calendar = Calendar.current
+    guard let monthStart = calendar.dateInterval(of: .month, for: .now)?.start else { return }
+    let total = ((try? context.fetch(FetchDescriptor<IncomeSource>())) ?? [])
+        .reduce(0) { $0 + $1.amount }
+    let snapshots = (try? context.fetch(FetchDescriptor<IncomeSnapshot>())) ?? []
+    if let current = snapshots.first(where: {
+        calendar.isDate($0.monthStart, equalTo: monthStart, toGranularity: .month)
+    }) {
+        current.total = total
+    } else {
+        context.insert(IncomeSnapshot(monthStart: monthStart, total: total))
+    }
+    try? context.save()
+}
+
 // Her ay tekrarlayan sabit ödeme: kredi kartı ekstresi, kredi taksidi gibi
 @Model
 final class FixedPayment {
