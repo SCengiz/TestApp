@@ -203,7 +203,7 @@ struct SavingsView: View {
                 AccountFormView()
             }
             .refreshable {
-                await refreshGoldPrice()
+                await refreshPrices()
             }
             .sheet(item: $detailMonth) { selection in
                 MonthBreakdownSheet(
@@ -222,7 +222,7 @@ struct SavingsView: View {
                 syncSavingsSnapshot(modelContext)
             }
             .task {
-                await refreshGoldPrice()
+                await refreshPrices()
             }
         }
     }
@@ -236,21 +236,42 @@ struct SavingsView: View {
         try? modelContext.save()
     }
 
-    // Altın varlıklarının birim fiyatını canlı kurdan yenile
+    // Canlı fiyatları yenile: altın (kur) + fonlar (Tera Portföy sitesi)
     @MainActor
-    private func refreshGoldPrice() async {
-        let goldAssets = assets.filter { $0.accountKind == "gold" }
-        guard !goldAssets.isEmpty else { return }
+    private func refreshPrices() async {
         priceError = nil
-        guard let market = try? await PriceService.fetchMarketPrices(),
-              let goldPrice = market.goldGram else {
-            priceError = "Altın fiyatı alınamadı; son bilinen fiyat kullanılıyor."
-            return
+
+        // Altın: canlı gram fiyatı
+        let goldAssets = assets.filter { $0.accountKind == "gold" }
+        if !goldAssets.isEmpty {
+            if let market = try? await PriceService.fetchMarketPrices(),
+               let goldPrice = market.goldGram {
+                for asset in goldAssets {
+                    asset.unitPrice = goldPrice
+                    asset.priceUpdatedAt = .now
+                }
+            } else {
+                priceError = "Altın fiyatı alınamadı; son bilinen fiyat kullanılıyor."
+            }
         }
-        for asset in goldAssets {
-            asset.unitPrice = goldPrice
-            asset.priceUpdatedAt = .now
+
+        // Fonlar: Tera Portföy sitesinden otomatik
+        let fundAssets = assets.filter {
+            $0.accountKind == "fund" && !($0.code ?? "").isEmpty
         }
+        if !fundAssets.isEmpty {
+            let homePage = try? await PriceService.fetchTeraHomePage()
+            for asset in fundAssets {
+                guard let code = asset.code else { continue }
+                if let price = try? await PriceService.fetchTeraFundPrice(code: code, homePage: homePage) {
+                    asset.unitPrice = price
+                    asset.priceUpdatedAt = .now
+                } else if priceError == nil {
+                    priceError = "\(code.uppercased()) fiyatı otomatik alınamadı; elle girilen fiyat kullanılıyor."
+                }
+            }
+        }
+
         try? modelContext.save()
         syncSavingsSnapshot(modelContext)
     }
@@ -385,7 +406,6 @@ struct AssetDetailView: View {
     @Environment(\.modelContext) private var modelContext
     @State private var showingBuy = false
     @State private var showingSell = false
-    @State private var showingTefas = false
     @State private var priceText: Double?
 
     private var sortedTransactions: [AssetTransaction] {
@@ -432,12 +452,14 @@ struct AssetDetailView: View {
                         .buttonStyle(.plain)
                     }
 
-                    if account == .fund, let code = asset.code, !code.isEmpty {
-                        Button {
-                            showingTefas = true
-                        } label: {
-                            Label("Fiyatı TEFAS'tan Getir", systemImage: "arrow.down.circle.fill")
+                    if account == .fund, let updated = asset.priceUpdatedAt {
+                        HStack {
+                            Text("Son otomatik güncelleme")
+                            Spacer()
+                            Text(updated.formatted(date: .abbreviated, time: .shortened))
+                                .foregroundStyle(.secondary)
                         }
+                        .font(.caption)
                     }
                 }
 
@@ -450,7 +472,9 @@ struct AssetDetailView: View {
                     }
                 }
             } footer: {
-                if account == .fund || account == .stock {
+                if account == .fund {
+                    Text("Tera Portföy fonlarının fiyatı otomatik güncellenir (Birikimler'i aşağı çekerek yenile). Diğer fonlarda fiyatı buradan elle girebilirsin.")
+                } else if account == .stock {
                     Text("Fiyat değişince buradan güncelle; değer otomatik yeniden hesaplanır.")
                 }
             }
@@ -504,9 +528,6 @@ struct AssetDetailView: View {
         }
         .sheet(isPresented: $showingSell) {
             TransactionFormView(asset: asset, account: account, isBuy: false)
-        }
-        .sheet(isPresented: $showingTefas) {
-            TefasPriceSheet(asset: asset)
         }
         .onAppear {
             priceText = asset.unitPrice > 0 ? asset.unitPrice : nil

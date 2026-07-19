@@ -53,6 +53,58 @@ enum PriceService {
         )
     }
 
+    // Tera Portföy sitesinden fon fiyatı çek (TP2 gibi Tera fonları için)
+    // 1) Ana sayfadaki menüden fonun kendi sayfa linki bulunur
+    // 2) Fon sayfasındaki "product-price" değeri okunur
+    static func fetchTeraHomePage() async throws -> String {
+        let (data, _) = try await URLSession.shared.data(from: URL(string: "https://www.teraportfoy.com")!)
+        guard let html = String(data: data, encoding: .utf8) else {
+            throw URLError(.cannotParseResponse)
+        }
+        return html
+    }
+
+    static func fetchTeraFundPrice(code: String, homePage: String? = nil) async throws -> Double {
+        let home: String
+        if let homePage {
+            home = homePage
+        } else {
+            home = try await fetchTeraHomePage()
+        }
+
+        // Menüde: href="/fonlarimiz/..."> <div class="product-code">TP2</div>
+        let linkPattern = #"href="([^"]+)">\s*<div class="product-code">\#(code.uppercased())</div>"#
+        let linkRegex = try NSRegularExpression(pattern: linkPattern)
+        let homeRange = NSRange(home.startIndex..., in: home)
+        guard let match = linkRegex.firstMatch(in: home, range: homeRange),
+              let pathRange = Range(match.range(at: 1), in: home) else {
+            throw URLError(.resourceUnavailable)
+        }
+        let path = String(home[pathRange])
+        guard let fundURL = URL(string: "https://www.teraportfoy.com\(path)") else {
+            throw URLError(.badURL)
+        }
+
+        let (fundData, _) = try await URLSession.shared.data(from: fundURL)
+        guard let fundHTML = String(data: fundData, encoding: .utf8) else {
+            throw URLError(.cannotParseResponse)
+        }
+
+        // <div class="product-price"> <strong>2,07413 </strong>
+        let pricePattern = #"product-price"[^>]*>\s*<strong>\s*([0-9]+[.,][0-9]+)"#
+        let priceRegex = try NSRegularExpression(pattern: pricePattern)
+        let fundRange = NSRange(fundHTML.startIndex..., in: fundHTML)
+        guard let priceMatch = priceRegex.firstMatch(in: fundHTML, range: fundRange),
+              let priceRange = Range(priceMatch.range(at: 1), in: fundHTML) else {
+            throw URLError(.cannotParseResponse)
+        }
+        let priceText = String(fundHTML[priceRange]).replacingOccurrences(of: ",", with: ".")
+        guard let price = Double(priceText), price > 0 else {
+            throw URLError(.cannotParseResponse)
+        }
+        return price
+    }
+
     // TEFAS'tan fonun son fiyatını çek (örn. "TP2")
     static func fetchFundPrice(code: String) async throws -> Double {
         var request = URLRequest(url: URL(string: "https://www.tefas.gov.tr/api/DB/BindHistoryInfo")!)
