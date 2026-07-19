@@ -153,7 +153,7 @@ struct SavingsView: View {
                                 RowIcon(systemName: kind.icon, color: kind.color)
                                 VStack(alignment: .leading, spacing: 2) {
                                     Text(account.name)
-                                    if kind != .cash, account.netInvestedNonZero {
+                                    if account.netInvestedNonZero {
                                         ProfitText(profit: account.totalProfit,
                                                    percent: account.totalProfitPercent)
                                     }
@@ -425,8 +425,7 @@ struct AccountDetailView: View {
                 amount: accountTotal,
                 icon: account.icon,
                 colors: [account.color, account.color.opacity(0.6)],
-                profit: (account != .cash && accountModel.netInvestedNonZero)
-                    ? accountModel.totalProfit : nil,
+                profit: accountModel.netInvestedNonZero ? accountModel.totalProfit : nil,
                 profitPercent: accountModel.totalProfitPercent
             )
             .listRowInsets(EdgeInsets())
@@ -467,7 +466,7 @@ struct AssetDetailView: View {
                     amount: asset.value,
                     icon: account.icon,
                     colors: [account.color, account.color.opacity(0.6)],
-                    profit: (account != .cash && asset.netInvested > 0) ? asset.profit : nil,
+                    profit: asset.netInvested > 0 ? asset.profit : nil,
                     profitPercent: asset.profitPercent
                 )
                 .listRowInsets(EdgeInsets())
@@ -535,6 +534,25 @@ struct AssetDetailView: View {
                         Spacer()
                         Text(asset.unitPrice, format: .currency(code: "TRY"))
                             .foregroundStyle(.secondary)
+                    }
+                }
+
+                if account == .cash {
+                    if let rate = asset.currentInterestRate {
+                        HStack {
+                            Text("Güncel faiz oranı")
+                            Spacer()
+                            Text("Yıllık %" + rate.formatted(.number.precision(.fractionLength(0...2))))
+                                .foregroundStyle(.secondary)
+                        }
+                    }
+                    if asset.accruedInterest > 0 {
+                        HStack {
+                            Text("Birikmiş faiz getirisi")
+                            Spacer()
+                            ProfitText(profit: asset.accruedInterest, percent: nil)
+                                .font(.callout.weight(.bold))
+                        }
                     }
                 }
             } footer: {
@@ -680,6 +698,9 @@ struct AssetDetailView: View {
             ? (account == .cash ? "Yatırılan" : "Alış")
             : (account == .cash ? "Çekilen" : "Satış")
         if account == .cash {
+            if let rate = tx.interestRate {
+                return action + " · yıllık %" + rate.formatted(.number.precision(.fractionLength(0...2)))
+            }
             return action
         }
         if let price = tx.pricePerUnit {
@@ -854,6 +875,7 @@ struct TransactionFormView: View {
 
     @State private var quantity: Double?
     @State private var price: Double?
+    @State private var interestRate: Double?
     @State private var date = Date.now
     @State private var useCurrentPrice = true
 
@@ -866,6 +888,12 @@ struct TransactionFormView: View {
                     if account == .cash {
                         TextField("Tutar (TL)", value: $quantity, format: .number)
                             .keyboardType(.decimalPad)
+
+                        // Günlük vadeli: para yatırırken faiz oranı sorulur
+                        if isBuy {
+                            TextField("Yıllık faiz oranı (örn. 42)", value: $interestRate, format: .number)
+                                .keyboardType(.decimalPad)
+                        }
                     } else {
                         TextField("Miktar (\(account.unitLabel))", value: $quantity, format: .number)
                             .keyboardType(.decimalPad)
@@ -891,7 +919,11 @@ struct TransactionFormView: View {
                     DatePicker("Tarih", selection: $date, displayedComponents: .date)
                 } footer: {
                     if account == .cash {
-                        EmptyView()
+                        if isBuy {
+                            Text("Bankanın gösterdiği yıllık basit faiz. Getiri her gün bakiyene işler (bakiye × oran ÷ 365) ve kar olarak görünür.")
+                        } else {
+                            EmptyView()
+                        }
                     } else if useCurrentPrice && asset.unitPrice > 0 {
                         Text("İşlem, güncel fiyat (\(asset.unitPrice.formatted(.currency(code: "TRY")))) üzerinden kaydedilir. Farklı fiyattan işlem yaptıysan kapatıp elle gir.")
                     } else {
@@ -910,6 +942,12 @@ struct TransactionFormView: View {
                         save()
                     }
                     .disabled((quantity ?? 0) <= 0)
+                }
+            }
+            .onAppear {
+                // Son girilen faiz oranını hazır getir
+                if account == .cash, isBuy {
+                    interestRate = asset.currentInterestRate
                 }
             }
         }
@@ -932,6 +970,7 @@ struct TransactionFormView: View {
 
         let tx = AssetTransaction(date: date, quantity: signed,
                                   pricePerUnit: effectivePrice,
+                                  interestRate: (account == .cash && isBuy) ? interestRate : nil,
                                   asset: asset)
         modelContext.insert(tx)
         // Elle girilen fiyat, fiyatı olmayan varlığın güncel fiyatı olarak da kullanılabilir

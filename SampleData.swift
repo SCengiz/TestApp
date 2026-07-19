@@ -69,8 +69,10 @@ func seedSampleDataIfNeeded(_ context: ModelContext) {
         let cash = Asset(accountKind: "cash", name: "Vadeli Mevduat",
                          unitPrice: 1, account: cashAccount)
         context.insert(cash)
-        context.insert(AssetTransaction(date: monthsAgo(5), quantity: 150000, asset: cash))
-        context.insert(AssetTransaction(date: monthsAgo(2), quantity: 50000, asset: cash))
+        context.insert(AssetTransaction(date: monthsAgo(5), quantity: 150000,
+                                        interestRate: 42, asset: cash))
+        context.insert(AssetTransaction(date: monthsAgo(2), quantity: 50000,
+                                        interestRate: 42, asset: cash))
 
         // Altın Hesabı: gram alışları (fiyat canlıdan güncellenir)
         let gold = Asset(accountKind: "gold", name: "Altın", unitPrice: 0, account: goldAccount)

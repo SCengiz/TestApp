@@ -130,9 +130,49 @@ extension Asset {
         transactions.reduce(0) { $0 + $1.quantity }
     }
 
-    // Güncel TL değeri
+    // Güncel TL değeri (vadeli hesapta birikmiş günlük faiz dahil)
     var value: Double {
-        accountKind == "cash" ? holdings : holdings * unitPrice
+        accountKind == "cash" ? holdings + accruedInterest : holdings * unitPrice
+    }
+
+    // Vadeli hesap: günlük işleyen faiz getirisi
+    // Bakiye işlem işlem izlenir; her aralıkta bakiye × (yıllık oran/100) × gün/365 eklenir.
+    // Oran, para yatırma işlemlerinde girilen son orandır.
+    var accruedInterest: Double {
+        guard accountKind == "cash" else { return 0 }
+        let sorted = transactions.sorted { $0.date < $1.date }
+        var balance = 0.0
+        var rate = 0.0
+        var interest = 0.0
+        var lastDate: Date?
+        for tx in sorted {
+            if let last = lastDate {
+                let days = tx.date.timeIntervalSince(last) / 86400
+                if days > 0 {
+                    interest += balance * (rate / 100) * days / 365
+                }
+            }
+            balance += tx.quantity
+            if let newRate = tx.interestRate, newRate > 0 {
+                rate = newRate
+            }
+            lastDate = max(lastDate ?? tx.date, tx.date)
+        }
+        if let last = lastDate {
+            let days = Date.now.timeIntervalSince(last) / 86400
+            if days > 0 {
+                interest += balance * (rate / 100) * days / 365
+            }
+        }
+        return max(0, interest)
+    }
+
+    // Vadeli hesapta geçerli (son girilen) faiz oranı
+    var currentInterestRate: Double? {
+        transactions
+            .sorted { $0.date < $1.date }
+            .compactMap(\.interestRate)
+            .last
     }
 
     // Net yatırılan: alış maliyetleri - satış gelirleri
@@ -161,12 +201,15 @@ final class AssetTransaction {
     var date: Date
     var quantity: Double
     var pricePerUnit: Double? // işlem anındaki birim fiyat (kayıt için)
+    var interestRate: Double? // vadeli: para yatırırken geçerli yıllık basit faiz (%)
     var asset: Asset?
 
-    init(date: Date, quantity: Double, pricePerUnit: Double? = nil, asset: Asset? = nil) {
+    init(date: Date, quantity: Double, pricePerUnit: Double? = nil,
+         interestRate: Double? = nil, asset: Asset? = nil) {
         self.date = date
         self.quantity = quantity
         self.pricePerUnit = pricePerUnit
+        self.interestRate = interestRate
         self.asset = asset
     }
 }
