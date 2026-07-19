@@ -62,27 +62,52 @@ func syncIncomeSnapshot(_ context: ModelContext) {
     try? context.save()
 }
 
-// Birikim kalemi. İki tarz:
-// - Elle (manual): tutarı kullanıcı girer (vadeli hesap gibi)
-// - Otomatik (gold/usd/eur/fund): miktar girilir, TL karşılığı canlı fiyattan hesaplanır
+// Birikim varlığı: bir hesabın içindeki kalem
+// - Fon Hesabı içinde fonlar (TP2 gibi), Hisse Hesabı içinde hisseler
+// - Altın Hesabı ve Vadeli Hesap tek varlıkla çalışır (gram / TL)
 @Model
-final class SavingsItem {
+final class Asset {
+    var accountKind: String // fund | stock | gold | cash
     var name: String
-    var amount: Double // TL karşılığı (otomatik türlerde fiyat güncellenince yenilenir)
-    var kind: String = "manual" // manual | gold | usd | eur | fund
-    var quantity: Double? = nil // gram / adet / miktar
-    var code: String? = nil // fon kodu (örn. TP2)
-    var unitPrice: Double? = nil // fon birim fiyatı (elle güncellenir)
-    var priceUpdatedAt: Date? = nil // son fiyat güncellemesi
+    var code: String? // fon/hisse kodu
+    var unitPrice: Double = 0 // TL birim fiyat (cash: 1, gold: canlı, fon/hisse: elle)
+    var priceUpdatedAt: Date? = nil
+    @Relationship(deleteRule: .cascade, inverse: \AssetTransaction.asset)
+    var transactions: [AssetTransaction] = []
 
-    init(name: String, amount: Double, kind: String = "manual",
-         quantity: Double? = nil, code: String? = nil, unitPrice: Double? = nil) {
+    init(accountKind: String, name: String, code: String? = nil, unitPrice: Double = 0) {
+        self.accountKind = accountKind
         self.name = name
-        self.amount = amount
-        self.kind = kind
-        self.quantity = quantity
         self.code = code
         self.unitPrice = unitPrice
+    }
+}
+
+extension Asset {
+    // Eldeki miktar: alışlar (+) ve satışlar (-) toplamı
+    var holdings: Double {
+        transactions.reduce(0) { $0 + $1.quantity }
+    }
+
+    // Güncel TL değeri
+    var value: Double {
+        accountKind == "cash" ? holdings : holdings * unitPrice
+    }
+}
+
+// Tarihli alış/satış işlemi (miktar: + alış, - satış; cash'te doğrudan TL)
+@Model
+final class AssetTransaction {
+    var date: Date
+    var quantity: Double
+    var pricePerUnit: Double? // işlem anındaki birim fiyat (kayıt için)
+    var asset: Asset?
+
+    init(date: Date, quantity: Double, pricePerUnit: Double? = nil, asset: Asset? = nil) {
+        self.date = date
+        self.quantity = quantity
+        self.pricePerUnit = pricePerUnit
+        self.asset = asset
     }
 }
 
@@ -104,8 +129,8 @@ final class SavingsSnapshot {
 func syncSavingsSnapshot(_ context: ModelContext) {
     let calendar = Calendar.current
     guard let monthStart = calendar.dateInterval(of: .month, for: .now)?.start else { return }
-    let total = ((try? context.fetch(FetchDescriptor<SavingsItem>())) ?? [])
-        .reduce(0) { $0 + $1.amount }
+    let total = ((try? context.fetch(FetchDescriptor<Asset>())) ?? [])
+        .reduce(0) { $0 + $1.value }
     let snapshots = (try? context.fetch(FetchDescriptor<SavingsSnapshot>())) ?? []
     if let current = snapshots.first(where: {
         calendar.isDate($0.monthStart, equalTo: monthStart, toGranularity: .month)

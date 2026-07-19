@@ -32,11 +32,13 @@ enum PriceService {
             throw URLError(.cannotParseResponse)
         }
 
-        // Anahtar adları sürüme göre değişebiliyor; esnek ara
+        // Anahtar adları sürüme göre değişebiliyor; esnek ara.
+        // Değerleme için ALIŞ kuru kullanılır (bozdurduğunda eline geçecek tutar).
         func price(forKeys keys: [String]) -> Double? {
             for key in keys {
                 if let entry = json[key] as? [String: Any] {
-                    for valueKey in ["Satış", "Satis", "Selling", "satis", "satış"] {
+                    for valueKey in ["Alış", "Alis", "Buying", "alis", "alış",
+                                     "Satış", "Satis", "Selling"] {
                         if let value = parseNumber(entry[valueKey]) { return value }
                     }
                 }
