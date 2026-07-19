@@ -11,6 +11,7 @@ struct IncomeView: View {
     @State private var editingIncome: IncomeSource?
     @State private var selectedMonth: Date? // grafikte dokunulan ay
     @State private var detailMonth: MonthSelection? // dökümü açılan ay
+    @AppStorage("hideIncomeAmounts") private var amountsHidden = false // gizlilik modu
 
     private var calendar: Calendar { .current }
 
@@ -68,7 +69,8 @@ struct IncomeView: View {
                         title: "Aylık Gelirim",
                         amount: monthlyTotal,
                         icon: "banknote.fill",
-                        colors: [.green, .mint]
+                        colors: [.green, .mint],
+                        masked: amountsHidden
                     )
                     .listRowInsets(EdgeInsets())
                     .listRowBackground(Color.clear)
@@ -84,7 +86,7 @@ struct IncomeView: View {
                                 Text(income.name)
                                     .foregroundStyle(.primary)
                                 Spacer()
-                                Text(income.amount, format: .currency(code: "TRY"))
+                                Text(amountsHidden ? "₺***.***,**" : income.amount.formatted(.currency(code: "TRY")))
                                     .font(.callout.weight(.semibold))
                                     .foregroundStyle(.primary)
                                 Image(systemName: "chevron.right")
@@ -127,13 +129,16 @@ struct IncomeView: View {
                                 .lineStyle(StrokeStyle(lineWidth: 1, dash: [4, 4]))
                         }
                         .chartXSelection(value: $selectedMonth)
-                        // Çubuğa dokununca o ayın dökümü küçük ekranda açılır
+                        // Çubuğa dokununca o ayın dökümü küçük ekranda açılır (gizli modda kapalı)
                         .onChange(of: selectedMonth) {
                             if let month = selectedMonth {
-                                detailMonth = MonthSelection(date: month)
+                                if !amountsHidden {
+                                    detailMonth = MonthSelection(date: month)
+                                }
                                 selectedMonth = nil
                             }
                         }
+                        .chartYAxis(amountsHidden ? .hidden : .automatic)
                         .chartXAxis {
                             AxisMarks(values: .stride(by: .month)) {
                                 AxisValueLabel(format: .dateTime.month(.abbreviated))
@@ -153,6 +158,14 @@ struct IncomeView: View {
                         showingAddSheet = true
                     } label: {
                         Label("Gelir Ekle", systemImage: "plus")
+                    }
+                }
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button {
+                        amountsHidden.toggle()
+                    } label: {
+                        Label(amountsHidden ? "Tutarları Göster" : "Tutarları Gizle",
+                              systemImage: amountsHidden ? "eye.slash.fill" : "eye.fill")
                     }
                 }
             }

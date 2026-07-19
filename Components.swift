@@ -9,6 +9,7 @@ struct StatCard: View {
     var profit: Double? = nil
     var profitPercent: Double? = nil
     var invertProfitColors = false // borç gibi: artış kötü (kırmızı), azalış iyi (yeşil)
+    var masked = false // gizlilik: tutar yerine ***.***,** gösterilir
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
@@ -17,7 +18,7 @@ struct StatCard: View {
                 .foregroundStyle(.white.opacity(0.9))
                 .lineLimit(1)
                 .minimumScaleFactor(0.75)
-            Text(amount, format: .currency(code: "TRY"))
+            Text(masked ? "₺***.***,**" : amount.formatted(.currency(code: "TRY")))
                 .font(.title2.bold())
                 .foregroundStyle(.white)
                 .lineLimit(1)
