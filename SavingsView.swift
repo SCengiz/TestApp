@@ -224,7 +224,7 @@ struct SavingsView: View {
             case "gold": unitPrice = market?.goldGram
             case "usd":  unitPrice = market?.usd
             case "eur":  unitPrice = market?.eur
-            case "fund": unitPrice = item.unitPrice // fon fiyatı elle girilir
+            case "fund", "stock": unitPrice = item.unitPrice // birim fiyat elle girilir
             default: break
             }
             if let unitPrice {
@@ -240,11 +240,12 @@ struct SavingsView: View {
 
     private func icon(for item: SavingsItem) -> String {
         switch item.kind {
-        case "gold": return "medal.fill"
-        case "usd":  return "dollarsign.circle.fill"
-        case "eur":  return "eurosign.circle.fill"
-        case "fund": return "chart.pie.fill"
-        default:     return "banknote.fill"
+        case "gold":  return "medal.fill"
+        case "usd":   return "dollarsign.circle.fill"
+        case "eur":   return "eurosign.circle.fill"
+        case "fund":  return "chart.pie.fill"
+        case "stock": return "chart.xyaxis.line"
+        default:      return "banknote.fill"
         }
     }
 
@@ -257,8 +258,8 @@ struct SavingsView: View {
                 return "\(qty) \(unit) · fiyat: \(updated.formatted(date: .omitted, time: .shortened))"
             }
             return "\(qty) \(unit)"
-        case "fund":
-            let code = item.code?.uppercased() ?? "fon"
+        case "fund", "stock":
+            let code = item.code?.uppercased() ?? (item.kind == "fund" ? "fon" : "hisse")
             if let price = item.unitPrice {
                 return "\(qty) adet \(code) × \(price.formatted(.currency(code: "TRY")))"
             }
@@ -289,6 +290,7 @@ struct SavingsFormView: View {
         case usd = "Dolar"
         case eur = "Euro"
         case fund = "Fon"
+        case stock = "Hisse"
 
         var storageKey: String {
             switch self {
@@ -297,6 +299,7 @@ struct SavingsFormView: View {
             case .usd: return "usd"
             case .eur: return "eur"
             case .fund: return "fund"
+            case .stock: return "stock"
             }
         }
     }
@@ -339,6 +342,20 @@ struct SavingsFormView: View {
                             .keyboardType(.decimalPad)
                         TextField("Birim fiyat (TL)", value: $unitPrice, format: .number)
                             .keyboardType(.decimalPad)
+                        if !code.isEmpty,
+                           let url = URL(string: "https://www.tefas.gov.tr/tr/fon-detayli-analiz/\(code.uppercased())") {
+                            Link(destination: url) {
+                                Label("Güncel fiyatı TEFAS'ta gör", systemImage: "safari")
+                            }
+                        }
+                    case .stock:
+                        TextField("Hisse kodu (örn. THYAO)", text: $code)
+                            .textInputAutocapitalization(.characters)
+                            .autocorrectionDisabled()
+                        TextField("Kaç lot/adet?", value: $quantity, format: .number)
+                            .keyboardType(.decimalPad)
+                        TextField("Birim fiyat (TL)", value: $unitPrice, format: .number)
+                            .keyboardType(.decimalPad)
                     }
                 } footer: {
                     switch kind {
@@ -349,7 +366,9 @@ struct SavingsFormView: View {
                     case .usd, .eur:
                         Text("Miktarı gir; TL karşılığı güncel kurdan otomatik hesaplanır.")
                     case .fund:
-                        Text("Adet × birim fiyat otomatik hesaplanır. Fon fiyatı değişince buradan birim fiyatı güncelle.")
+                        Text("Adet × birim fiyat otomatik hesaplanır. TEFAS bağlantısından güncel fiyata bakıp birim fiyatı güncelleyebilirsin.")
+                    case .stock:
+                        Text("Adet × birim fiyat otomatik hesaplanır. Hisse fiyatı değişince birim fiyatı güncelle.")
                     }
                 }
 
@@ -394,9 +413,9 @@ struct SavingsFormView: View {
     private var isValid: Bool {
         guard !name.isEmpty else { return false }
         switch kind {
-        case .manual: return (amount ?? 0) > 0
-        case .fund:   return (quantity ?? 0) > 0 && !code.isEmpty && (unitPrice ?? 0) > 0
-        default:      return (quantity ?? 0) > 0
+        case .manual:       return (amount ?? 0) > 0
+        case .fund, .stock: return (quantity ?? 0) > 0 && !code.isEmpty && (unitPrice ?? 0) > 0
+        default:            return (quantity ?? 0) > 0
         }
     }
 
@@ -406,24 +425,25 @@ struct SavingsFormView: View {
         // altın/döviz → ilk fiyat güncellemesinde hesaplanır
         let initialAmount: Double
         switch kind {
-        case .manual: initialAmount = amount ?? 0
-        case .fund:   initialAmount = (quantity ?? 0) * (unitPrice ?? 0)
-        default:      initialAmount = item?.amount ?? 0
+        case .manual:       initialAmount = amount ?? 0
+        case .fund, .stock: initialAmount = (quantity ?? 0) * (unitPrice ?? 0)
+        default:            initialAmount = item?.amount ?? 0
         }
+        let usesCode = kind == .fund || kind == .stock
 
         if let item {
             item.name = name
             item.kind = storageKind
             item.amount = initialAmount
             item.quantity = kind == .manual ? nil : quantity
-            item.code = kind == .fund ? code.uppercased() : nil
-            item.unitPrice = kind == .fund ? unitPrice : nil
+            item.code = usesCode ? code.uppercased() : nil
+            item.unitPrice = usesCode ? unitPrice : nil
         } else {
             modelContext.insert(SavingsItem(name: name, amount: initialAmount,
                                             kind: storageKind,
                                             quantity: kind == .manual ? nil : quantity,
-                                            code: kind == .fund ? code.uppercased() : nil,
-                                            unitPrice: kind == .fund ? unitPrice : nil))
+                                            code: usesCode ? code.uppercased() : nil,
+                                            unitPrice: usesCode ? unitPrice : nil))
         }
         syncSavingsSnapshot(modelContext)
         dismiss()

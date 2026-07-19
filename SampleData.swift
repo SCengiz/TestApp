@@ -34,10 +34,12 @@ func seedSampleDataIfNeeded(_ context: ModelContext) {
     // Örnek birikimler + geçmiş ay fotoğrafları (aydan aya büyüyen birikim)
     let existingSavings = (try? context.fetchCount(FetchDescriptor<SavingsItem>())) ?? 0
     if existingSavings == 0 {
+        context.insert(SavingsItem(name: "Fon Hesabı", amount: 100000 * 3.25, kind: "fund",
+                                   quantity: 100000, code: "TP2", unitPrice: 3.25))
+        context.insert(SavingsItem(name: "Hisse Hesabı", amount: 500 * 320, kind: "stock",
+                                   quantity: 500, code: "THYAO", unitPrice: 320))
         context.insert(SavingsItem(name: "Vadeli Hesap", amount: 200000))
         context.insert(SavingsItem(name: "Altın Hesabı", amount: 0, kind: "gold", quantity: 50))
-        context.insert(SavingsItem(name: "TP2 Fonu", amount: 100000 * 3.25, kind: "fund",
-                                   quantity: 100000, code: "TP2", unitPrice: 3.25))
 
         let thisMonth = calendar.dateInterval(of: .month, for: now)!.start
         let history: [Double] = [180000, 195000, 210000, 230000, 250000, 265000] // -6..-1
