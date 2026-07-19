@@ -62,6 +62,7 @@ struct SummaryView: View {
         let groups = Dictionary(grouping: monthExpenses) { $0.category }
         return groups
             .map { (ExpenseCategory.named($0.key), $0.value.reduce(0) { $0 + $1.amount }) }
+            .filter { $0.1 > 0 } // o ay harcaması olmayan kategori listede görünmez
             .sorted { $0.total > $1.total }
     }
 
