@@ -451,6 +451,8 @@ struct AssetDetailView: View {
     @Environment(\.modelContext) private var modelContext
     @State private var showingBuy = false
     @State private var showingSell = false
+    @State private var showingRename = false
+    @State private var isRefreshingPrice = false
     @State private var priceText: Double?
 
     private var sortedTransactions: [AssetTransaction] {
@@ -500,7 +502,7 @@ struct AssetDetailView: View {
                         .buttonStyle(.plain)
                     }
 
-                    if account == .fund, let updated = asset.priceUpdatedAt {
+                    if account == .fund || account == .stock, let updated = asset.priceUpdatedAt {
                         HStack {
                             Text("Son otomatik güncelleme")
                             Spacer()
@@ -509,6 +511,22 @@ struct AssetDetailView: View {
                         }
                         .font(.caption)
                     }
+                }
+
+                // Anlık fiyatı elle tetikleme (vadeli hariç)
+                if account != .cash {
+                    Button {
+                        Task { await refreshUnitPrice() }
+                    } label: {
+                        HStack {
+                            Label("Fiyatı Şimdi Güncelle", systemImage: "arrow.clockwise")
+                            Spacer()
+                            if isRefreshingPrice {
+                                ProgressView()
+                            }
+                        }
+                    }
+                    .disabled(isRefreshingPrice)
                 }
 
                 if account == .gold {
@@ -571,6 +589,18 @@ struct AssetDetailView: View {
             }
         }
         .navigationTitle(embedded ? account.title : asset.name)
+        .toolbar {
+            if account == .fund || account == .stock {
+                Button {
+                    showingRename = true
+                } label: {
+                    Label("Adı Düzenle", systemImage: "pencil")
+                }
+            }
+        }
+        .sheet(isPresented: $showingRename) {
+            RenameAssetSheet(asset: asset)
+        }
         .sheet(isPresented: $showingBuy) {
             TransactionFormView(asset: asset, account: account, isBuy: true)
         }
@@ -582,6 +612,37 @@ struct AssetDetailView: View {
         }
         .onChange(of: asset.unitPrice) {
             priceText = asset.unitPrice > 0 ? asset.unitPrice : nil
+        }
+    }
+
+    // Bu varlığın anlık fiyatını hemen çek
+    @MainActor
+    private func refreshUnitPrice() async {
+        isRefreshingPrice = true
+        defer { isRefreshingPrice = false }
+
+        var price: Double?
+        switch account {
+        case .stock:
+            if let code = asset.code {
+                price = try? await PriceService.fetchBistStockPrice(code: code)
+            }
+        case .fund:
+            if let code = asset.code {
+                price = await PriceService.fetchAnyFundPrice(code: code)
+            }
+        case .gold:
+            price = (try? await PriceService.fetchMarketPrices())?.goldGram
+        case .cash:
+            break
+        }
+
+        if let price {
+            asset.unitPrice = price
+            asset.priceUpdatedAt = .now
+            priceText = price
+            try? modelContext.save()
+            syncSavingsSnapshot(modelContext)
         }
     }
 
@@ -672,6 +733,56 @@ struct AccountFormView: View {
                     }
                     .disabled(name.isEmpty)
                 }
+            }
+        }
+        .presentationDetents([.medium])
+    }
+}
+
+// MARK: - Varlık adı düzenleme (kod değişmez)
+
+struct RenameAssetSheet: View {
+    @Bindable var asset: Asset
+
+    @Environment(\.modelContext) private var modelContext
+    @Environment(\.dismiss) private var dismiss
+    @State private var name = ""
+
+    var body: some View {
+        NavigationStack {
+            Form {
+                Section {
+                    TextField("Görünen ad", text: $name)
+
+                    if let code = asset.code, !code.isEmpty {
+                        HStack {
+                            Text("Kod")
+                            Spacer()
+                            Text(code)
+                                .foregroundStyle(.secondary)
+                        }
+                    }
+                } footer: {
+                    Text("Sadece görünen ad değişir; kod ve fiyat takibi aynen sürer.")
+                }
+            }
+            .navigationTitle("Adı Düzenle")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Vazgeç") { dismiss() }
+                }
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("Kaydet") {
+                        asset.name = name
+                        try? modelContext.save()
+                        dismiss()
+                    }
+                    .disabled(name.isEmpty)
+                }
+            }
+            .onAppear {
+                name = asset.name
             }
         }
         .presentationDetents([.medium])
