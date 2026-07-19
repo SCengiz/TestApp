@@ -5,6 +5,7 @@ struct FixedPaymentsView: View {
     @Environment(\.modelContext) private var modelContext
     @Query(sort: \FixedPayment.dueDay) private var payments: [FixedPayment]
     @State private var showingAddSheet = false
+    @State private var editingPayment: FixedPayment?
 
     private var monthlyTotal: Double {
         payments.reduce(0) { $0 + $1.amount }
@@ -23,22 +24,36 @@ struct FixedPaymentsView: View {
                 .listRowBackground(Color.clear)
             }
 
-            Section("Sabit Ödemeler") {
+            Section {
                 ForEach(payments) { payment in
-                    HStack(spacing: 12) {
-                        RowIcon(systemName: "creditcard.fill", color: .blue)
-                        VStack(alignment: .leading, spacing: 2) {
-                            Text(payment.name)
-                            Text(subtitle(for: payment))
-                                .font(.caption)
-                                .foregroundStyle(.secondary)
+                    Button {
+                        editingPayment = payment
+                    } label: {
+                        HStack(spacing: 12) {
+                            RowIcon(systemName: "creditcard.fill", color: .blue)
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text(payment.name)
+                                    .foregroundStyle(.primary)
+                                Text(subtitle(for: payment))
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                            }
+                            Spacer()
+                            Text(payment.amount, format: .currency(code: "TRY"))
+                                .font(.callout.weight(.semibold))
+                                .foregroundStyle(.primary)
+                            Image(systemName: "chevron.right")
+                                .font(.caption.weight(.semibold))
+                                .foregroundStyle(.tertiary)
                         }
-                        Spacer()
-                        Text(payment.amount, format: .currency(code: "TRY"))
-                            .font(.callout.weight(.semibold))
                     }
+                    .buttonStyle(.plain)
                 }
                 .onDelete(perform: deletePayments)
+            } header: {
+                Text("Sabit Ödemeler")
+            } footer: {
+                Text("Düzenlemek veya silmek için ödemeye dokun. Değişiklikler Ödeme Planı grafiğine anında yansır.")
             }
         }
         .navigationTitle("Sabit Ödemeler")
@@ -50,7 +65,10 @@ struct FixedPaymentsView: View {
             }
         }
         .sheet(isPresented: $showingAddSheet) {
-            AddFixedPaymentView()
+            AddFixedPaymentView(payment: nil)
+        }
+        .sheet(item: $editingPayment) { payment in
+            AddFixedPaymentView(payment: payment)
         }
         .overlay {
             if payments.isEmpty {
@@ -82,10 +100,12 @@ struct FixedPaymentsView: View {
     }
 }
 
-// Yeni sabit ödeme ekleme formu
+// Sabit ödeme ekleme / düzenleme formu (payment nil ise yeni kayıt)
 struct AddFixedPaymentView: View {
     @Environment(\.modelContext) private var modelContext
     @Environment(\.dismiss) private var dismiss
+
+    let payment: FixedPayment?
 
     @State private var name = ""
     @State private var amount: Double?
@@ -137,8 +157,20 @@ struct AddFixedPaymentView: View {
                 } footer: {
                     Text("Kredi taksidi gibi belirli sayıda ödemesi olanlar için açın. Fatura, abonelik gibi süresizler için kapalı bırakın.")
                 }
+
+                // Var olan ödemeyi silme (plan grafiği anında güncellenir)
+                if payment != nil {
+                    Section {
+                        Button("Ödemeyi Sil", role: .destructive) {
+                            deletePayment()
+                        }
+                        .frame(maxWidth: .infinity)
+                    } footer: {
+                        Text("Silince bu ödeme plandan kalkar; Ödeme Planı grafiği anında güncellenir.")
+                    }
+                }
             }
-            .navigationTitle("Sabit Ödeme Ekle")
+            .navigationTitle(payment == nil ? "Sabit Ödeme Ekle" : "Ödemeyi Düzenle")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
@@ -151,21 +183,45 @@ struct AddFixedPaymentView: View {
                     .disabled(name.isEmpty || (amount ?? 0) <= 0)
                 }
             }
+            .onAppear {
+                if let payment {
+                    name = payment.name
+                    amount = payment.amount
+                    dueDay = payment.dueDay
+                    if let total = payment.totalInstallments {
+                        hasInstallments = true
+                        totalInstallments = total
+                        currentInstallment = payment.installmentNumber(inMonth: .now) ?? total
+                    }
+                }
+            }
         }
     }
 
     private func save() {
         guard let amount else { return }
-        if hasInstallments {
-            // "Şu an 5. taksitteyim" → ilk taksit 4 ay önceydi
-            let first = Calendar.current.date(byAdding: .month,
-                                              value: -(currentInstallment - 1),
-                                              to: .now)
-            modelContext.insert(FixedPayment(name: name, amount: amount, dueDay: dueDay,
-                                             totalInstallments: totalInstallments,
-                                             firstPaymentDate: first))
+        // "Şu an 5. taksitteyim" → ilk taksit 4 ay önceydi
+        let firstPayment = hasInstallments
+            ? Calendar.current.date(byAdding: .month, value: -(currentInstallment - 1), to: .now)
+            : nil
+
+        if let payment {
+            payment.name = name
+            payment.amount = amount
+            payment.dueDay = dueDay
+            payment.totalInstallments = hasInstallments ? totalInstallments : nil
+            payment.firstPaymentDate = firstPayment
         } else {
-            modelContext.insert(FixedPayment(name: name, amount: amount, dueDay: dueDay))
+            modelContext.insert(FixedPayment(name: name, amount: amount, dueDay: dueDay,
+                                             totalInstallments: hasInstallments ? totalInstallments : nil,
+                                             firstPaymentDate: firstPayment))
+        }
+        dismiss()
+    }
+
+    private func deletePayment() {
+        if let payment {
+            modelContext.delete(payment)
         }
         dismiss()
     }
