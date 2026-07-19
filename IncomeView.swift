@@ -33,12 +33,12 @@ struct IncomeView: View {
         incomes.reduce(0) { $0 + $1.amount }
     }
 
-    // Gelir planı: 6 ay geri + bu ay + 6 ay ileri
+    // Gelir planı: 3 ay geri + bu ay + 3 ay ileri
     // Geçmiş aylar: o ayın kayıtlı fotoğrafı (silme/ekleme geçmişi DEĞİŞTİRMEZ)
     // Bu ay ve gelecek: güncel kaynakların toplamı (adaptif)
     private var monthlyIncome: [(date: Date, total: Double, isFuture: Bool)] {
         let thisMonth = calendar.dateInterval(of: .month, for: .now)!.start
-        return (-6...6).map { offset in
+        return (-3...3).map { offset in
             let month = calendar.date(byAdding: .month, value: offset, to: thisMonth)!
             let total = offset >= 0 ? monthlyTotal : historicalTotal(for: month)
             return (month, total, offset > 0)
@@ -135,7 +135,7 @@ struct IncomeView: View {
                         }
                         .chartXAxis {
                             AxisMarks(values: .stride(by: .month)) {
-                                AxisValueLabel(format: .dateTime.month(.narrow))
+                                AxisValueLabel(format: .dateTime.month(.abbreviated))
                             }
                         }
                         .frame(height: 200)

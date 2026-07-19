@@ -40,12 +40,12 @@ struct SummaryView: View {
             .reduce(0) { $0 + $1.amount }
     }
 
-    // Aylık durum: 6 ay geri + bu ay + 6 ay ileri, sadece sabit giderler
+    // Aylık durum: 3 ay geri + bu ay + 3 ay ileri, sadece sabit giderler
     // (Günlük harcamalar kredi kartıyla yapılıp ekstre olarak sabitlerde ödendiği
     //  için toplam gider = sabit giderler; ayrıca toplamak çift sayma olur.)
     private var monthlyStatus: [(date: Date, fixed: Double, isFuture: Bool)] {
         let thisMonth = calendar.dateInterval(of: .month, for: .now)!.start
-        return (-6...6).map { offset in
+        return (-3...3).map { offset in
             let month = calendar.date(byAdding: .month, value: offset, to: thisMonth)!
             let fixed = payments
                 .filter { $0.isActive(inMonth: month, calendar: calendar) }
@@ -194,7 +194,7 @@ struct SummaryView: View {
                         }
                         .chartXAxis {
                             AxisMarks(values: .stride(by: .month)) {
-                                AxisValueLabel(format: .dateTime.month(.narrow))
+                                AxisValueLabel(format: .dateTime.month(.abbreviated))
                             }
                         }
                         .frame(height: 220)
