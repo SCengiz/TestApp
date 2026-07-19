@@ -222,7 +222,7 @@ struct SummaryView: View {
                 .padding()
             }
             .background(Color(.systemGroupedBackground))
-            .navigationTitle("Özet")
+            .navigationTitle("Giderler")
             // Kategoriye dokununca alttan açılan yarım ekran detay paneli
             .sheet(item: $selectedCategory) { category in
                 CategoryDetailSheet(
