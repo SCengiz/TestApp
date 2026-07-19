@@ -64,10 +64,12 @@ enum SavingsAccount: String, CaseIterable, Identifiable {
 
 struct SavingsView: View {
     @Environment(\.modelContext) private var modelContext
+    @Query(sort: \SavingsAccountModel.createdAt) private var accounts: [SavingsAccountModel]
     @Query private var assets: [Asset]
     @Query(sort: \SavingsSnapshot.monthStart) private var snapshots: [SavingsSnapshot]
     @State private var selectedMonth: Date?
     @State private var detailMonth: MonthSelection?
+    @State private var showingAccountForm = false
     @State private var priceError: String?
 
     private var calendar: Calendar { .current }
@@ -76,19 +78,16 @@ struct SavingsView: View {
         assets.reduce(0) { $0 + $1.value }
     }
 
-    private func accountValue(_ account: SavingsAccount) -> Double {
-        assets
-            .filter { $0.accountKind == account.rawValue }
-            .reduce(0) { $0 + $1.value }
-    }
-
     // Bir ayın dökümü: geçmişte kayıtlı toplam, bu ay hesap hesap
     private func breakdown(for month: Date) -> [(name: String, amount: Double, color: Color)] {
         let thisMonth = calendar.dateInterval(of: .month, for: .now)!.start
         if month < thisMonth {
             return [("O ayın kayıtlı birikimi", historicalTotal(for: month), .purple)]
         }
-        return SavingsAccount.allCases.map { ($0.title, accountValue($0), $0.color) }
+        return accounts.map { account in
+            let kind = SavingsAccount(rawValue: account.kind) ?? .cash
+            return (account.name, account.totalValue, kind.color)
+        }
     }
 
     // Son 6 ay + bu ay
@@ -128,18 +127,25 @@ struct SavingsView: View {
                 }
 
                 Section {
-                    ForEach(SavingsAccount.allCases) { account in
+                    ForEach(accounts) { account in
+                        let kind = SavingsAccount(rawValue: account.kind) ?? .cash
                         NavigationLink {
-                            AccountDetailView(account: account)
+                            AccountDetailView(accountModel: account)
                         } label: {
                             HStack(spacing: 12) {
-                                RowIcon(systemName: account.icon, color: account.color)
-                                Text(account.title)
+                                RowIcon(systemName: kind.icon, color: kind.color)
+                                Text(account.name)
                                 Spacer()
-                                Text(accountValue(account), format: .currency(code: "TRY"))
+                                Text(account.totalValue, format: .currency(code: "TRY"))
                                     .font(.callout.weight(.semibold))
                             }
                         }
+                    }
+                    .onDelete { offsets in
+                        for index in offsets {
+                            modelContext.delete(accounts[index])
+                        }
+                        syncSavingsSnapshot(modelContext)
                     }
                 } header: {
                     Text("Hesaplarım")
@@ -147,7 +153,7 @@ struct SavingsView: View {
                     if let priceError {
                         Text("⚠️ \(priceError)")
                     } else {
-                        Text("Hesaba dokunup alış/satış işlemlerini gir; geçmiş işlemler tarihiyle saklanır.")
+                        Text("Hesaba dokunup alış/satış işlemlerini gir; + ile yeni hesap ekleyebilirsin.")
                     }
                 }
 
@@ -186,6 +192,16 @@ struct SavingsView: View {
                 }
             }
             .navigationTitle("Birikimler")
+            .toolbar {
+                Button {
+                    showingAccountForm = true
+                } label: {
+                    Label("Hesap Ekle", systemImage: "plus")
+                }
+            }
+            .sheet(isPresented: $showingAccountForm) {
+                AccountFormView()
+            }
             .refreshable {
                 await refreshGoldPrice()
             }
@@ -199,6 +215,7 @@ struct SavingsView: View {
                 .presentationDragIndicator(.visible)
             }
             .onAppear {
+                ensureDefaultAccounts()
                 syncSavingsSnapshot(modelContext)
             }
             .onChange(of: total) {
@@ -208,6 +225,15 @@ struct SavingsView: View {
                 await refreshGoldPrice()
             }
         }
+    }
+
+    // İlk açılışta varsayılan 4 hesabı oluştur
+    private func ensureDefaultAccounts() {
+        guard accounts.isEmpty else { return }
+        for account in SavingsAccount.allCases {
+            modelContext.insert(SavingsAccountModel(name: account.title, kind: account.rawValue))
+        }
+        try? modelContext.save()
     }
 
     // Altın varlıklarının birim fiyatını canlı kurdan yenile
@@ -233,20 +259,21 @@ struct SavingsView: View {
 // MARK: - Hesap detayı
 
 struct AccountDetailView: View {
-    let account: SavingsAccount
+    @Bindable var accountModel: SavingsAccountModel
 
     @Environment(\.modelContext) private var modelContext
-    @Query private var allAssets: [Asset]
     @State private var showingAssetForm = false
 
+    private var account: SavingsAccount {
+        SavingsAccount(rawValue: accountModel.kind) ?? .cash
+    }
+
     private var assets: [Asset] {
-        allAssets
-            .filter { $0.accountKind == account.rawValue }
-            .sorted { $0.value > $1.value }
+        accountModel.assets.sorted { $0.value > $1.value }
     }
 
     private var accountTotal: Double {
-        assets.reduce(0) { $0 + $1.value }
+        accountModel.totalValue
     }
 
     var body: some View {
@@ -295,7 +322,7 @@ struct AccountDetailView: View {
                     }
                 }
                 .sheet(isPresented: $showingAssetForm) {
-                    AssetFormView(account: account)
+                    AssetFormView(account: account, accountModel: accountModel)
                 }
                 .overlay {
                     if assets.isEmpty {
@@ -315,13 +342,14 @@ struct AccountDetailView: View {
                 }
             }
         }
-        .navigationTitle(account.title)
+        .navigationTitle(accountModel.name)
         .onAppear {
             // Altın/Vadeli hesabın tekil varlığını ilk girişte oluştur
             if (account == .gold || account == .cash) && assets.isEmpty {
                 let name = account == .gold ? "Altın" : "Vadeli Mevduat"
                 modelContext.insert(Asset(accountKind: account.rawValue, name: name,
-                                          unitPrice: account == .cash ? 1 : 0))
+                                          unitPrice: account == .cash ? 1 : 0,
+                                          account: accountModel))
                 try? modelContext.save()
             }
         }
@@ -330,7 +358,7 @@ struct AccountDetailView: View {
     private var summaryCard: some View {
         Section {
             StatCard(
-                title: account.title,
+                title: accountModel.name,
                 amount: accountTotal,
                 icon: account.icon,
                 colors: [account.color, account.color.opacity(0.6)]
@@ -529,10 +557,55 @@ struct AssetDetailView: View {
     }
 }
 
+// MARK: - Yeni hesap ekleme formu
+
+struct AccountFormView: View {
+    @Environment(\.modelContext) private var modelContext
+    @Environment(\.dismiss) private var dismiss
+
+    @State private var name = ""
+    @State private var kind: SavingsAccount = .fund
+
+    var body: some View {
+        NavigationStack {
+            Form {
+                Section {
+                    TextField("Hesap adı (örn. Midas Hisse, Ziraat Vadeli)", text: $name)
+
+                    Picker("Hesap türü", selection: $kind) {
+                        ForEach(SavingsAccount.allCases) { k in
+                            Label(k.title, systemImage: k.icon).tag(k)
+                        }
+                    }
+                } footer: {
+                    Text("Tür, hesabın nasıl çalışacağını belirler: Fon/Hisse içine varlık eklenir; Vadeli para yatır/çek, Altın gram al/sat ile çalışır.")
+                }
+            }
+            .navigationTitle("Hesap Ekle")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Vazgeç") { dismiss() }
+                }
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("Kaydet") {
+                        modelContext.insert(SavingsAccountModel(name: name, kind: kind.rawValue))
+                        try? modelContext.save()
+                        dismiss()
+                    }
+                    .disabled(name.isEmpty)
+                }
+            }
+        }
+        .presentationDetents([.medium])
+    }
+}
+
 // MARK: - Yeni fon/hisse ekleme formu
 
 struct AssetFormView: View {
     let account: SavingsAccount
+    let accountModel: SavingsAccountModel
 
     @Environment(\.modelContext) private var modelContext
     @Environment(\.dismiss) private var dismiss
@@ -568,7 +641,8 @@ struct AssetFormView: View {
                         modelContext.insert(Asset(accountKind: account.rawValue,
                                                   name: name,
                                                   code: code.uppercased(),
-                                                  unitPrice: unitPrice ?? 0))
+                                                  unitPrice: unitPrice ?? 0,
+                                                  account: accountModel))
                         try? modelContext.save()
                         dismiss()
                     }

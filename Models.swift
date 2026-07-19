@@ -62,9 +62,31 @@ func syncIncomeSnapshot(_ context: ModelContext) {
     try? context.save()
 }
 
+// Birikim hesabı: kullanıcı istediği kadar hesap açabilir
+// (varsayılan 4: Fon, Hisse, Vadeli, Altın; tür davranışı belirler)
+@Model
+final class SavingsAccountModel {
+    var name: String
+    var kind: String // fund | stock | cash | gold
+    var createdAt: Date = Date.now
+    @Relationship(deleteRule: .cascade, inverse: \Asset.account)
+    var assets: [Asset] = []
+
+    init(name: String, kind: String) {
+        self.name = name
+        self.kind = kind
+    }
+}
+
+extension SavingsAccountModel {
+    var totalValue: Double {
+        assets.reduce(0) { $0 + $1.value }
+    }
+}
+
 // Birikim varlığı: bir hesabın içindeki kalem
-// - Fon Hesabı içinde fonlar (TP2 gibi), Hisse Hesabı içinde hisseler
-// - Altın Hesabı ve Vadeli Hesap tek varlıkla çalışır (gram / TL)
+// - Fon hesabında fonlar (TP2 gibi), hisse hesabında hisseler
+// - Altın ve vadeli hesaplar tek varlıkla çalışır (gram / TL)
 @Model
 final class Asset {
     var accountKind: String // fund | stock | gold | cash
@@ -72,14 +94,17 @@ final class Asset {
     var code: String? // fon/hisse kodu
     var unitPrice: Double = 0 // TL birim fiyat (cash: 1, gold: canlı, fon/hisse: elle)
     var priceUpdatedAt: Date? = nil
+    var account: SavingsAccountModel? = nil
     @Relationship(deleteRule: .cascade, inverse: \AssetTransaction.asset)
     var transactions: [AssetTransaction] = []
 
-    init(accountKind: String, name: String, code: String? = nil, unitPrice: Double = 0) {
+    init(accountKind: String, name: String, code: String? = nil,
+         unitPrice: Double = 0, account: SavingsAccountModel? = nil) {
         self.accountKind = accountKind
         self.name = name
         self.code = code
         self.unitPrice = unitPrice
+        self.account = account
     }
 }
 

@@ -32,37 +32,48 @@ func seedSampleDataIfNeeded(_ context: ModelContext) {
     }
 
     // Örnek birikimler + geçmiş ay fotoğrafları (aydan aya büyüyen birikim)
-    let existingSavings = (try? context.fetchCount(FetchDescriptor<Asset>())) ?? 0
+    let existingSavings = (try? context.fetchCount(FetchDescriptor<SavingsAccountModel>())) ?? 0
     if existingSavings == 0 {
         func monthsAgo(_ n: Int) -> Date {
             calendar.date(byAdding: .month, value: -n, to: now)!
         }
 
-        // Fon Hesabı: iki fon, tarihli alışlarla
-        let tp2 = Asset(accountKind: "fund", name: "TP2 Fonu", code: "TP2", unitPrice: 3.25)
-        context.insert(tp2)
-        context.insert(AssetTransaction(date: monthsAgo(3), quantity: 60000, pricePerUnit: 3.05, asset: tp2))
-        context.insert(AssetTransaction(date: monthsAgo(1), quantity: 40000, pricePerUnit: 3.18, asset: tp2))
+        // Varsayılan 4 hesap
+        let fundAccount = SavingsAccountModel(name: "Fon Hesabı", kind: "fund")
+        let stockAccount = SavingsAccountModel(name: "Hisse Hesabı", kind: "stock")
+        let cashAccount = SavingsAccountModel(name: "Vadeli Hesap", kind: "cash")
+        let goldAccount = SavingsAccountModel(name: "Altın Hesabı", kind: "gold")
+        [fundAccount, stockAccount, cashAccount, goldAccount].forEach { context.insert($0) }
 
-        let nnf = Asset(accountKind: "fund", name: "NNF Fonu", code: "NNF", unitPrice: 1.62)
+        // Fon Hesabı: iki fon, tarihli alışlarla
+        let tp2 = Asset(accountKind: "fund", name: "TP2 Fonu", code: "TP2",
+                        unitPrice: 2.05, account: fundAccount)
+        context.insert(tp2)
+        context.insert(AssetTransaction(date: monthsAgo(3), quantity: 60000, pricePerUnit: 1.85, asset: tp2))
+        context.insert(AssetTransaction(date: monthsAgo(1), quantity: 40000, pricePerUnit: 1.98, asset: tp2))
+
+        let nnf = Asset(accountKind: "fund", name: "NNF Fonu", code: "NNF",
+                        unitPrice: 1.62, account: fundAccount)
         context.insert(nnf)
         context.insert(AssetTransaction(date: monthsAgo(2), quantity: 20000, pricePerUnit: 1.50, asset: nnf))
 
         // Hisse Hesabı: alış + kısmi satış örneği
-        let thyao = Asset(accountKind: "stock", name: "Türk Hava Yolları", code: "THYAO", unitPrice: 320)
+        let thyao = Asset(accountKind: "stock", name: "Türk Hava Yolları", code: "THYAO",
+                          unitPrice: 320, account: stockAccount)
         context.insert(thyao)
         context.insert(AssetTransaction(date: monthsAgo(2), quantity: 400, pricePerUnit: 280, asset: thyao))
         context.insert(AssetTransaction(date: monthsAgo(1), quantity: 200, pricePerUnit: 305, asset: thyao))
         context.insert(AssetTransaction(date: monthsAgo(0), quantity: -100, pricePerUnit: 318, asset: thyao))
 
         // Vadeli Hesap: para yatırma işlemleri
-        let cash = Asset(accountKind: "cash", name: "Vadeli Mevduat", unitPrice: 1)
+        let cash = Asset(accountKind: "cash", name: "Vadeli Mevduat",
+                         unitPrice: 1, account: cashAccount)
         context.insert(cash)
         context.insert(AssetTransaction(date: monthsAgo(5), quantity: 150000, asset: cash))
         context.insert(AssetTransaction(date: monthsAgo(2), quantity: 50000, asset: cash))
 
         // Altın Hesabı: gram alışları (fiyat canlıdan güncellenir)
-        let gold = Asset(accountKind: "gold", name: "Altın", unitPrice: 0)
+        let gold = Asset(accountKind: "gold", name: "Altın", unitPrice: 0, account: goldAccount)
         context.insert(gold)
         context.insert(AssetTransaction(date: monthsAgo(4), quantity: 30, pricePerUnit: 5400, asset: gold))
         context.insert(AssetTransaction(date: monthsAgo(1), quantity: 20, pricePerUnit: 5900, asset: gold))

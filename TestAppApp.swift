@@ -8,7 +8,7 @@ struct TestAppApp: App {
             ContentView()
         }
         .modelContainer(for: [Expense.self, FixedPayment.self, IncomeSource.self,
-                              IncomeSnapshot.self, Asset.self, AssetTransaction.self,
-                              SavingsSnapshot.self])
+                              IncomeSnapshot.self, SavingsAccountModel.self,
+                              Asset.self, AssetTransaction.self, SavingsSnapshot.self])
     }
 }
