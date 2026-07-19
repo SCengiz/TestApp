@@ -63,6 +63,7 @@ enum SavingsAccount: String, CaseIterable, Identifiable {
 // MARK: - Ana Birikimler ekranı (4 hesap + grafik)
 
 struct SavingsView: View {
+    @Binding var loggedInUser: String?
     @Environment(\.modelContext) private var modelContext
     @Query(sort: \SavingsAccountModel.createdAt) private var accounts: [SavingsAccountModel]
     @Query private var assets: [Asset]
@@ -229,10 +230,15 @@ struct SavingsView: View {
             }
             .navigationTitle("Birikimler")
             .toolbar {
-                Button {
-                    showingAccountForm = true
-                } label: {
-                    Label("Hesap Ekle", systemImage: "plus")
+                ToolbarItem(placement: .topBarLeading) {
+                    ProfileButton(loggedInUser: $loggedInUser)
+                }
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button {
+                        showingAccountForm = true
+                    } label: {
+                        Label("Hesap Ekle", systemImage: "plus")
+                    }
                 }
             }
             .sheet(isPresented: $showingAccountForm) {
@@ -964,6 +970,6 @@ struct TransactionFormView: View {
 }
 
 #Preview {
-    SavingsView()
+    SavingsView(loggedInUser: .constant("soray"))
         .modelContainer(for: [Asset.self, AssetTransaction.self, SavingsSnapshot.self], inMemory: true)
 }

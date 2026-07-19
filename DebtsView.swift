@@ -57,6 +57,7 @@ enum DebtKind: String, CaseIterable, Identifiable {
 }
 
 struct DebtsView: View {
+    @Binding var loggedInUser: String?
     @Environment(\.modelContext) private var modelContext
     @Query(sort: \Debt.date, order: .reverse) private var debts: [Debt]
     @State private var showingAddSheet = false
@@ -151,10 +152,15 @@ struct DebtsView: View {
             }
             .navigationTitle("Borçlar")
             .toolbar {
-                Button {
-                    showingAddSheet = true
-                } label: {
-                    Label("Borç Ekle", systemImage: "plus")
+                ToolbarItem(placement: .topBarLeading) {
+                    ProfileButton(loggedInUser: $loggedInUser)
+                }
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button {
+                        showingAddSheet = true
+                    } label: {
+                        Label("Borç Ekle", systemImage: "plus")
+                    }
                 }
             }
             .refreshable {
@@ -345,6 +351,6 @@ struct DebtFormView: View {
 }
 
 #Preview {
-    DebtsView()
+    DebtsView(loggedInUser: .constant("soray"))
         .modelContainer(for: [Debt.self], inMemory: true)
 }

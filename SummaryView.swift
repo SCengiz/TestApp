@@ -233,19 +233,8 @@ struct SummaryView: View {
                 .presentationDragIndicator(.visible)
             }
             .toolbar {
-                ToolbarItem(placement: .topBarTrailing) {
-                    Menu {
-                        if let user = loggedInUser {
-                            Text("Giriş: \(user)")
-                        }
-                        Button(role: .destructive) {
-                            loggedInUser = nil
-                        } label: {
-                            Label("Çıkış Yap", systemImage: "rectangle.portrait.and.arrow.right")
-                        }
-                    } label: {
-                        Image(systemName: "person.crop.circle.fill")
-                    }
+                ToolbarItem(placement: .topBarLeading) {
+                    ProfileButton(loggedInUser: $loggedInUser)
                 }
             }
         }

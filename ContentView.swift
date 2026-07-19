@@ -25,19 +25,19 @@ struct ContentView: View {
                     }
                     .tag(0)
 
-                IncomeView()
+                IncomeView(loggedInUser: $loggedInUser)
                     .tabItem {
                         Label("Gelirler", systemImage: "banknote.fill")
                     }
                     .tag(1)
 
-                SavingsView()
+                SavingsView(loggedInUser: $loggedInUser)
                     .tabItem {
                         Label("Birikimler", systemImage: "chart.line.uptrend.xyaxis")
                     }
                     .tag(2)
 
-                DebtsView()
+                DebtsView(loggedInUser: $loggedInUser)
                     .tabItem {
                         Label("Borçlar", systemImage: "person.2.fill")
                     }

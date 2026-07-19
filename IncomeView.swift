@@ -3,6 +3,7 @@ import SwiftData
 import Charts
 
 struct IncomeView: View {
+    @Binding var loggedInUser: String?
     @Environment(\.modelContext) private var modelContext
     @Query(sort: \IncomeSource.amount, order: .reverse) private var incomes: [IncomeSource]
     @Query(sort: \IncomeSnapshot.monthStart) private var snapshots: [IncomeSnapshot]
@@ -144,10 +145,15 @@ struct IncomeView: View {
             }
             .navigationTitle("Gelirler")
             .toolbar {
-                Button {
-                    showingAddSheet = true
-                } label: {
-                    Label("Gelir Ekle", systemImage: "plus")
+                ToolbarItem(placement: .topBarLeading) {
+                    ProfileButton(loggedInUser: $loggedInUser)
+                }
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button {
+                        showingAddSheet = true
+                    } label: {
+                        Label("Gelir Ekle", systemImage: "plus")
+                    }
                 }
             }
             .sheet(isPresented: $showingAddSheet) {
@@ -272,6 +278,6 @@ struct IncomeFormView: View {
 }
 
 #Preview {
-    IncomeView()
+    IncomeView(loggedInUser: .constant("soray"))
         .modelContainer(for: [Expense.self, FixedPayment.self, IncomeSource.self], inMemory: true)
 }
