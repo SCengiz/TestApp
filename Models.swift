@@ -82,6 +82,22 @@ extension SavingsAccountModel {
     var totalValue: Double {
         assets.reduce(0) { $0 + $1.value }
     }
+
+    // Hesap bazlı kar/zarar (tüm varlıkların toplamı)
+    var totalProfit: Double {
+        assets.reduce(0) { $0 + $1.profit }
+    }
+
+    var totalProfitPercent: Double? {
+        let invested = assets.reduce(0) { $0 + $1.netInvested }
+        guard invested > 0 else { return nil }
+        return totalProfit / invested * 100
+    }
+
+    // Kar/zarar göstermeye değer mi? (hiç yatırım yoksa gösterme)
+    var netInvestedNonZero: Bool {
+        assets.contains { $0.netInvested > 0 }
+    }
 }
 
 // Birikim varlığı: bir hesabın içindeki kalem
@@ -117,6 +133,25 @@ extension Asset {
     // Güncel TL değeri
     var value: Double {
         accountKind == "cash" ? holdings : holdings * unitPrice
+    }
+
+    // Net yatırılan: alış maliyetleri - satış gelirleri
+    // (fiyatı kaydedilmemiş işlemler güncel fiyattan sayılır, kar/zararı şişirmez)
+    var netInvested: Double {
+        transactions.reduce(0) { sum, tx in
+            let price = tx.pricePerUnit ?? (accountKind == "cash" ? 1 : unitPrice)
+            return sum + tx.quantity * price
+        }
+    }
+
+    // Kar/Zarar: güncel değer - net yatırılan (satış karları dahil)
+    var profit: Double {
+        value - netInvested
+    }
+
+    var profitPercent: Double? {
+        guard netInvested > 0 else { return nil }
+        return profit / netInvested * 100
     }
 }
 

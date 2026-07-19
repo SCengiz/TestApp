@@ -134,7 +134,13 @@ struct SavingsView: View {
                         } label: {
                             HStack(spacing: 12) {
                                 RowIcon(systemName: kind.icon, color: kind.color)
-                                Text(account.name)
+                                VStack(alignment: .leading, spacing: 2) {
+                                    Text(account.name)
+                                    if kind != .cash, account.netInvestedNonZero {
+                                        ProfitText(profit: account.totalProfit,
+                                                   percent: account.totalProfitPercent)
+                                    }
+                                }
                                 Spacer()
                                 Text(account.totalValue, format: .currency(code: "TRY"))
                                     .font(.callout.weight(.semibold))
@@ -316,6 +322,10 @@ struct AccountDetailView: View {
                                         Text(assetSubtitle(asset))
                                             .font(.caption)
                                             .foregroundStyle(.secondary)
+                                        if asset.netInvested > 0 {
+                                            ProfitText(profit: asset.profit,
+                                                       percent: asset.profitPercent)
+                                        }
                                     }
                                     Spacer()
                                     Text(asset.value, format: .currency(code: "TRY"))
@@ -377,15 +387,31 @@ struct AccountDetailView: View {
     }
 
     private var summaryCard: some View {
-        Section {
-            StatCard(
-                title: accountModel.name,
-                amount: accountTotal,
-                icon: account.icon,
-                colors: [account.color, account.color.opacity(0.6)]
-            )
-            .listRowInsets(EdgeInsets())
-            .listRowBackground(Color.clear)
+        Group {
+            Section {
+                StatCard(
+                    title: accountModel.name,
+                    amount: accountTotal,
+                    icon: account.icon,
+                    colors: [account.color, account.color.opacity(0.6)]
+                )
+                .listRowInsets(EdgeInsets())
+                .listRowBackground(Color.clear)
+            }
+
+            // Hesap bazlı kar/zarar
+            if account != .cash, accountModel.netInvestedNonZero {
+                Section {
+                    HStack {
+                        Text("Toplam Kar/Zarar")
+                            .font(.headline)
+                        Spacer()
+                        ProfitText(profit: accountModel.totalProfit,
+                                   percent: accountModel.totalProfitPercent)
+                            .font(.callout.weight(.bold))
+                    }
+                }
+            }
         }
     }
 
@@ -425,13 +451,28 @@ struct AssetDetailView: View {
                 .listRowBackground(Color.clear)
             }
 
-            // Miktar + birim fiyat
+            // Miktar + kar/zarar + birim fiyat
             Section {
                 HStack {
                     Text("Eldeki miktar")
                     Spacer()
                     Text("\(asset.holdings.formatted(.number.precision(.fractionLength(0...2)))) \(account.unitLabel)")
                         .fontWeight(.semibold)
+                }
+
+                if account != .cash, asset.netInvested > 0 {
+                    HStack {
+                        Text("Net yatırılan")
+                        Spacer()
+                        Text(asset.netInvested, format: .currency(code: "TRY"))
+                            .foregroundStyle(.secondary)
+                    }
+                    HStack {
+                        Text("Kar/Zarar")
+                        Spacer()
+                        ProfitText(profit: asset.profit, percent: asset.profitPercent)
+                            .font(.callout.weight(.bold))
+                    }
                 }
 
                 if account == .fund || account == .stock {
@@ -696,6 +737,7 @@ struct TransactionFormView: View {
     @State private var quantity: Double?
     @State private var price: Double?
     @State private var date = Date.now
+    @State private var useCurrentPrice = true
 
     private var title: String { isBuy ? account.buyLabel : account.sellLabel }
 
@@ -709,14 +751,33 @@ struct TransactionFormView: View {
                     } else {
                         TextField("Miktar (\(account.unitLabel))", value: $quantity, format: .number)
                             .keyboardType(.decimalPad)
-                        TextField("Birim fiyat (TL)", value: $price, format: .number)
-                            .keyboardType(.decimalPad)
+
+                        // Güncel fiyattan mı, elle mi?
+                        if asset.unitPrice > 0 {
+                            Toggle(isOn: $useCurrentPrice.animation()) {
+                                VStack(alignment: .leading, spacing: 2) {
+                                    Text("Güncel fiyattan")
+                                    Text(asset.unitPrice, format: .currency(code: "TRY"))
+                                        .font(.caption)
+                                        .foregroundStyle(.secondary)
+                                }
+                            }
+                        }
+
+                        if !useCurrentPrice || asset.unitPrice <= 0 {
+                            TextField("Birim fiyat (TL)", value: $price, format: .number)
+                                .keyboardType(.decimalPad)
+                        }
                     }
 
                     DatePicker("Tarih", selection: $date, displayedComponents: .date)
                 } footer: {
-                    if !isBuy && account != .cash {
-                        Text("Satış, eldeki miktardan düşülür; işlem geçmişte saklanır.")
+                    if account == .cash {
+                        EmptyView()
+                    } else if useCurrentPrice && asset.unitPrice > 0 {
+                        Text("İşlem, güncel fiyat (\(asset.unitPrice.formatted(.currency(code: "TRY")))) üzerinden kaydedilir. Farklı fiyattan işlem yaptıysan kapatıp elle gir.")
+                    } else {
+                        Text("İşlemi yaptığın birim fiyatı gir; kar/zarar hesabında kullanılır.")
                     }
                 }
             }
@@ -740,13 +801,24 @@ struct TransactionFormView: View {
     private func save() {
         guard let quantity, quantity > 0 else { return }
         let signed = isBuy ? quantity : -quantity
+
+        // İşlem fiyatı: güncel fiyattan ya da elle girilen
+        let effectivePrice: Double?
+        if account == .cash {
+            effectivePrice = nil
+        } else if useCurrentPrice && asset.unitPrice > 0 {
+            effectivePrice = asset.unitPrice
+        } else {
+            effectivePrice = price
+        }
+
         let tx = AssetTransaction(date: date, quantity: signed,
-                                  pricePerUnit: account == .cash ? nil : price,
+                                  pricePerUnit: effectivePrice,
                                   asset: asset)
         modelContext.insert(tx)
-        // Alışta girilen fiyat, varlığın güncel fiyatı olarak da kullanılabilir
-        if let price, price > 0, asset.unitPrice == 0 {
-            asset.unitPrice = price
+        // Elle girilen fiyat, fiyatı olmayan varlığın güncel fiyatı olarak da kullanılabilir
+        if let effectivePrice, effectivePrice > 0, asset.unitPrice == 0 {
+            asset.unitPrice = effectivePrice
         }
         try? modelContext.save()
         syncSavingsSnapshot(modelContext)

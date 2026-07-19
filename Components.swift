@@ -107,6 +107,24 @@ struct MonthBreakdownSheet: View {
     }
 }
 
+// Yeşil/kırmızı kar-zarar etiketi: "+₺18.800 · %13,3"
+struct ProfitText: View {
+    let profit: Double
+    let percent: Double?
+
+    var body: some View {
+        let isGain = profit >= 0
+        let sign = isGain ? "+" : "-"
+        let amount = abs(profit).formatted(.currency(code: "TRY").precision(.fractionLength(0)))
+        let pct = percent.map {
+            " · \(sign)%" + abs($0).formatted(.number.precision(.fractionLength(1)))
+        } ?? ""
+        Text("\(sign)\(amount)\(pct)")
+            .font(.caption.weight(.semibold))
+            .foregroundStyle(isGain ? Color.green : Color.red)
+    }
+}
+
 // Liste satırlarının solundaki yuvarlak ikon
 struct RowIcon: View {
     let systemName: String
