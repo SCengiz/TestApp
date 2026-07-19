@@ -7,8 +7,11 @@ struct FixedPaymentsView: View {
     @State private var showingAddSheet = false
     @State private var editingPayment: FixedPayment?
 
+    // Bu ay geçerli ödemelerin toplamı (gelecek aya özel tek seferlikler dahil edilmez)
     private var monthlyTotal: Double {
-        payments.reduce(0) { $0 + $1.amount }
+        payments
+            .filter { $0.isActive(inMonth: .now) }
+            .reduce(0) { $0 + $1.amount }
     }
 
     var body: some View {
@@ -89,6 +92,11 @@ struct FixedPaymentsView: View {
 
     // "Taksit 5/12 · kalan 7 ay · Her ayın 15'i" gibi alt satır
     private func subtitle(for payment: FixedPayment) -> String {
+        // Tek seferlik ödeme: hangi aya ait olduğunu göster
+        if payment.totalInstallments == 1, let first = payment.firstPaymentDate {
+            let month = first.formatted(.dateTime.month(.wide).year())
+            return "Tek seferlik · \(month) · Ayın \(payment.dueDay). günü"
+        }
         if let total = payment.totalInstallments,
            let number = payment.installmentNumber(inMonth: .now) {
             return "Taksit \(number)/\(total) · kalan \(total - number) ay · Her ayın \(payment.dueDay). günü"
@@ -107,12 +115,34 @@ struct AddFixedPaymentView: View {
 
     let payment: FixedPayment?
 
+    // Ödeme türü: her ay tekrar eden, taksitli veya sadece tek bir aya özel
+    enum PaymentKind: String, CaseIterable {
+        case recurring = "Süresiz"
+        case installment = "Taksitli"
+        case oneTime = "Tek Seferlik"
+    }
+
     @State private var name = ""
     @State private var amount: Double?
     @State private var dueDay = 1
-    @State private var hasInstallments = false
+    @State private var kind: PaymentKind = .recurring
     @State private var totalInstallments = 12
     @State private var currentInstallment = 1
+    @State private var oneTimeMonth: Date = Calendar.current.dateInterval(of: .month, for: .now)!.start
+
+    // Tek seferlik ödeme için seçilebilecek aylar (bu ay + 12 ay ileri)
+    private var monthOptions: [Date] {
+        let calendar = Calendar.current
+        let thisMonth = calendar.dateInterval(of: .month, for: .now)!.start
+        var options = (0...12).compactMap {
+            calendar.date(byAdding: .month, value: $0, to: thisMonth)
+        }
+        if !options.contains(oneTimeMonth) {
+            options.append(oneTimeMonth)
+            options.sort()
+        }
+        return options
+    }
 
     var body: some View {
         NavigationStack {
@@ -137,9 +167,14 @@ struct AddFixedPaymentView: View {
                 }
 
                 Section {
-                    Toggle("Taksitli mi?", isOn: $hasInstallments.animation())
+                    Picker("Ödeme türü", selection: $kind.animation()) {
+                        ForEach(PaymentKind.allCases, id: \.self) { k in
+                            Text(k.rawValue).tag(k)
+                        }
+                    }
+                    .pickerStyle(.segmented)
 
-                    if hasInstallments {
+                    if kind == .installment {
                         Picker("Toplam taksit", selection: $totalInstallments) {
                             ForEach(2...48, id: \.self) { n in
                                 Text("\(n) taksit").tag(n)
@@ -154,8 +189,23 @@ struct AddFixedPaymentView: View {
                             .font(.caption)
                             .foregroundStyle(.secondary)
                     }
+
+                    if kind == .oneTime {
+                        Picker("Hangi aya", selection: $oneTimeMonth) {
+                            ForEach(monthOptions, id: \.self) { month in
+                                Text(month.formatted(.dateTime.month(.wide).year())).tag(month)
+                            }
+                        }
+                    }
                 } footer: {
-                    Text("Kredi taksidi gibi belirli sayıda ödemesi olanlar için açın. Fatura, abonelik gibi süresizler için kapalı bırakın.")
+                    switch kind {
+                    case .recurring:
+                        Text("Fatura, abonelik gibi her ay tekrar eden ödemeler için.")
+                    case .installment:
+                        Text("Kredi taksidi gibi belirli sayıda ödemesi olanlar için.")
+                    case .oneTime:
+                        Text("Sadece seçtiğin aya işlenir; diğer ayların planını etkilemez.")
+                    }
                 }
 
                 // Var olan ödemeyi silme (plan grafiği anında güncellenir)
@@ -188,10 +238,17 @@ struct AddFixedPaymentView: View {
                     name = payment.name
                     amount = payment.amount
                     dueDay = payment.dueDay
-                    if let total = payment.totalInstallments {
-                        hasInstallments = true
-                        totalInstallments = total
-                        currentInstallment = payment.installmentNumber(inMonth: .now) ?? total
+                    if let total = payment.totalInstallments, let first = payment.firstPaymentDate {
+                        if total == 1 {
+                            kind = .oneTime
+                            oneTimeMonth = Calendar.current.dateInterval(of: .month, for: first)!.start
+                        } else {
+                            kind = .installment
+                            totalInstallments = total
+                            currentInstallment = payment.installmentNumber(inMonth: .now) ?? total
+                        }
+                    } else {
+                        kind = .recurring
                     }
                 }
             }
@@ -200,20 +257,34 @@ struct AddFixedPaymentView: View {
 
     private func save() {
         guard let amount else { return }
-        // "Şu an 5. taksitteyim" → ilk taksit 4 ay önceydi
-        let firstPayment = hasInstallments
-            ? Calendar.current.date(byAdding: .month, value: -(currentInstallment - 1), to: .now)
-            : nil
+
+        // Türe göre taksit alanlarını hazırla
+        let total: Int?
+        let firstPayment: Date?
+        switch kind {
+        case .recurring:
+            total = nil
+            firstPayment = nil
+        case .installment:
+            total = totalInstallments
+            // "Şu an 5. taksitteyim" → ilk taksit 4 ay önceydi
+            firstPayment = Calendar.current.date(byAdding: .month,
+                                                 value: -(currentInstallment - 1), to: .now)
+        case .oneTime:
+            // Tek seferlik = 1 taksitlik ödeme, seçilen ayda
+            total = 1
+            firstPayment = oneTimeMonth
+        }
 
         if let payment {
             payment.name = name
             payment.amount = amount
             payment.dueDay = dueDay
-            payment.totalInstallments = hasInstallments ? totalInstallments : nil
+            payment.totalInstallments = total
             payment.firstPaymentDate = firstPayment
         } else {
             modelContext.insert(FixedPayment(name: name, amount: amount, dueDay: dueDay,
-                                             totalInstallments: hasInstallments ? totalInstallments : nil,
+                                             totalInstallments: total,
                                              firstPaymentDate: firstPayment))
         }
         dismiss()
