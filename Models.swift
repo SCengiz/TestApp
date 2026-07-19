@@ -254,14 +254,16 @@ final class Debt {
     var quantity: Double // TL tutarı / dolar miktarı / gram / adet
     var date: Date
     var lastKnownRate: Double = 1 // son bilinen birim kur (TL); tl için 1
+    var initialRate: Double? = nil // borcun alındığı gündeki birim kur (TL)
 
     init(name: String, kind: String, quantity: Double, date: Date = .now,
-         lastKnownRate: Double = 1) {
+         lastKnownRate: Double = 1, initialRate: Double? = nil) {
         self.name = name
         self.kind = kind
         self.quantity = quantity
         self.date = date
         self.lastKnownRate = lastKnownRate
+        self.initialRate = initialRate
     }
 }
 
@@ -269,6 +271,16 @@ extension Debt {
     // Güncel TL karşılığı (son bilinen kurla)
     var valueTL: Double {
         kind == "tl" ? quantity : quantity * lastKnownRate
+    }
+
+    // Borcun alındığı gündeki TL karşılığı
+    var initialValueTL: Double {
+        kind == "tl" ? quantity : quantity * (initialRate ?? lastKnownRate)
+    }
+
+    // Kur farkından borç artışı (+ arttı, - azaldı)
+    var increaseTL: Double {
+        valueTL - initialValueTL
     }
 }
 

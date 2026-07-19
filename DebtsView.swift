@@ -67,6 +67,21 @@ struct DebtsView: View {
         debts.reduce(0) { $0 + $1.valueTL }
     }
 
+    // Kur farkından toplam borç artışı (emtia borçları)
+    private var totalIncrease: Double {
+        debts.reduce(0) { $0 + $1.increaseTL }
+    }
+
+    private var totalIncreasePercent: Double? {
+        let initial = debts.reduce(0) { $0 + $1.initialValueTL }
+        guard initial > 0 else { return nil }
+        return totalIncrease / initial * 100
+    }
+
+    private var hasCommodityDebt: Bool {
+        debts.contains { $0.kind != "tl" && $0.initialRate != nil }
+    }
+
     var body: some View {
         NavigationStack {
             List {
@@ -75,7 +90,10 @@ struct DebtsView: View {
                         title: "Toplam Borcum",
                         amount: totalTL,
                         icon: "person.2.fill",
-                        colors: [.red, .orange]
+                        colors: [.red, .orange],
+                        profit: hasCommodityDebt ? totalIncrease : nil,
+                        profitPercent: totalIncreasePercent,
+                        invertProfitColors: true
                     )
                     .listRowInsets(EdgeInsets())
                     .listRowBackground(Color.clear)
@@ -187,7 +205,11 @@ struct DebtsView: View {
             case "ceyrek": rate = market.ceyrekSell
             default:       rate = nil
             }
-            if let rate { debt.lastKnownRate = rate }
+            if let rate {
+                debt.lastKnownRate = rate
+                // İlk kur girilmemişse bugünü baz al (artış 0'dan başlar)
+                if debt.initialRate == nil { debt.initialRate = rate }
+            }
         }
         try? modelContext.save()
     }
@@ -203,6 +225,7 @@ struct DebtFormView: View {
     @State private var name = ""
     @State private var kind: DebtKind = .tl
     @State private var quantity: Double?
+    @State private var initialRate: Double?
     @State private var date = Date.now
 
     var body: some View {
@@ -220,12 +243,17 @@ struct DebtFormView: View {
                     TextField(kind.quantityLabel, value: $quantity, format: .number)
                         .keyboardType(.decimalPad)
 
+                    if kind != .tl {
+                        TextField("Aldığın gündeki birim fiyat (TL)", value: $initialRate, format: .number)
+                            .keyboardType(.decimalPad)
+                    }
+
                     DatePicker("Borç tarihi", selection: $date, displayedComponents: .date)
                 } footer: {
                     if kind == .tl {
                         Text("TL borcu olduğu gibi toplama eklenir.")
                     } else {
-                        Text("Toplam borçta güncel satış kurundan TL karşılığı gösterilir; kur değiştikçe borcun TL değeri de güncellenir.")
+                        Text("Güncel satış kurundan TL karşılığı gösterilir. Aldığın gündeki fiyatı girersen, kur farkından borcun ne kadar arttığı da kırmızı kutuda görünür (boş bırakırsan bugün baz alınır).")
                     }
                 }
 
@@ -256,6 +284,7 @@ struct DebtFormView: View {
                     name = debt.name
                     kind = DebtKind(rawValue: debt.kind) ?? .tl
                     quantity = debt.quantity
+                    initialRate = debt.initialRate
                     date = debt.date
                 }
             }
@@ -270,10 +299,12 @@ struct DebtFormView: View {
             debt.kind = kind.rawValue
             debt.quantity = quantity
             debt.date = date
+            debt.initialRate = kind == .tl ? nil : initialRate
             if kind == .tl { debt.lastKnownRate = 1 }
         } else {
             modelContext.insert(Debt(name: name, kind: kind.rawValue,
-                                     quantity: quantity, date: date))
+                                     quantity: quantity, date: date,
+                                     initialRate: kind == .tl ? nil : initialRate))
         }
         try? modelContext.save()
         dismiss()

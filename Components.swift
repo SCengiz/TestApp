@@ -8,6 +8,7 @@ struct StatCard: View {
     let colors: [Color]
     var profit: Double? = nil
     var profitPercent: Double? = nil
+    var invertProfitColors = false // borç gibi: artış kötü (kırmızı), azalış iyi (yeşil)
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
@@ -24,14 +25,15 @@ struct StatCard: View {
 
             // Kar/zarar rozeti (verilmişse)
             if let profit {
-                let isGain = profit >= 0
-                let sign = isGain ? "+" : "-"
+                let isPositive = profit >= 0
+                let isGain = invertProfitColors ? !isPositive : isPositive
+                let sign = isPositive ? "+" : "-"
                 let amountText = abs(profit).formatted(.currency(code: "TRY").precision(.fractionLength(0)))
                 let pctText = profitPercent.map {
                     " · \(sign)%" + abs($0).formatted(.number.precision(.fractionLength(1)))
                 } ?? ""
                 HStack(spacing: 4) {
-                    Image(systemName: isGain ? "arrow.up.right" : "arrow.down.right")
+                    Image(systemName: isPositive ? "arrow.up.right" : "arrow.down.right")
                     Text("\(sign)\(amountText)\(pctText)")
                 }
                 .font(.caption.weight(.bold))

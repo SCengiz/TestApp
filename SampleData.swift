@@ -94,9 +94,11 @@ func seedSampleDataIfNeeded(_ context: ModelContext) {
         context.insert(Debt(name: "Ahmet", kind: "tl", quantity: 50000,
                             date: calendar.date(byAdding: .month, value: -2, to: now)!))
         context.insert(Debt(name: "Annem", kind: "gram", quantity: 6,
-                            date: calendar.date(byAdding: .month, value: -1, to: now)!))
+                            date: calendar.date(byAdding: .month, value: -1, to: now)!,
+                            initialRate: 5800))
         context.insert(Debt(name: "Dayım", kind: "ceyrek", quantity: 8,
-                            date: calendar.date(byAdding: .day, value: -10, to: now)!))
+                            date: calendar.date(byAdding: .day, value: -10, to: now)!,
+                            initialRate: 9200))
     }
 
     // Zaten veri varsa dokunma (tekrar tekrar eklemeyi önler)
