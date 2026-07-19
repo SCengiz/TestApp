@@ -38,15 +38,21 @@ struct LoginView: View {
                 Text("Devam etmek için giriş yap")
                     .foregroundStyle(.white.opacity(0.8))
 
-                // Giriş formu
+                // Giriş formu (beyaz kutu içinde koyu yazılar)
                 VStack(spacing: 14) {
-                    TextField("Kullanıcı adı", text: $username)
+                    TextField("", text: $username,
+                              prompt: Text("İsim").foregroundColor(.black.opacity(0.55)))
                         .textContentType(.username)
                         .textInputAutocapitalization(.never)
                         .autocorrectionDisabled()
+                        .foregroundStyle(.black)
 
-                    SecureField("Şifre", text: $password)
+                    Divider()
+
+                    SecureField("", text: $password,
+                                prompt: Text("Şifre").foregroundColor(.black.opacity(0.55)))
                         .textContentType(.password)
+                        .foregroundStyle(.black)
                 }
                 .padding(14)
                 .textFieldStyle(.plain)
