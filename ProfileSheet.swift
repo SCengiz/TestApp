@@ -1,7 +1,32 @@
 import SwiftUI
 import SwiftData
 
-// Sol üstteki kullanıcı simgesi: dokununca profil/ayarlar penceresi açılır
+// Uygulama teması (Ayarlar'dan seçilir, tüm uygulamaya uygulanır)
+enum AppTheme: String, CaseIterable, Identifiable {
+    case system = "system"
+    case light = "light"
+    case dark = "dark"
+
+    var id: String { rawValue }
+
+    var title: String {
+        switch self {
+        case .system: return "Sistem"
+        case .light:  return "Açık"
+        case .dark:   return "Koyu"
+        }
+    }
+
+    var colorScheme: ColorScheme? {
+        switch self {
+        case .system: return nil
+        case .light:  return .light
+        case .dark:   return .dark
+        }
+    }
+}
+
+// Sol üstteki kullanıcı simgesi: dokununca profil penceresi açılır
 struct ProfileButton: View {
     @Binding var loggedInUser: String?
     @State private var showingSheet = false
@@ -24,8 +49,6 @@ struct ProfileSheet: View {
     @Binding var loggedInUser: String?
 
     @Environment(\.dismiss) private var dismiss
-    @Environment(\.modelContext) private var modelContext
-    @State private var showingResetConfirm = false
 
     private var displayName: String {
         (loggedInUser ?? "").capitalized
@@ -48,19 +71,12 @@ struct ProfileSheet: View {
                     .listRowBackground(Color.clear)
                 }
 
-                // Ayarlar
-                Section("Ayarlar") {
-                    HStack {
-                        Label("Uygulama Sürümü", systemImage: "info.circle")
-                        Spacer()
-                        Text("1.0")
-                            .foregroundStyle(.secondary)
-                    }
-
-                    Button {
-                        showingResetConfirm = true
+                // Ayarlar ekranına giriş
+                Section {
+                    NavigationLink {
+                        SettingsView()
                     } label: {
-                        Label("Örnek Verileri Sıfırla", systemImage: "arrow.counterclockwise")
+                        Label("Ayarlar", systemImage: "gearshape.fill")
                     }
                 }
 
@@ -80,32 +96,43 @@ struct ProfileSheet: View {
                     Button("Kapat") { dismiss() }
                 }
             }
-            .confirmationDialog("Tüm veriler silinip örnek verilerle yeniden başlatılacak. Emin misin?",
-                                isPresented: $showingResetConfirm,
-                                titleVisibility: .visible) {
-                Button("Sıfırla", role: .destructive) {
-                    resetAllData()
-                    dismiss()
-                }
-                Button("Vazgeç", role: .cancel) {}
-            }
         }
         .presentationDetents([.medium, .large])
     }
+}
 
-    // Tüm verileri silip örnek verileri yeniden yükle
-    private func resetAllData() {
-        try? modelContext.delete(model: Expense.self)
-        try? modelContext.delete(model: FixedPayment.self)
-        try? modelContext.delete(model: IncomeSource.self)
-        try? modelContext.delete(model: IncomeSnapshot.self)
-        try? modelContext.delete(model: AssetTransaction.self)
-        try? modelContext.delete(model: Asset.self)
-        try? modelContext.delete(model: SavingsAccountModel.self)
-        try? modelContext.delete(model: SavingsSnapshot.self)
-        try? modelContext.delete(model: Debt.self)
-        try? modelContext.save()
-        seedSampleDataIfNeeded(modelContext)
+// Ayarlar ekranı (yeni ayarlar buraya eklenecek)
+struct SettingsView: View {
+    @AppStorage("appTheme") private var themeRaw = AppTheme.system.rawValue
+
+    var body: some View {
+        List {
+            Section {
+                Picker(selection: $themeRaw) {
+                    ForEach(AppTheme.allCases) { theme in
+                        Text(theme.title).tag(theme.rawValue)
+                    }
+                } label: {
+                    Label("Tema", systemImage: "circle.lefthalf.filled")
+                }
+                .pickerStyle(.menu)
+            } header: {
+                Text("Görünüm")
+            } footer: {
+                Text("\"Sistem\" seçiliyken telefonun açık/koyu ayarına uyar.")
+            }
+
+            Section("Hakkında") {
+                HStack {
+                    Label("Uygulama Sürümü", systemImage: "info.circle")
+                    Spacer()
+                    Text("1.0")
+                        .foregroundStyle(.secondary)
+                }
+            }
+        }
+        .navigationTitle("Ayarlar")
+        .navigationBarTitleDisplayMode(.inline)
     }
 }
 
