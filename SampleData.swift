@@ -31,6 +31,20 @@ func seedSampleDataIfNeeded(_ context: ModelContext) {
         }
     }
 
+    // Örnek birikimler + geçmiş ay fotoğrafları (aydan aya büyüyen birikim)
+    let existingSavings = (try? context.fetchCount(FetchDescriptor<SavingsItem>())) ?? 0
+    if existingSavings == 0 {
+        context.insert(SavingsItem(name: "Vadeli Hesap", amount: 200000))
+        context.insert(SavingsItem(name: "Altın", amount: 80000))
+
+        let thisMonth = calendar.dateInterval(of: .month, for: now)!.start
+        let history: [Double] = [180000, 195000, 210000, 230000, 250000, 265000] // -6..-1
+        for (i, value) in history.enumerated() {
+            let month = calendar.date(byAdding: .month, value: i - 6, to: thisMonth)!
+            context.insert(SavingsSnapshot(monthStart: month, total: value))
+        }
+    }
+
     // Zaten veri varsa dokunma (tekrar tekrar eklemeyi önler)
     let existing = (try? context.fetchCount(FetchDescriptor<Expense>())) ?? 0
     guard existing == 0 else { return }

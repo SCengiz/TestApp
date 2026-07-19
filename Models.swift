@@ -62,6 +62,49 @@ func syncIncomeSnapshot(_ context: ModelContext) {
     try? context.save()
 }
 
+// Birikim kalemi: vadeli hesap, yastık altı, altın gibi (tutar değişince güncellenir)
+@Model
+final class SavingsItem {
+    var name: String
+    var amount: Double
+
+    init(name: String, amount: Double) {
+        self.name = name
+        self.amount = amount
+    }
+}
+
+// Aylık birikim fotoğrafı: her ayın toplam birikimi kaydedilir,
+// geçmiş aylar silme/güncellemeden etkilenmez
+@Model
+final class SavingsSnapshot {
+    var monthStart: Date
+    var total: Double
+
+    init(monthStart: Date, total: Double) {
+        self.monthStart = monthStart
+        self.total = total
+    }
+}
+
+// Bu ayın birikim fotoğrafını güncel toplamla eşitle
+@MainActor
+func syncSavingsSnapshot(_ context: ModelContext) {
+    let calendar = Calendar.current
+    guard let monthStart = calendar.dateInterval(of: .month, for: .now)?.start else { return }
+    let total = ((try? context.fetch(FetchDescriptor<SavingsItem>())) ?? [])
+        .reduce(0) { $0 + $1.amount }
+    let snapshots = (try? context.fetch(FetchDescriptor<SavingsSnapshot>())) ?? []
+    if let current = snapshots.first(where: {
+        calendar.isDate($0.monthStart, equalTo: monthStart, toGranularity: .month)
+    }) {
+        current.total = total
+    } else {
+        context.insert(SavingsSnapshot(monthStart: monthStart, total: total))
+    }
+    try? context.save()
+}
+
 // Her ay tekrarlayan sabit ödeme: kredi kartı ekstresi, kredi taksidi gibi
 @Model
 final class FixedPayment {

@@ -33,6 +33,7 @@ struct StatCard: View {
 // Grafik kalemleri için renk paletleri (kalem sırasına göre atanır)
 let paymentPalette: [Color] = [.blue, .cyan, .indigo, .purple, .teal, .mint, .orange, .pink]
 let incomePalette: [Color] = [.green, .mint, .teal, .cyan, .yellow, .orange]
+let savingsPalette: [Color] = [.purple, .indigo, .pink, .orange, .teal, .mint]
 
 // Grafikte dokunulan ayı sheet'e taşımak için
 struct MonthSelection: Identifiable {

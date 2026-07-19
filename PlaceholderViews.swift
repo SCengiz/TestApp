@@ -1,19 +1,5 @@
 import SwiftUI
 
-// Birikimler sayfası (henüz boş)
-struct SavingsView: View {
-    var body: some View {
-        NavigationStack {
-            ContentUnavailableView(
-                "Birikimler",
-                systemImage: "chart.line.uptrend.xyaxis",
-                description: Text("Birikimlerini burada takip edeceksin. Yakında!")
-            )
-            .navigationTitle("Birikimler")
-        }
-    }
-}
-
 // Borçlar sayfası: elden alınan borçlar (henüz boş)
 struct DebtsView: View {
     var body: some View {
@@ -28,5 +14,4 @@ struct DebtsView: View {
     }
 }
 
-#Preview("Birikimler") { SavingsView() }
 #Preview("Borçlar") { DebtsView() }
