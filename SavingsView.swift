@@ -278,15 +278,16 @@ struct SavingsView: View {
             }
         }
 
-        // Fonlar: Tera Portföy sitesinden otomatik
+        // Fonlar: tanınan portföy şirketlerinin sitelerinden otomatik
+        // (şu an: Tera Portföy, İş Portföy — yenileri PriceService'e eklenir)
         let fundAssets = assets.filter {
             $0.accountKind == "fund" && !($0.code ?? "").isEmpty
         }
         if !fundAssets.isEmpty {
-            let homePage = try? await PriceService.fetchTeraHomePage()
+            let teraHome = try? await PriceService.fetchTeraHomePage()
             for asset in fundAssets {
                 guard let code = asset.code else { continue }
-                if let price = try? await PriceService.fetchTeraFundPrice(code: code, homePage: homePage) {
+                if let price = await PriceService.fetchAnyFundPrice(code: code, teraHomePage: teraHome) {
                     asset.unitPrice = price
                     asset.priceUpdatedAt = .now
                 } else if priceError == nil {

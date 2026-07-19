@@ -105,35 +105,61 @@ enum PriceService {
         return price
     }
 
-    // TEFAS'tan fonun son fiyatını çek (örn. "TP2")
-    static func fetchFundPrice(code: String) async throws -> Double {
-        var request = URLRequest(url: URL(string: "https://www.tefas.gov.tr/api/DB/BindHistoryInfo")!)
-        request.httpMethod = "POST"
-        request.setValue("application/x-www-form-urlencoded; charset=UTF-8",
-                         forHTTPHeaderField: "Content-Type")
-        request.setValue("Mozilla/5.0", forHTTPHeaderField: "User-Agent")
+    // İş Portföy sitesinden fon fiyatı (TI1, TIL gibi İş Portföy fonları)
+    // 1) Fon getirileri sayfasındaki listeden fonun sayfa linki bulunur
+    // 2) Fon sayfasındaki "Fon Birim Fiyatı (TL)" değeri okunur
+    static func fetchIsPortfoyFundPrice(code: String) async throws -> Double {
+        func get(_ urlString: String) async throws -> String {
+            var request = URLRequest(url: URL(string: urlString)!)
+            request.setValue("Mozilla/5.0", forHTTPHeaderField: "User-Agent")
+            let (data, _) = try await URLSession.shared.data(for: request)
+            guard let html = String(data: data, encoding: .utf8) else {
+                throw URLError(.cannotParseResponse)
+            }
+            return html
+        }
 
-        let formatter = DateFormatter()
-        formatter.dateFormat = "dd.MM.yyyy"
-        let end = formatter.string(from: .now)
-        let start = formatter.string(from: Calendar.current.date(byAdding: .day, value: -10, to: .now)!)
+        let list = try await get("https://www.isportfoy.com.tr/fon-getirileri")
 
-        let body = "fontip=YAT&fonkod=\(code.uppercased())&bastarih=\(start)&bittarih=\(end)"
-        request.httpBody = body.data(using: .utf8)
+        // &quot;TI1 - ...&quot;,&quot;url&quot;:&quot;/is-portfoy-...&quot;
+        let linkPattern = "&quot;\(code.uppercased()) - [^&]*&quot;,&quot;url&quot;:&quot;([^&]+)&quot;"
+        let linkRegex = try NSRegularExpression(pattern: linkPattern)
+        let listRange = NSRange(list.startIndex..., in: list)
+        guard let match = linkRegex.firstMatch(in: list, range: listRange),
+              let pathRange = Range(match.range(at: 1), in: list) else {
+            throw URLError(.resourceUnavailable)
+        }
 
-        let (data, _) = try await URLSession.shared.data(for: request)
-        guard let json = try JSONSerialization.jsonObject(with: data) as? [String: Any],
-              let rows = json["data"] as? [[String: Any]], !rows.isEmpty else {
+        let page = try await get("https://www.isportfoy.com.tr\(String(list[pathRange]))")
+
+        // "Fon Birim Fiyatı (TL)" etiketinden sonraki content değeri
+        let pricePattern = #"Fon Birim Fiyatı.{0,400}?class="content">\s*([0-9][0-9.,]*)"#
+        let priceRegex = try NSRegularExpression(pattern: pricePattern,
+                                                 options: [.dotMatchesLineSeparators])
+        let pageRange = NSRange(page.startIndex..., in: page)
+        guard let priceMatch = priceRegex.firstMatch(in: page, range: pageRange),
+              let priceRange = Range(priceMatch.range(at: 1), in: page) else {
             throw URLError(.cannotParseResponse)
         }
 
-        // En güncel kaydın fiyatını al (TARIH alanı milisaniye cinsinden gelir)
-        let sorted = rows.sorted {
-            (parseNumber($0["TARIH"]) ?? 0) < (parseNumber($1["TARIH"]) ?? 0)
+        // "1.604,814613" → 1604.814613
+        let priceText = String(page[priceRange])
+            .replacingOccurrences(of: ".", with: "")
+            .replacingOccurrences(of: ",", with: ".")
+        guard let price = Double(priceText), price > 0 else {
+            throw URLError(.cannotParseResponse)
         }
-        if let last = sorted.last, let price = parseNumber(last["FIYAT"]) {
+        return price
+    }
+
+    // Fonu tanıyan ilk sağlayıcıdan fiyatı getir (yeni şirketler buraya eklenir)
+    static func fetchAnyFundPrice(code: String, teraHomePage: String? = nil) async -> Double? {
+        if let price = try? await fetchTeraFundPrice(code: code, homePage: teraHomePage) {
             return price
         }
-        throw URLError(.cannotParseResponse)
+        if let price = try? await fetchIsPortfoyFundPrice(code: code) {
+            return price
+        }
+        return nil
     }
 }
