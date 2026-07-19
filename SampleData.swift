@@ -42,7 +42,7 @@ func seedSampleDataIfNeeded(_ context: ModelContext) {
         let fundAccount = SavingsAccountModel(name: "Fon Hesabı", kind: "fund")
         let stockAccount = SavingsAccountModel(name: "Hisse Hesabı", kind: "stock")
         let cashAccount = SavingsAccountModel(name: "Vadeli Hesap", kind: "cash")
-        let goldAccount = SavingsAccountModel(name: "Altın Hesabı", kind: "gold")
+        let goldAccount = SavingsAccountModel(name: "Emtia Hesabı", kind: "gold")
         [fundAccount, stockAccount, cashAccount, goldAccount].forEach { context.insert($0) }
 
         // Fon Hesabı: iki fon, tarihli alışlarla
@@ -74,11 +74,15 @@ func seedSampleDataIfNeeded(_ context: ModelContext) {
         context.insert(AssetTransaction(date: monthsAgo(2), quantity: 50000,
                                         interestRate: 42, asset: cash))
 
-        // Altın Hesabı: gram alışları (fiyat canlıdan güncellenir)
-        let gold = Asset(accountKind: "gold", name: "Altın", unitPrice: 0, account: goldAccount)
+        // Emtia Hesabı: altın + gümüş alışları (fiyatlar canlıdan güncellenir)
+        let gold = Asset(accountKind: "gold", name: "Altın", code: "GRAM_ALTIN", account: goldAccount)
         context.insert(gold)
         context.insert(AssetTransaction(date: monthsAgo(4), quantity: 30, pricePerUnit: 5400, asset: gold))
         context.insert(AssetTransaction(date: monthsAgo(1), quantity: 20, pricePerUnit: 5900, asset: gold))
+
+        let silver = Asset(accountKind: "gold", name: "Gümüş", code: "GRAM_GUMUS", account: goldAccount)
+        context.insert(silver)
+        context.insert(AssetTransaction(date: monthsAgo(2), quantity: 500, pricePerUnit: 72, asset: silver))
 
         let thisMonth = calendar.dateInterval(of: .month, for: now)!.start
         let history: [Double] = [180000, 195000, 210000, 230000, 250000, 265000] // -6..-1

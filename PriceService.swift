@@ -18,6 +18,7 @@ enum PriceService {
     struct MarketPrices {
         var goldGram: Double?     // gram altın alış (varlık değerlemesi)
         var goldGramSell: Double? // gram altın satış (borç değerlemesi)
+        var silverGram: Double?   // gram gümüş alış
         var ceyrekSell: Double?   // çeyrek altın satış
         var usd: Double?          // dolar alış
         var usdSell: Double?      // dolar satış
@@ -66,6 +67,7 @@ enum PriceService {
         return MarketPrices(
             goldGram: price(forKeys: goldKeys, valueKeys: buyKeys),
             goldGramSell: price(forKeys: goldKeys, valueKeys: sellKeys),
+            silverGram: price(forKeys: ["gumus", "gümüş", "GUMUS", "Gümüş"], valueKeys: buyKeys),
             ceyrekSell: price(forKeys: ceyrekKeys, valueKeys: sellKeys),
             usd: price(forKeys: ["USD", "usd"], valueKeys: buyKeys),
             usdSell: price(forKeys: ["USD", "usd"], valueKeys: sellKeys),

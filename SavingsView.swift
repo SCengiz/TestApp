@@ -16,7 +16,7 @@ enum SavingsAccount: String, CaseIterable, Identifiable {
         case .fund:  return "Fon Hesabı"
         case .stock: return "Hisse Hesabı"
         case .cash:  return "Vadeli Hesap"
-        case .gold:  return "Altın Hesabı"
+        case .gold:  return "Emtia Hesabı"
         }
     }
 
@@ -73,6 +73,8 @@ struct SavingsView: View {
     @State private var priceError: String?
     @State private var isRefreshing = false
     @State private var lastUpdate: Date?
+    @State private var isVisible = false
+    private let autoRefresh = Timer.publish(every: 30, on: .main, in: .common).autoconnect()
 
     private var calendar: Calendar { .current }
 
@@ -249,8 +251,17 @@ struct SavingsView: View {
                 .presentationDragIndicator(.visible)
             }
             .onAppear {
+                isVisible = true
                 ensureDefaultAccounts()
                 syncSavingsSnapshot(modelContext)
+                Task { await refreshPrices() }
+            }
+            .onDisappear {
+                isVisible = false
+            }
+            .onReceive(autoRefresh) { _ in
+                // Sekme açıkken fiyatlar 30 sn'de bir otomatik tazelenir
+                guard isVisible else { return }
                 Task { await refreshPrices() }
             }
             .onChange(of: total) {
@@ -279,14 +290,16 @@ struct SavingsView: View {
         // Altın: canlı gram fiyatı
         let goldAssets = assets.filter { $0.accountKind == "gold" }
         if !goldAssets.isEmpty {
-            if let market = try? await PriceService.fetchMarketPrices(),
-               let goldPrice = market.goldGram {
+            if let market = try? await PriceService.fetchMarketPrices() {
                 for asset in goldAssets {
-                    asset.unitPrice = goldPrice
-                    asset.priceUpdatedAt = .now
+                    let price = asset.code == "GRAM_GUMUS" ? market.silverGram : market.goldGram
+                    if let price {
+                        asset.unitPrice = price
+                        asset.priceUpdatedAt = .now
+                    }
                 }
             } else {
-                priceError = "Altın fiyatı alınamadı; son bilinen fiyat kullanılıyor."
+                priceError = "Emtia fiyatları alınamadı; son bilinen fiyatlar kullanılıyor."
             }
         }
 
@@ -350,8 +363,8 @@ struct AccountDetailView: View {
 
     var body: some View {
         Group {
-            if account == .fund || account == .stock {
-                // Fon/Hisse: içinde birden çok varlık olabilir
+            if account == .fund || account == .stock || account == .gold {
+                // Fon/Hisse/Emtia: içinde birden çok varlık olabilir
                 List {
                     summaryCard
 
@@ -385,23 +398,33 @@ struct AccountDetailView: View {
                             syncSavingsSnapshot(modelContext)
                         }
                     } header: {
-                        Text(account == .fund ? "Fonlarım" : "Hisselerim")
+                        switch account {
+                        case .fund:  Text("Fonlarım")
+                        case .stock: Text("Hisselerim")
+                        default:     Text("Emtialarım")
+                        }
                     } footer: {
-                        Text("Varlığa dokunup alış/satış işlemlerini ve güncel fiyatını gir.")
+                        if account == .gold {
+                            Text("Emtiaya (altın/gümüş) dokunup alış/satış işlemlerini gir; gram fiyatları canlı güncellenir.")
+                        } else {
+                            Text("Varlığa dokunup alış/satış işlemlerini ve güncel fiyatını gir.")
+                        }
                     }
                 }
                 .toolbar {
-                    Button {
-                        showingAssetForm = true
-                    } label: {
-                        Label(account == .fund ? "Fon Ekle" : "Hisse Ekle", systemImage: "plus")
+                    if account != .gold {
+                        Button {
+                            showingAssetForm = true
+                        } label: {
+                            Label(account == .fund ? "Fon Ekle" : "Hisse Ekle", systemImage: "plus")
+                        }
                     }
                 }
                 .sheet(isPresented: $showingAssetForm) {
                     AssetFormView(account: account, accountModel: accountModel)
                 }
                 .overlay {
-                    if assets.isEmpty {
+                    if assets.isEmpty && account != .gold {
                         ContentUnavailableView(
                             account == .fund ? "Henüz fon yok" : "Henüz hisse yok",
                             systemImage: account.icon,
@@ -420,12 +443,23 @@ struct AccountDetailView: View {
         }
         .navigationTitle(accountModel.name)
         .onAppear {
-            // Altın/Vadeli hesabın tekil varlığını ilk girişte oluştur
-            if (account == .gold || account == .cash) && assets.isEmpty {
-                let name = account == .gold ? "Altın" : "Vadeli Mevduat"
-                modelContext.insert(Asset(accountKind: account.rawValue, name: name,
-                                          unitPrice: account == .cash ? 1 : 0,
-                                          account: accountModel))
+            // Vadeli hesabın tekil varlığını ilk girişte oluştur
+            if account == .cash && assets.isEmpty {
+                modelContext.insert(Asset(accountKind: account.rawValue, name: "Vadeli Mevduat",
+                                          unitPrice: 1, account: accountModel))
+                try? modelContext.save()
+            }
+            // Emtia hesabında Altın ve Gümüş her zaman hazır
+            if account == .gold {
+                let existingCodes = Set(assets.compactMap(\.code))
+                if !existingCodes.contains("GRAM_ALTIN") {
+                    modelContext.insert(Asset(accountKind: "gold", name: "Altın",
+                                              code: "GRAM_ALTIN", account: accountModel))
+                }
+                if !existingCodes.contains("GRAM_GUMUS") {
+                    modelContext.insert(Asset(accountKind: "gold", name: "Gümüş",
+                                              code: "GRAM_GUMUS", account: accountModel))
+                }
                 try? modelContext.save()
             }
         }
@@ -449,7 +483,7 @@ struct AccountDetailView: View {
     private func assetSubtitle(_ asset: Asset) -> String {
         let qty = asset.holdings.formatted(.number.precision(.fractionLength(0...2)))
         let price = asset.unitPrice.formatted(.currency(code: "TRY"))
-        return "\(qty) adet × \(price)"
+        return "\(qty) \(account.unitLabel) × \(price)"
     }
 }
 
@@ -464,7 +498,6 @@ struct AssetDetailView: View {
     @State private var showingBuy = false
     @State private var showingSell = false
     @State private var showingRename = false
-    @State private var isRefreshingPrice = false
     @State private var priceText: Double?
 
     private var sortedTransactions: [AssetTransaction] {
@@ -525,21 +558,7 @@ struct AssetDetailView: View {
                     }
                 }
 
-                // Anlık fiyatı elle tetikleme (vadeli hariç)
-                if account != .cash {
-                    Button {
-                        Task { await refreshUnitPrice() }
-                    } label: {
-                        HStack {
-                            Label("Fiyatı Şimdi Güncelle", systemImage: "arrow.clockwise")
-                            Spacer()
-                            if isRefreshingPrice {
-                                ProgressView()
-                            }
-                        }
-                    }
-                    .disabled(isRefreshingPrice)
-                }
+
 
                 if account == .gold {
                     HStack {
@@ -643,37 +662,6 @@ struct AssetDetailView: View {
         }
         .onChange(of: asset.unitPrice) {
             priceText = asset.unitPrice > 0 ? asset.unitPrice : nil
-        }
-    }
-
-    // Bu varlığın anlık fiyatını hemen çek
-    @MainActor
-    private func refreshUnitPrice() async {
-        isRefreshingPrice = true
-        defer { isRefreshingPrice = false }
-
-        var price: Double?
-        switch account {
-        case .stock:
-            if let code = asset.code {
-                price = try? await PriceService.fetchBistStockPrice(code: code)
-            }
-        case .fund:
-            if let code = asset.code {
-                price = await PriceService.fetchAnyFundPrice(code: code)
-            }
-        case .gold:
-            price = (try? await PriceService.fetchMarketPrices())?.goldGram
-        case .cash:
-            break
-        }
-
-        if let price {
-            asset.unitPrice = price
-            asset.priceUpdatedAt = .now
-            priceText = price
-            try? modelContext.save()
-            syncSavingsSnapshot(modelContext)
         }
     }
 

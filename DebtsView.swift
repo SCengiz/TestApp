@@ -64,6 +64,8 @@ struct DebtsView: View {
     @State private var priceError: String?
     @State private var isRefreshing = false
     @State private var lastUpdate: Date?
+    @State private var isVisible = false
+    private let autoRefresh = Timer.publish(every: 30, on: .main, in: .common).autoconnect()
 
     private var totalTL: Double {
         debts.reduce(0) { $0 + $1.valueTL }
@@ -174,6 +176,15 @@ struct DebtsView: View {
                 }
             }
             .onAppear {
+                isVisible = true
+                Task { await refreshRates() }
+            }
+            .onDisappear {
+                isVisible = false
+            }
+            .onReceive(autoRefresh) { _ in
+                // Sekme açıkken kurlar 30 sn'de bir otomatik tazelenir
+                guard isVisible else { return }
                 Task { await refreshRates() }
             }
             .onChange(of: debts.count) {
