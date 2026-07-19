@@ -449,7 +449,9 @@ struct AssetDetailView: View {
                     title: asset.name,
                     amount: asset.value,
                     icon: account.icon,
-                    colors: [account.color, account.color.opacity(0.6)]
+                    colors: [account.color, account.color.opacity(0.6)],
+                    profit: (account != .cash && asset.netInvested > 0) ? asset.profit : nil,
+                    profitPercent: asset.profitPercent
                 )
                 .listRowInsets(EdgeInsets())
                 .listRowBackground(Color.clear)
@@ -464,20 +466,6 @@ struct AssetDetailView: View {
                         .fontWeight(.semibold)
                 }
 
-                if account != .cash, asset.netInvested > 0 {
-                    HStack {
-                        Text("Net yatırılan")
-                        Spacer()
-                        Text(asset.netInvested, format: .currency(code: "TRY"))
-                            .foregroundStyle(.secondary)
-                    }
-                    HStack {
-                        Text("Kar/Zarar")
-                        Spacer()
-                        ProfitText(profit: asset.profit, percent: asset.profitPercent)
-                            .font(.callout.weight(.bold))
-                    }
-                }
 
                 if account == .fund || account == .stock {
                     HStack {
