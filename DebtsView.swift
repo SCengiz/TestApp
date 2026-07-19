@@ -201,7 +201,7 @@ struct DebtsView: View {
 
     private func subtitle(for debt: Debt, kind: DebtKind) -> String {
         let qty = debt.quantity.formatted(.number.precision(.fractionLength(0...2)))
-        let date = debt.date.formatted(.dateTime.day().month(.abbreviated).year())
+        let date = debt.date.formatted(.dateTime.day().month(.abbreviated).year().locale(appLocale))
         if kind == .tl {
             return "\(kind.title) · \(date)"
         }

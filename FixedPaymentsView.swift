@@ -94,7 +94,7 @@ struct FixedPaymentsView: View {
     private func subtitle(for payment: FixedPayment) -> String {
         // Tek seferlik ödeme: hangi aya ait olduğunu göster
         if payment.totalInstallments == 1, let first = payment.firstPaymentDate {
-            let month = first.formatted(.dateTime.month(.wide).year())
+            let month = first.formatted(.dateTime.month(.wide).year().locale(appLocale))
             return "Tek seferlik · \(month) · Ayın \(payment.dueDay). günü"
         }
         if let total = payment.totalInstallments,
@@ -193,7 +193,7 @@ struct AddFixedPaymentView: View {
                     if kind == .oneTime {
                         Picker("Hangi aya", selection: $oneTimeMonth) {
                             ForEach(monthOptions, id: \.self) { month in
-                                Text(month.formatted(.dateTime.month(.wide).year())).tag(month)
+                                Text(month.formatted(.dateTime.month(.wide).year().locale(appLocale))).tag(month)
                             }
                         }
                     }

@@ -29,7 +29,7 @@ struct DailyExpensesView: View {
     private var cardTitle: String {
         monthOffset == 0
             ? "Bu Ay Toplam"
-            : selectedMonth.formatted(.dateTime.month(.wide).year())
+            : selectedMonth.formatted(.dateTime.month(.wide).year().locale(appLocale))
     }
 
     // Harcamaları günlere göre grupla (günler ve gün içi kayıtlar kronolojik)

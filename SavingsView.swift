@@ -523,7 +523,7 @@ struct AssetDetailView: View {
                         HStack {
                             Text("Son otomatik güncelleme")
                             Spacer()
-                            Text(updated.formatted(date: .abbreviated, time: .shortened))
+                            Text(updated.formatted(.dateTime.day().month(.abbreviated).year().hour().minute().locale(appLocale)))
                                 .foregroundStyle(.secondary)
                         }
                         .font(.caption)

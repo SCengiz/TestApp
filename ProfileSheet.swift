@@ -106,6 +106,7 @@ struct ProfileSheet: View {
 struct SettingsView: View {
     let user: String
     @AppStorage("appTheme") private var themeRaw = AppTheme.system.rawValue
+    @AppStorage("appLanguage") private var appLanguage = "tr"
 
     var body: some View {
         List {
@@ -118,10 +119,17 @@ struct SettingsView: View {
                     Label("Tema", systemImage: "circle.lefthalf.filled")
                 }
                 .pickerStyle(.menu)
+                Picker(selection: $appLanguage) {
+                    Text("Türkçe").tag("tr")
+                    Text("English").tag("en")
+                } label: {
+                    Label("Dil", systemImage: "globe")
+                }
+                .pickerStyle(.menu)
             } header: {
                 Text("Görünüm")
             } footer: {
-                Text("\"Sistem\" seçiliyken telefonun açık/koyu ayarına uyar.")
+                Text("\"Sistem\" teması telefonun açık/koyu ayarına uyar. Dil seçimi ay adlarını, tarih ve sayı biçimlerini etkiler.")
             }
 
             Section("Hesap") {

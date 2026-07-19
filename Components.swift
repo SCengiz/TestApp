@@ -1,5 +1,12 @@
 import SwiftUI
 
+// Uygulama dili (Ayarlar'dan seçilir; varsayılan Türkçe).
+// Ay adları, tarih ve sayı biçimleri bu yerel ayara göre gösterilir.
+var appLocale: Locale {
+    let lang = UserDefaults.standard.string(forKey: "appLanguage") ?? "tr"
+    return Locale(identifier: lang == "en" ? "en_US" : "tr_TR")
+}
+
 // Renkli özet kartı: başlık + tutar (+ isteğe bağlı kar/zarar rozeti)
 struct StatCard: View {
     let title: String
@@ -129,7 +136,7 @@ struct MonthBreakdownSheet: View {
                     }
                 }
             }
-            .navigationTitle(month.formatted(.dateTime.month(.wide).year()))
+            .navigationTitle(month.formatted(.dateTime.month(.wide).year().locale(appLocale)))
             .navigationBarTitleDisplayMode(.inline)
         }
     }
