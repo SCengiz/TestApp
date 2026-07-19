@@ -40,7 +40,11 @@ final class SpeechRecognizer {
 
     private func beginRecording() {
         guard let recognizer, recognizer.isAvailable else {
-            errorMessage = "Konuşma tanıma şu an kullanılamıyor."
+            #if targetEnvironment(simulator)
+            errorMessage = "Konuşma tanıma simülatörde kullanılamıyor. Mac'te: Sistem Ayarları > Gizlilik > Mikrofon'dan Simulator'a izin ver ve Simulator menüsünden I/O > Audio Input'u kontrol et. En sağlıklı test gerçek iPhone'da."
+            #else
+            errorMessage = "Konuşma tanıma şu an kullanılamıyor. İnternet bağlantını ve Ayarlar > Genel > Klavye > Dikte'nin açık olduğunu kontrol et."
+            #endif
             return
         }
         do {
@@ -93,11 +97,39 @@ final class SpeechRecognizer {
     }
 }
 
-// "Market alışverişi 500 lira" → (açıklama: "Market alışverişi", tutar: 500)
-func parseSpokenExpense(_ spoken: String) -> (title: String?, amount: Double?) {
-    var text = spoken.trimmingCharacters(in: .whitespacesAndNewlines)
-    guard !text.isEmpty else { return (nil, nil) }
+// Metinden kategori tahmini: "bim", "benzin", "eczane" gibi anahtar kelimelerden
+// (sıra önemli: "market alışverişi" önce Market'e yakalanır, Alışveriş'e değil)
+func guessCategory(from text: String) -> String? {
+    let t = text.lowercased(with: Locale(identifier: "tr_TR"))
+    let rules: [(category: String, keywords: [String])] = [
+        ("Market", ["market", "bim", "a101", "şok", "migros", "carrefour", "manav", "bakkal"]),
+        ("Akaryakıt", ["benzin", "motorin", "mazot", "akaryakıt", "yakıt", "opet", "shell", "petrol"]),
+        ("Kafe & Restoran", ["kafe", "cafe", "kahve", "restoran", "lokanta", "yemek", "starbucks", "burger", "pizza", "döner", "dürüm"]),
+        ("Ulaşım", ["otobüs", "metro", "taksi", "dolmuş", "marmaray", "vapur", "ulaşım", "akbil"]),
+        ("Giyim", ["giyim", "kıyafet", "ayakkabı", "pantolon", "tişört", "gömlek", "elbise", "mont", "ceket", "zara", "koton", "lcw"]),
+        ("Fatura", ["fatura", "elektrik", "doğalgaz", "internet"]),
+        ("Sağlık", ["eczane", "ilaç", "doktor", "hastane", "muayene", "diş", "sağlık", "vitamin"]),
+        ("Abonelik", ["abonelik", "netflix", "spotify", "youtube"]),
+        ("Eğlence", ["sinema", "konser", "tiyatro", "oyun", "eğlence"]),
+        ("Alışveriş", ["alışveriş", "trendyol", "hepsiburada", "amazon", "n11", "mağaza"]),
+    ]
+    for rule in rules where rule.keywords.contains(where: { t.contains($0) }) {
+        return rule.category
+    }
+    return nil
+}
 
+// "Dün Bim'den 100 TL'lik market alışverişi yaptım"
+// → açıklama + tutar (100) + kategori (Market) + tarih (dün)
+func parseSpokenExpense(_ spoken: String)
+    -> (title: String?, amount: Double?, category: String?, date: Date?) {
+    var text = spoken.trimmingCharacters(in: .whitespacesAndNewlines)
+    guard !text.isEmpty else { return (nil, nil, nil, nil) }
+
+    // Kategoriyi orijinal cümleden tahmin et
+    let category = guessCategory(from: text)
+
+    // Tutarı yakala
     var amount: Double?
     if let match = text.range(of: #"\d+(?:[.,]\d+)?"#, options: .regularExpression) {
         var numText = String(text[match])
@@ -111,13 +143,31 @@ func parseSpokenExpense(_ spoken: String) -> (title: String?, amount: Double?) {
         text.removeSubrange(match)
     }
 
-    // Para birimi kelimelerini açıklamadan temizle
-    for word in ["türk lirası", "lira", "tl", "₺"] {
-        text = text.replacingOccurrences(of: word, with: "", options: .caseInsensitive)
+    // Tarih kelimeleri: "dün", "bugün", "evvelsi/önceki gün"
+    var date: Date?
+    let dayPhrases: [(phrase: String, offset: Int)] = [
+        ("evvelsi gün", -2), ("önceki gün", -2), ("dün", -1), ("bugün", 0),
+    ]
+    for item in dayPhrases where text.range(of: item.phrase, options: .caseInsensitive) != nil {
+        date = Calendar.current.date(byAdding: .day, value: item.offset, to: .now)
+        text = text.replacingOccurrences(of: item.phrase, with: "", options: .caseInsensitive)
+        break
     }
-    let cleaned = text.split(separator: " ").joined(separator: " ")
+
+    // Çok kelimeli para ifadelerini temizle
+    text = text.replacingOccurrences(of: "türk lirası", with: "", options: .caseInsensitive)
+
+    // Gereksiz kelimeleri (para birimi, ekler, fiiller) kelime bazında ayıkla
+    let junkWords: Set<String> = ["tl", "lira", "liralık", "lik", "lık", "₺",
+                                  "yaptım", "aldım", "ödedim", "harcadım", "verdim"]
+    let words = text
+        .split(separator: " ")
+        .map(String.init)
+        .filter { !junkWords.contains($0.lowercased(with: Locale(identifier: "tr_TR"))) }
+
+    let cleaned = words.joined(separator: " ")
     let title = cleaned.isEmpty ? nil : cleaned.prefix(1).uppercased() + cleaned.dropFirst()
-    return (title, amount)
+    return (title, amount, category, date)
 }
 
 // Formlarda kullanılan "Sesle Gir" bölümü

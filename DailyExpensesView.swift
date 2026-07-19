@@ -117,19 +117,23 @@ struct AddExpenseView: View {
         NavigationStack {
             Form {
                 VoiceEntrySection(hint: "Sesle söyle") { spoken in
+                    // "Dün Bim'den 100 TL'lik market alışverişi yaptım"
+                    // → 4 alan birden dolar
                     let parsed = parseSpokenExpense(spoken)
                     if let spokenTitle = parsed.title { title = spokenTitle }
                     if let spokenAmount = parsed.amount { amount = spokenAmount }
-                    // Söylenenin içinde kategori adı geçiyorsa otomatik seç
-                    if let match = ExpenseCategory.all.first(where: {
-                        spoken.localizedCaseInsensitiveContains($0.name)
-                    }) {
-                        category = match.name
-                    }
+                    if let spokenCategory = parsed.category { category = spokenCategory }
+                    if let spokenDate = parsed.date { date = spokenDate }
                 }
 
                 Section("Elle Gir") {
                     TextField("Ne aldın? (örn. Market alışverişi)", text: $title)
+                        .onChange(of: title) {
+                            // Yazdıkça kategoriyi otomatik tahmin et
+                            if let guessed = guessCategory(from: title) {
+                                category = guessed
+                            }
+                        }
 
                     TextField("Tutar (TL)", value: $amount, format: .number)
                         .keyboardType(.decimalPad)
