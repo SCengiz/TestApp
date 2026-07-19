@@ -175,7 +175,7 @@ struct SummaryView: View {
                                 } label: {
                                     HStack(spacing: 12) {
                                         RowIcon(systemName: item.category.icon, color: item.category.color)
-                                        Text(item.category.name)
+                                        Text(item.category.displayName)
                                         Spacer()
                                         VStack(alignment: .trailing, spacing: 2) {
                                             Text(item.total, format: .currency(code: "TRY"))
@@ -348,14 +348,14 @@ struct CategoryDetailSheet: View {
                     }
                 }
             }
-            .navigationTitle(category.name)
+            .navigationTitle(category.displayName)
             .navigationBarTitleDisplayMode(.inline)
             .overlay {
                 if expenses.isEmpty {
                     ContentUnavailableView(
                         tr("Bu ay harcama yok", "No spending this month"),
                         systemImage: category.icon,
-                        description: Text(tr("\(category.name) kategorisinde bu ay kayıt bulunmuyor.", "No records in \(category.name) this month."))
+                        description: Text(tr("\(category.name) kategorisinde bu ay kayıt bulunmuyor.", "No records in \(category.displayName) this month."))
                     )
                 }
             }

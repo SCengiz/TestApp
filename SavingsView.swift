@@ -106,7 +106,7 @@ struct SavingsView: View {
         }
         return accounts.map { account in
             let kind = SavingsAccount(rawValue: account.kind) ?? .cash
-            return (account.name, account.totalValue, kind.color)
+            return (localizedDataName(account.name), account.totalValue, kind.color)
         }
     }
 
@@ -157,7 +157,7 @@ struct SavingsView: View {
                             HStack(spacing: 12) {
                                 RowIcon(systemName: kind.icon, color: kind.color)
                                 VStack(alignment: .leading, spacing: 2) {
-                                    Text(account.name)
+                                    Text(localizedDataName(account.name))
                                     if account.netInvestedNonZero {
                                         ProfitText(profit: account.totalProfit,
                                                    percent: account.totalProfitPercent)
@@ -341,7 +341,7 @@ struct AccountDetailView: View {
                                 HStack(spacing: 12) {
                                     RowIcon(systemName: account.icon, color: account.color)
                                     VStack(alignment: .leading, spacing: 2) {
-                                        Text(asset.name)
+                                        Text(localizedDataName(asset.name))
                                         Text(assetSubtitle(asset))
                                             .font(.caption)
                                             .foregroundStyle(.secondary)
@@ -409,7 +409,7 @@ struct AccountDetailView: View {
                 }
             }
         }
-        .navigationTitle(accountModel.name)
+        .navigationTitle(localizedDataName(accountModel.name))
         .onDisappear {
             isVisible = false
         }
@@ -446,7 +446,7 @@ struct AccountDetailView: View {
     private var summaryCard: some View {
         Section {
             StatCard(
-                title: accountModel.name,
+                title: localizedDataName(accountModel.name),
                 amount: accountTotal,
                 icon: account.icon,
                 colors: [account.color, account.color.opacity(0.6)],
@@ -488,7 +488,7 @@ struct AssetDetailView: View {
         List {
             Section {
                 StatCard(
-                    title: asset.name,
+                    title: localizedDataName(asset.name),
                     amount: asset.value,
                     icon: account.icon,
                     colors: [account.color, account.color.opacity(0.6)],
@@ -621,7 +621,7 @@ struct AssetDetailView: View {
         .refreshable {
             _ = await refreshAllAssetPrices(modelContext)
         }
-        .navigationTitle(embedded ? account.title : asset.name)
+        .navigationTitle(embedded ? account.title : localizedDataName(asset.name))
         .toolbar {
             if account == .fund || account == .stock {
                 Button {

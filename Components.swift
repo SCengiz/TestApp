@@ -182,3 +182,18 @@ struct RowIcon: View {
             .background(Circle().fill(color.gradient))
     }
 }
+
+// Varsayılan hesap/varlık adlarını İngilizce modda çevir (kayıt Türkçe kalır)
+func localizedDataName(_ name: String) -> String {
+    guard isEnglishUI else { return name }
+    let map: [String: String] = [
+        "Fon Hesabı": "Fund Account",
+        "Hisse Hesabı": "Stock Account",
+        "Vadeli Hesap": "Deposit Account",
+        "Emtia Hesabı": "Commodity Account",
+        "Vadeli Mevduat": "Time Deposit",
+        "Altın": "Gold",
+        "Gümüş": "Silver",
+    ]
+    return map[name] ?? name
+}

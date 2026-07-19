@@ -21,6 +21,25 @@ struct ExpenseCategory: Identifiable, Hashable {
         .init(name: "Diğer", icon: "ellipsis.circle.fill", color: .gray),
     ]
 
+    // İngilizce modda ekranda gösterilen ad (kayıtlardaki ad Türkçe kalır)
+    var displayName: String {
+        guard isEnglishUI else { return name }
+        switch name {
+        case "Market":          return "Groceries"
+        case "Kafe & Restoran": return "Cafe & Dining"
+        case "Ulaşım":          return "Transport"
+        case "Akaryakıt":       return "Fuel"
+        case "Alışveriş":       return "Shopping"
+        case "Giyim":           return "Clothing"
+        case "Fatura":          return "Bills"
+        case "Sağlık":          return "Health"
+        case "Eğlence":         return "Entertainment"
+        case "Abonelik":        return "Subscriptions"
+        case "Diğer":           return "Other"
+        default:                return name
+        }
+    }
+
     // Eski kayıtlardaki kategori adlarını yenilerine eşle
     private static let legacyNames: [String: String] = [
         "Online Alışveriş": "Alışveriş",

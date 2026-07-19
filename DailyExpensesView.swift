@@ -135,9 +135,9 @@ struct DailyExpensesView: View {
     // "Market · Taksit 2/6" gibi alt satır
     private func rowSubtitle(_ expense: Expense, category: ExpenseCategory) -> String {
         if let number = expense.installmentNumber, let count = expense.installmentCount {
-            return "\(category.name) · " + tr("Taksit \(number)/\(count)", "Installment \(number)/\(count)")
+            return "\(category.displayName) · " + tr("Taksit \(number)/\(count)", "Installment \(number)/\(count)")
         }
-        return category.name
+        return category.displayName
     }
 
     private func dayTotal(_ items: [Expense]) -> Double {
@@ -192,7 +192,7 @@ struct AddExpenseView: View {
 
                     Picker(tr("Kategori", "Category"), selection: $category) {
                         ForEach(ExpenseCategory.all) { cat in
-                            Label(cat.name, systemImage: cat.icon).tag(cat.name)
+                            Label(cat.displayName, systemImage: cat.icon).tag(cat.name)
                         }
                     }
 
