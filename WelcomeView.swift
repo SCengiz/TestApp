@@ -1,7 +1,79 @@
 import SwiftUI
 
+// Uygulama logosu (ikonla aynı tasarım): degrade kare üzerinde
+// yükselen çubuklar + trend oku — her boyutta çizilebilir
+struct AppMark: View {
+    var size: CGFloat = 120
+
+    var body: some View {
+        ZStack {
+            RoundedRectangle(cornerRadius: size * 0.23, style: .continuous)
+                .fill(
+                    LinearGradient(
+                        colors: [Color(red: 0.31, green: 0.27, blue: 0.90),
+                                 Color(red: 0.02, green: 0.71, blue: 0.83)],
+                        startPoint: .topLeading,
+                        endPoint: .bottomTrailing
+                    )
+                )
+                .shadow(color: .black.opacity(0.25), radius: size * 0.09, y: size * 0.05)
+
+            // Yükselen çubuklar
+            HStack(alignment: .bottom, spacing: size * 0.06) {
+                bar(height: 0.22, opacity: 0.75)
+                bar(height: 0.34, opacity: 0.85)
+                bar(height: 0.46, opacity: 1.0)
+            }
+            .offset(y: size * 0.14)
+
+            // Trend oku
+            TrendArrow()
+                .stroke(.white, style: StrokeStyle(lineWidth: size * 0.055,
+                                                   lineCap: .round, lineJoin: .round))
+                .frame(width: size * 0.62, height: size * 0.3)
+                .offset(y: -size * 0.17)
+
+            ArrowHead()
+                .fill(.white)
+                .frame(width: size * 0.17, height: size * 0.17)
+                .offset(x: size * 0.31, y: -size * 0.31)
+        }
+        .frame(width: size, height: size)
+    }
+
+    private func bar(height: CGFloat, opacity: Double) -> some View {
+        RoundedRectangle(cornerRadius: size * 0.045, style: .continuous)
+            .fill(.white.opacity(opacity))
+            .frame(width: size * 0.13, height: size * height)
+    }
+}
+
+// Yükselen kırık çizgi
+struct TrendArrow: Shape {
+    func path(in rect: CGRect) -> Path {
+        var p = Path()
+        p.move(to: CGPoint(x: rect.minX, y: rect.maxY))
+        p.addLine(to: CGPoint(x: rect.width * 0.4, y: rect.height * 0.35))
+        p.addLine(to: CGPoint(x: rect.width * 0.6, y: rect.height * 0.6))
+        p.addLine(to: CGPoint(x: rect.maxX, y: rect.minY))
+        return p
+    }
+}
+
+// Ok başı (sağ yukarı bakan üçgen)
+struct ArrowHead: Shape {
+    func path(in rect: CGRect) -> Path {
+        var p = Path()
+        p.move(to: CGPoint(x: rect.maxX, y: rect.minY))
+        p.addLine(to: CGPoint(x: rect.minX + rect.width * 0.15, y: rect.minY + rect.height * 0.35))
+        p.addLine(to: CGPoint(x: rect.minX + rect.width * 0.65, y: rect.maxY))
+        p.closeSubpath()
+        return p
+    }
+}
+
 // Uygulama açılış/karşılama ekranı:
-// üstte tanıtıcı görsel + slogan, altta Giriş Yap / Kayıt Ol
+// üstte profesyonel logo + slogan, altta Giriş Yap / Kayıt Ol
 struct WelcomeView: View {
     @Binding var loggedInUser: String?
 
@@ -15,34 +87,38 @@ struct WelcomeView: View {
             )
             .ignoresSafeArea()
 
+            // Arka plandaki yumuşak ışık daireleri (derinlik)
+            Circle()
+                .fill(.white.opacity(0.08))
+                .frame(width: 420, height: 420)
+                .offset(x: -150, y: -320)
+            Circle()
+                .fill(.white.opacity(0.06))
+                .frame(width: 300, height: 300)
+                .offset(x: 170, y: 100)
+
             VStack(spacing: 0) {
                 Spacer()
 
-                // Tanıtıcı görsel: logo + özellik ikonları
-                VStack(spacing: 24) {
-                    ZStack {
-                        Circle()
-                            .fill(.white.opacity(0.15))
-                            .frame(width: 150, height: 150)
-                        Text("₺")
-                            .font(.system(size: 84, weight: .heavy))
+                // Logo + isim + slogan
+                VStack(spacing: 28) {
+                    AppMark(size: 148)
+
+                    VStack(spacing: 10) {
+                        Text("İyi Bütçe")
+                            .font(.system(size: 42, weight: .bold))
                             .foregroundStyle(.white)
+                        Text("Gelirinizi bilin, giderinizi yönetin.")
+                            .font(.headline)
+                            .foregroundStyle(.white.opacity(0.9))
                     }
 
-                    HStack(spacing: 22) {
-                        featureIcon("chart.pie.fill")
-                        featureIcon("banknote.fill")
-                        featureIcon("chart.line.uptrend.xyaxis")
-                        featureIcon("person.2.fill")
-                    }
-
-                    VStack(spacing: 8) {
-                        Text("Kasam")
-                            .font(.system(size: 40, weight: .bold))
-                            .foregroundStyle(.white)
-                        Text("Gelirin, giderin, birikimin — hepsi kasanda")
-                            .font(.subheadline)
-                            .foregroundStyle(.white.opacity(0.85))
+                    // Özellik rozetleri
+                    HStack(spacing: 10) {
+                        featureChip("chart.pie.fill", "Gider")
+                        featureChip("banknote.fill", "Gelir")
+                        featureChip("chart.line.uptrend.xyaxis", "Birikim")
+                        featureChip("person.2.fill", "Borç")
                     }
                 }
 
@@ -79,12 +155,19 @@ struct WelcomeView: View {
         }
     }
 
-    private func featureIcon(_ name: String) -> some View {
-        Image(systemName: name)
-            .font(.title3)
-            .foregroundStyle(.white)
-            .frame(width: 46, height: 46)
-            .background(Circle().fill(.white.opacity(0.15)))
+    private func featureChip(_ icon: String, _ title: String) -> some View {
+        VStack(spacing: 6) {
+            Image(systemName: icon)
+                .font(.body)
+            Text(title)
+                .font(.caption2.weight(.semibold))
+        }
+        .foregroundStyle(.white)
+        .frame(width: 74, height: 64)
+        .background(
+            RoundedRectangle(cornerRadius: 14, style: .continuous)
+                .fill(.white.opacity(0.14))
+        )
     }
 }
 
@@ -109,9 +192,7 @@ struct RegisterView: View {
             VStack(spacing: 24) {
                 Spacer()
 
-                Text("₺")
-                    .font(.system(size: 64, weight: .heavy))
-                    .foregroundStyle(.white)
+                AppMark(size: 88)
                 Text("Hesap Oluştur")
                     .font(.largeTitle.bold())
                     .foregroundStyle(.white)

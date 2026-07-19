@@ -65,10 +65,8 @@ struct LoginView: View {
                 Spacer()
 
                 // Logo
-                Text("₺")
-                    .font(.system(size: 80, weight: .heavy))
-                    .foregroundStyle(.white)
-                Text("Kasam")
+                AppMark(size: 96)
+                Text("İyi Bütçe")
                     .font(.largeTitle.bold())
                     .foregroundStyle(.white)
                 Text("Devam etmek için giriş yap")
