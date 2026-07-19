@@ -12,10 +12,10 @@ enum DebtKind: String, CaseIterable, Identifiable {
 
     var title: String {
         switch self {
-        case .tl:     return "Türk Lirası"
-        case .usd:    return "Dolar"
-        case .gram:   return "Gram Altın"
-        case .ceyrek: return "Çeyrek Altın"
+        case .tl:     return tr("Türk Lirası", "Turkish Lira")
+        case .usd:    return tr("Dolar", "US Dollar")
+        case .gram:   return tr("Gram Altın", "Gold (grams)")
+        case .ceyrek: return tr("Çeyrek Altın", "Quarter Gold")
         }
     }
 
@@ -39,19 +39,19 @@ enum DebtKind: String, CaseIterable, Identifiable {
 
     var quantityLabel: String {
         switch self {
-        case .tl:     return "Tutar (TL)"
-        case .usd:    return "Miktar (dolar)"
-        case .gram:   return "Kaç gram?"
-        case .ceyrek: return "Kaç adet?"
+        case .tl:     return tr("Tutar (TL)", "Amount (TL)")
+        case .usd:    return tr("Miktar (dolar)", "Amount (USD)")
+        case .gram:   return tr("Kaç gram?", "How many grams?")
+        case .ceyrek: return tr("Kaç adet?", "How many pieces?")
         }
     }
 
     var unitLabel: String {
         switch self {
         case .tl:     return "TL"
-        case .usd:    return "dolar"
-        case .gram:   return "gram"
-        case .ceyrek: return "adet çeyrek"
+        case .usd:    return tr("dolar", "USD")
+        case .gram:   return tr("gram", "grams")
+        case .ceyrek: return tr("adet çeyrek", "quarter coins")
         }
     }
 }
@@ -92,7 +92,7 @@ struct DebtsView: View {
             List {
                 Section {
                     StatCard(
-                        title: "Toplam Borcum",
+                        title: tr("Toplam Borcum", "Total Debt"),
                         amount: totalTL,
                         icon: "person.2.fill",
                         colors: [.red, .orange],
@@ -133,7 +133,7 @@ struct DebtsView: View {
                     .onDelete(perform: deleteDebts)
                 } header: {
                     HStack {
-                        Text("Borçlarım")
+                        Text(tr("Borçlarım", "My Debts"))
                         Spacer()
                         if isRefreshing {
                             ProgressView()
@@ -144,13 +144,13 @@ struct DebtsView: View {
                     if let priceError {
                         Text("⚠️ \(priceError)")
                     } else if let lastUpdate {
-                        Text("Kurlar güncel · son güncelleme \(lastUpdate.formatted(date: .omitted, time: .shortened)). Aşağı çekerek yenileyebilirsin; ödediğin borca dokunup silebilirsin.")
+                        Text(tr("Kurlar güncel · son güncelleme \(lastUpdate.formatted(date: .omitted, time: .shortened)). Aşağı çekerek yenileyebilirsin; ödediğin borca dokunup silebilirsin.", "Rates up to date · last update \(lastUpdate.formatted(date: .omitted, time: .shortened)). Pull to refresh; tap a paid debt to delete."))
                     } else {
-                        Text("Altın ve dolar borçları güncel satış kurundan TL'ye çevrilir; aşağı çekerek kurları yenile. Ödediğin borca dokunup silebilirsin.")
+                        Text(tr("Altın ve dolar borçları güncel satış kurundan TL'ye çevrilir; aşağı çekerek kurları yenile. Ödediğin borca dokunup silebilirsin.", "Gold and dollar debts convert to TL at the current sell rate; pull to refresh. Tap a paid debt to delete."))
                     }
                 }
             }
-            .navigationTitle("Borçlar")
+            .navigationTitle(tr("Borçlar", "Debts"))
             .toolbar {
                 ToolbarItem(placement: .topBarLeading) {
                     ProfileButton(loggedInUser: $loggedInUser)
@@ -159,7 +159,7 @@ struct DebtsView: View {
                     Button {
                         showingAddSheet = true
                     } label: {
-                        Label("Borç Ekle", systemImage: "plus")
+                        Label(tr("Borç Ekle", "Add Debt"), systemImage: "plus")
                     }
                 }
             }
@@ -175,9 +175,9 @@ struct DebtsView: View {
             .overlay {
                 if debts.isEmpty {
                     ContentUnavailableView(
-                        "Henüz borç yok",
+                        tr("Henüz borç yok", "No debts yet"),
                         systemImage: "person.2",
-                        description: Text("Sağ üstteki + ile elden aldığın borçları ekle: TL, dolar veya altın.")
+                        description: Text(tr("Sağ üstteki + ile elden aldığın borçları ekle: TL, dolar veya altın.", "Add debts with + at the top right: TL, dollars or gold."))
                     )
                 }
             }
@@ -224,7 +224,7 @@ struct DebtsView: View {
         defer { isRefreshing = false }
         priceError = nil
         guard let market = try? await PriceService.fetchMarketPrices() else {
-            priceError = "Kurlar alınamadı; son bilinen kurlar kullanılıyor."
+            priceError = tr("Kurlar alınamadı; son bilinen kurlar kullanılıyor.", "Could not fetch rates; using last known.")
             return
         }
         for debt in fxDebts {
@@ -263,9 +263,9 @@ struct DebtFormView: View {
         NavigationStack {
             Form {
                 Section {
-                    TextField("Kimden / açıklama (örn. Ahmet)", text: $name)
+                    TextField(tr("Kimden / açıklama (örn. Ahmet)", "From whom / note (e.g. Ahmet)"), text: $name)
 
-                    Picker("Borç türü", selection: $kind.animation()) {
+                    Picker(tr("Borç türü", "Debt kind"), selection: $kind.animation()) {
                         ForEach(DebtKind.allCases) { k in
                             Label(k.title, systemImage: k.icon).tag(k)
                         }
@@ -275,36 +275,36 @@ struct DebtFormView: View {
                         .keyboardType(.decimalPad)
 
                     if kind != .tl {
-                        TextField("Aldığın gündeki birim fiyat (TL)", value: $initialRate, format: .number)
+                        TextField(tr("Aldığın gündeki birim fiyat (TL)", "Unit price on the borrow date (TL)"), value: $initialRate, format: .number)
                             .keyboardType(.decimalPad)
                     }
 
-                    DatePicker("Borç tarihi", selection: $date, displayedComponents: .date)
+                    DatePicker(tr("Borç tarihi", "Borrow date"), selection: $date, displayedComponents: .date)
                 } footer: {
                     if kind == .tl {
-                        Text("TL borcu olduğu gibi toplama eklenir.")
+                        Text(tr("TL borcu olduğu gibi toplama eklenir.", "TL debts are added as-is."))
                     } else {
-                        Text("Güncel satış kurundan TL karşılığı gösterilir. Aldığın gündeki fiyatı girersen, kur farkından borcun ne kadar arttığı da kırmızı kutuda görünür (boş bırakırsan bugün baz alınır).")
+                        Text(tr("Güncel satış kurundan TL karşılığı gösterilir. Aldığın gündeki fiyatı girersen, kur farkından borcun ne kadar arttığı da kırmızı kutuda görünür (boş bırakırsan bugün baz alınır).", "Shown in TL at the current sell rate. Enter the borrow-day price to also track how much the debt grew."))
                     }
                 }
 
                 if debt != nil {
                     Section {
-                        Button("Borcu Sil (Ödendi)", role: .destructive) {
+                        Button(tr("Borcu Sil (Ödendi)", "Delete Debt (Paid)"), role: .destructive) {
                             deleteDebt()
                         }
                         .frame(maxWidth: .infinity)
                     }
                 }
             }
-            .navigationTitle(debt == nil ? "Borç Ekle" : "Borcu Düzenle")
+            .navigationTitle(debt == nil ? tr("Borç Ekle", "Add Debt") : tr("Borcu Düzenle", "Edit Debt"))
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
-                    Button("Vazgeç") { dismiss() }
+                    Button(tr("Vazgeç", "Cancel")) { dismiss() }
                 }
                 ToolbarItem(placement: .confirmationAction) {
-                    Button("Kaydet") {
+                    Button(tr("Kaydet", "Save")) {
                         save()
                     }
                     .disabled(name.isEmpty || (quantity ?? 0) <= 0)

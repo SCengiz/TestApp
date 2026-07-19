@@ -18,7 +18,7 @@ struct FixedPaymentsView: View {
         List {
             Section {
                 StatCard(
-                    title: "Ödemelerim",
+                    title: tr("Ödemelerim", "My Payments"),
                     amount: monthlyTotal,
                     icon: "building.columns.fill",
                     colors: [.blue, .cyan]
@@ -54,17 +54,17 @@ struct FixedPaymentsView: View {
                 }
                 .onDelete(perform: deletePayments)
             } header: {
-                Text("Sabit Ödemeler")
+                Text(tr("Sabit Ödemeler", "Fixed Payments"))
             } footer: {
-                Text("Düzenlemek veya silmek için ödemeye dokun. Değişiklikler Ödeme Planı grafiğine anında yansır.")
+                Text(tr("Düzenlemek veya silmek için ödemeye dokun. Değişiklikler Ödeme Planı grafiğine anında yansır.", "Tap a payment to edit or delete. Changes reflect on the Payment Plan chart instantly."))
             }
         }
-        .navigationTitle("Sabit Ödemeler")
+        .navigationTitle(tr("Sabit Ödemeler", "Fixed Payments"))
         .toolbar {
             Button {
                 showingAddSheet = true
             } label: {
-                Label("Sabit Ödeme Ekle", systemImage: "plus")
+                Label(tr("Sabit Ödeme Ekle", "Add Fixed Payment"), systemImage: "plus")
             }
         }
         .sheet(isPresented: $showingAddSheet) {
@@ -76,9 +76,9 @@ struct FixedPaymentsView: View {
         .overlay {
             if payments.isEmpty {
                 ContentUnavailableView(
-                    "Henüz sabit ödeme yok",
+                    tr("Henüz sabit ödeme yok", "No fixed payments yet"),
                     systemImage: "creditcard",
-                    description: Text("Kredi kartı ekstresi, kredi taksidi gibi her ay tekrarlayan ödemeleri + ile ekle.")
+                    description: Text(tr("Kredi kartı ekstresi, kredi taksidi gibi her ay tekrarlayan ödemeleri + ile ekle.", "Add recurring payments like card statements or loan installments with +."))
                 )
             }
         }
@@ -95,16 +95,16 @@ struct FixedPaymentsView: View {
         // Tek seferlik ödeme: hangi aya ait olduğunu göster
         if payment.totalInstallments == 1, let first = payment.firstPaymentDate {
             let month = first.formatted(.dateTime.month(.wide).year().locale(appLocale))
-            return "Tek seferlik · \(month) · Ayın \(payment.dueDay). günü"
+            return tr("Tek seferlik · \(month) · Ayın \(payment.dueDay). günü", "One-time · \(month) · day \(payment.dueDay)")
         }
         if let total = payment.totalInstallments,
            let number = payment.installmentNumber(inMonth: .now) {
-            return "Taksit \(number)/\(total) · kalan \(total - number) ay · Her ayın \(payment.dueDay). günü"
+            return tr("Taksit \(number)/\(total) · kalan \(total - number) ay · Her ayın \(payment.dueDay). günü", "Installment \(number)/\(total) · \(total - number) months left · day \(payment.dueDay)")
         }
         if let total = payment.totalInstallments {
-            return "Taksit bitti (\(total)/\(total)) · Her ayın \(payment.dueDay). günü"
+            return tr("Taksit bitti (\(total)/\(total)) · Her ayın \(payment.dueDay). günü", "Installments finished (\(total)/\(total)) · day \(payment.dueDay)")
         }
-        return "Süresiz · Her ayın \(payment.dueDay). günü"
+        return tr("Süresiz · Her ayın \(payment.dueDay). günü", "Open-ended · day \(payment.dueDay) each month")
     }
 }
 
@@ -117,9 +117,17 @@ struct AddFixedPaymentView: View {
 
     // Ödeme türü: her ay tekrar eden, taksitli veya sadece tek bir aya özel
     enum PaymentKind: String, CaseIterable {
-        case recurring = "Süresiz"
-        case installment = "Taksitli"
-        case oneTime = "Tek Seferlik"
+        case recurring
+        case installment
+        case oneTime
+
+        var title: String {
+            switch self {
+            case .recurring:   return tr("Süresiz", "Open-ended")
+            case .installment: return tr("Taksitli", "Installments")
+            case .oneTime:     return tr("Tek Seferlik", "One-time")
+            }
+        }
     }
 
     @State private var name = ""
@@ -147,51 +155,51 @@ struct AddFixedPaymentView: View {
     var body: some View {
         NavigationStack {
             Form {
-                VoiceEntrySection(hint: "Sesle söyle") { spoken in
+                VoiceEntrySection(hint: tr("Sesle söyle", "Say it out loud")) { spoken in
                     let parsed = parseSpokenExpense(spoken)
                     if let spokenName = parsed.title { name = spokenName }
                     if let spokenAmount = parsed.amount { amount = spokenAmount }
                 }
 
-                Section("Elle Gir") {
-                    TextField("Adı (örn. Kredi kartı ekstresi)", text: $name)
+                Section(tr("Elle Gir", "Manual Entry")) {
+                    TextField(tr("Adı (örn. Kredi kartı ekstresi)", "Name (e.g. Card statement)"), text: $name)
 
-                    TextField("Aylık tutar (TL)", value: $amount, format: .number)
+                    TextField(tr("Aylık tutar (TL)", "Monthly amount (TL)"), value: $amount, format: .number)
                         .keyboardType(.decimalPad)
 
-                    Picker("Ödeme günü", selection: $dueDay) {
+                    Picker(tr("Ödeme günü", "Payment day"), selection: $dueDay) {
                         ForEach(1...28, id: \.self) { day in
-                            Text("Her ayın \(day). günü").tag(day)
+                            Text(tr("Her ayın \(day). günü", "Day \(day) of each month")).tag(day)
                         }
                     }
                 }
 
                 Section {
-                    Picker("Ödeme türü", selection: $kind.animation()) {
+                    Picker(tr("Ödeme türü", "Payment kind"), selection: $kind.animation()) {
                         ForEach(PaymentKind.allCases, id: \.self) { k in
-                            Text(k.rawValue).tag(k)
+                            Text(k.title).tag(k)
                         }
                     }
                     .pickerStyle(.segmented)
 
                     if kind == .installment {
-                        Picker("Toplam taksit", selection: $totalInstallments) {
+                        Picker(tr("Toplam taksit", "Total installments"), selection: $totalInstallments) {
                             ForEach(2...48, id: \.self) { n in
-                                Text("\(n) taksit").tag(n)
+                                Text(tr("\(n) taksit", "\(n) installments")).tag(n)
                             }
                         }
-                        Picker("Şu an kaçıncı taksit", selection: $currentInstallment) {
+                        Picker(tr("Şu an kaçıncı taksit", "Which installment now"), selection: $currentInstallment) {
                             ForEach(1...totalInstallments, id: \.self) { n in
-                                Text("\(n). taksit").tag(n)
+                                Text(tr("\(n). taksit", "installment #\(n)")).tag(n)
                             }
                         }
-                        Text("Kalan: \(totalInstallments - currentInstallment) ay sonra bitecek")
+                        Text(tr("Kalan: \(totalInstallments - currentInstallment) ay sonra bitecek", "Ends in \(totalInstallments - currentInstallment) months"))
                             .font(.caption)
                             .foregroundStyle(.secondary)
                     }
 
                     if kind == .oneTime {
-                        Picker("Hangi aya", selection: $oneTimeMonth) {
+                        Picker(tr("Hangi aya", "Which month"), selection: $oneTimeMonth) {
                             ForEach(monthOptions, id: \.self) { month in
                                 Text(month.formatted(.dateTime.month(.wide).year().locale(appLocale))).tag(month)
                             }
@@ -200,34 +208,34 @@ struct AddFixedPaymentView: View {
                 } footer: {
                     switch kind {
                     case .recurring:
-                        Text("Fatura, abonelik gibi her ay tekrar eden ödemeler için.")
+                        Text(tr("Fatura, abonelik gibi her ay tekrar eden ödemeler için.", "For payments repeating every month, like bills or subscriptions."))
                     case .installment:
-                        Text("Kredi taksidi gibi belirli sayıda ödemesi olanlar için.")
+                        Text(tr("Kredi taksidi gibi belirli sayıda ödemesi olanlar için.", "For payments with a set number of installments, like loans."))
                     case .oneTime:
-                        Text("Sadece seçtiğin aya işlenir; diğer ayların planını etkilemez.")
+                        Text(tr("Sadece seçtiğin aya işlenir; diğer ayların planını etkilemez.", "Applies only to the selected month."))
                     }
                 }
 
                 // Var olan ödemeyi silme (plan grafiği anında güncellenir)
                 if payment != nil {
                     Section {
-                        Button("Ödemeyi Sil", role: .destructive) {
+                        Button(tr("Ödemeyi Sil", "Delete Payment"), role: .destructive) {
                             deletePayment()
                         }
                         .frame(maxWidth: .infinity)
                     } footer: {
-                        Text("Silince bu ödeme plandan kalkar; Ödeme Planı grafiği anında güncellenir.")
+                        Text(tr("Silince bu ödeme plandan kalkar; Ödeme Planı grafiği anında güncellenir.", "Deleting removes it from the plan; the chart updates instantly."))
                     }
                 }
             }
-            .navigationTitle(payment == nil ? "Sabit Ödeme Ekle" : "Ödemeyi Düzenle")
+            .navigationTitle(payment == nil ? tr("Sabit Ödeme Ekle", "Add Fixed Payment") : tr("Ödemeyi Düzenle", "Edit Payment"))
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
-                    Button("Vazgeç") { dismiss() }
+                    Button(tr("Vazgeç", "Cancel")) { dismiss() }
                 }
                 ToolbarItem(placement: .confirmationAction) {
-                    Button("Kaydet") {
+                    Button(tr("Kaydet", "Save")) {
                         save()
                     }
                     .disabled(name.isEmpty || (amount ?? 0) <= 0)

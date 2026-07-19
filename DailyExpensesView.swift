@@ -28,7 +28,7 @@ struct DailyExpensesView: View {
 
     private var cardTitle: String {
         monthOffset == 0
-            ? "Bu Ay Toplam"
+            ? tr("Bu Ay Toplam", "This Month Total")
             : selectedMonth.formatted(.dateTime.month(.wide).year().locale(appLocale))
     }
 
@@ -96,12 +96,12 @@ struct DailyExpensesView: View {
                 }
             }
         }
-        .navigationTitle("Günlük Harcamalar")
+        .navigationTitle(tr("Günlük Harcamalar", "Daily Spending"))
         .toolbar {
             Button {
                 showingAddSheet = true
             } label: {
-                Label("Harcama Ekle", systemImage: "plus")
+                Label(tr("Harcama Ekle", "Add Expense"), systemImage: "plus")
             }
         }
         .sheet(isPresented: $showingAddSheet) {
@@ -110,11 +110,11 @@ struct DailyExpensesView: View {
         .overlay {
             if monthExpenses.isEmpty {
                 ContentUnavailableView(
-                    monthOffset > 0 ? "Bu aya planlanmış harcama yok" : "Bu ayda harcama yok",
+                    monthOffset > 0 ? tr("Bu aya planlanmış harcama yok", "No planned spending this month") : tr("Bu ayda harcama yok", "No spending this month"),
                     systemImage: "cart",
                     description: Text(monthOffset == 0
-                                      ? "Sağ üstteki + ile ilk harcamanı ekle."
-                                      : "Karttaki oklarla aylar arasında gezinebilirsin.")
+                                      ? tr("Sağ üstteki + ile ilk harcamanı ekle.", "Add your first expense with + at the top right.")
+                                      : tr("Karttaki oklarla aylar arasında gezinebilirsin.", "Use the arrows on the card to browse months."))
                 )
             }
         }
@@ -135,7 +135,7 @@ struct DailyExpensesView: View {
     // "Market · Taksit 2/6" gibi alt satır
     private func rowSubtitle(_ expense: Expense, category: ExpenseCategory) -> String {
         if let number = expense.installmentNumber, let count = expense.installmentCount {
-            return "\(category.name) · Taksit \(number)/\(count)"
+            return "\(category.name) · " + tr("Taksit \(number)/\(count)", "Installment \(number)/\(count)")
         }
         return category.name
     }
@@ -167,7 +167,7 @@ struct AddExpenseView: View {
     var body: some View {
         NavigationStack {
             Form {
-                VoiceEntrySection(hint: "Sesle söyle") { spoken in
+                VoiceEntrySection(hint: tr("Sesle söyle", "Say it out loud")) { spoken in
                     // "Dün Bim'den 100 TL'lik market alışverişi yaptım"
                     // → 4 alan birden dolar
                     let parsed = parseSpokenExpense(spoken)
@@ -177,8 +177,8 @@ struct AddExpenseView: View {
                     if let spokenDate = parsed.date { date = spokenDate }
                 }
 
-                Section("Elle Gir") {
-                    TextField("Ne aldın? (örn. Market alışverişi)", text: $title)
+                Section(tr("Elle Gir", "Manual Entry")) {
+                    TextField(tr("Ne aldın? (örn. Market alışverişi)", "What did you buy? (e.g. Groceries)"), text: $title)
                         .onChange(of: title) {
                             // Yazdıkça kategoriyi otomatik tahmin et
                             if let guessed = guessCategory(from: title) {
@@ -186,53 +186,53 @@ struct AddExpenseView: View {
                             }
                         }
 
-                    TextField(isInstallment ? "Aylık taksit tutarı (TL)" : "Tutar (TL)",
+                    TextField(isInstallment ? tr("Aylık taksit tutarı (TL)", "Monthly installment (TL)") : tr("Tutar (TL)", "Amount (TL)"),
                               value: $amount, format: .number)
                         .keyboardType(.decimalPad)
 
-                    Picker("Kategori", selection: $category) {
+                    Picker(tr("Kategori", "Category"), selection: $category) {
                         ForEach(ExpenseCategory.all) { cat in
                             Label(cat.name, systemImage: cat.icon).tag(cat.name)
                         }
                     }
 
-                    DatePicker("Tarih", selection: $date, displayedComponents: .date)
+                    DatePicker(tr("Tarih", "Date"), selection: $date, displayedComponents: .date)
                 }
 
                 // Peşin / Taksitli seçimi
                 Section {
-                    Picker("Ödeme şekli", selection: $isInstallment.animation()) {
-                        Text("Peşin").tag(false)
-                        Text("Taksitli").tag(true)
+                    Picker(tr("Ödeme şekli", "Payment type"), selection: $isInstallment.animation()) {
+                        Text(tr("Peşin", "One-time")).tag(false)
+                        Text(tr("Taksitli", "Installments")).tag(true)
                     }
                     .pickerStyle(.segmented)
 
                     if isInstallment {
-                        Picker("Toplam taksit", selection: $installmentCount) {
+                        Picker(tr("Toplam taksit", "Total installments"), selection: $installmentCount) {
                             ForEach(2...36, id: \.self) { n in
-                                Text("\(n) taksit").tag(n)
+                                Text(tr("\(n) taksit", "\(n) installments")).tag(n)
                             }
                         }
-                        Picker("Şu an kaçıncı taksit", selection: $currentInstallment) {
+                        Picker(tr("Şu an kaçıncı taksit", "Which installment now"), selection: $currentInstallment) {
                             ForEach(1...installmentCount, id: \.self) { n in
-                                Text("\(n). taksit").tag(n)
+                                Text(tr("\(n). taksit", "installment #\(n)")).tag(n)
                             }
                         }
                     }
                 } footer: {
                     if isInstallment {
-                        Text("Tutar, AYLIK taksit tutarıdır. Kalan taksitler sonraki ayların harcamalarına otomatik eklenir; ileri aylara gidince görürsün.")
+                        Text(tr("Tutar, AYLIK taksit tutarıdır. Kalan taksitler sonraki ayların harcamalarına otomatik eklenir; ileri aylara gidince görürsün.", "The amount is the MONTHLY installment. Remaining installments are added to future months automatically."))
                     }
                 }
             }
-            .navigationTitle("Harcama Ekle")
+            .navigationTitle(tr("Harcama Ekle", "Add Expense"))
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
-                    Button("Vazgeç") { dismiss() }
+                    Button(tr("Vazgeç", "Cancel")) { dismiss() }
                 }
                 ToolbarItem(placement: .confirmationAction) {
-                    Button("Kaydet") {
+                    Button(tr("Kaydet", "Save")) {
                         save()
                     }
                     .disabled(title.isEmpty || (amount ?? 0) <= 0)

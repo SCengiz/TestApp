@@ -255,7 +255,7 @@ func refreshAllAssetPrices(_ context: ModelContext) async -> String? {
                 }
             }
         } else {
-            priceError = "Emtia fiyatları alınamadı; son bilinen fiyatlar kullanılıyor."
+            priceError = tr("Emtia fiyatları alınamadı; son bilinen fiyatlar kullanılıyor.", "Could not fetch commodity prices; using last known prices.")
         }
     }
 
@@ -269,7 +269,7 @@ func refreshAllAssetPrices(_ context: ModelContext) async -> String? {
                 asset.unitPrice = price
                 asset.priceUpdatedAt = .now
             } else if priceError == nil {
-                priceError = "\(code.uppercased()) fiyatı otomatik alınamadı; elle girilen fiyat kullanılıyor."
+                priceError = tr("\(code.uppercased()) fiyatı otomatik alınamadı; elle girilen fiyat kullanılıyor.", "\(code.uppercased()) price could not be fetched automatically; using the manually entered price.")
             }
         }
     }
@@ -282,7 +282,7 @@ func refreshAllAssetPrices(_ context: ModelContext) async -> String? {
             asset.unitPrice = price
             asset.priceUpdatedAt = .now
         } else if priceError == nil {
-            priceError = "\(code.uppercased()) hisse fiyatı alınamadı; son bilinen fiyat kullanılıyor."
+            priceError = tr("\(code.uppercased()) hisse fiyatı alınamadı; son bilinen fiyat kullanılıyor.", "\(code.uppercased()) stock price could not be fetched; using last known price.")
         }
     }
 

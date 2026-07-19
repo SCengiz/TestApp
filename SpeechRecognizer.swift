@@ -181,7 +181,7 @@ func parseSpokenExpense(_ spoken: String)
     return (title, amount, category, date)
 }
 
-// Formlarda kullanılan "Sesle Gir" bölümü
+// Formlarda kullanılan tr("Sesle Gir", "Voice Entry") bölümü
 struct VoiceEntrySection: View {
     let hint: String
     let onResult: (String) -> Void
@@ -202,7 +202,7 @@ struct VoiceEntrySection: View {
                 HStack {
                     Image(systemName: speech.isRecording ? "mic.fill" : "mic")
                         .symbolEffect(.pulse, isActive: speech.isRecording)
-                    Text(speech.isRecording ? "Dinliyorum... bitince dokun" : hint)
+                    Text(speech.isRecording ? tr("Dinliyorum... bitince dokun", "Listening... tap when done") : hint)
                 }
                 .foregroundStyle(speech.isRecording ? .red : Color.accentColor)
             }
@@ -218,9 +218,9 @@ struct VoiceEntrySection: View {
                     .foregroundStyle(.red)
             }
         } header: {
-            Text("Sesle Gir")
+            Text(tr("Sesle Gir", "Voice Entry"))
         } footer: {
-            Text("Örn. \"Market alışverişi 500 lira\" — tutarı ve açıklamayı otomatik doldurur.")
+            Text(tr("Örn. \"Market alışverişi 500 lira\" — tutarı ve açıklamayı otomatik doldurur.", "E.g. \"Groceries 500 lira\" — fills amount and note automatically."))
         }
         .onDisappear { speech.stop() }
     }

@@ -74,28 +74,28 @@ struct UserSessionView: View {
             SummaryView(loggedInUser: $loggedInUser)
                 .id(tabResetTokens[0])
                 .tabItem {
-                    Label("Giderler", systemImage: "chart.pie.fill")
+                    Label(tr("Giderler", "Expenses"), systemImage: "chart.pie.fill")
                 }
                 .tag(0)
 
             IncomeView(loggedInUser: $loggedInUser)
                 .id(tabResetTokens[1])
                 .tabItem {
-                    Label("Gelirler", systemImage: "banknote.fill")
+                    Label(tr("Gelirler", "Income"), systemImage: "banknote.fill")
                 }
                 .tag(1)
 
             SavingsView(loggedInUser: $loggedInUser)
                 .id(tabResetTokens[2])
                 .tabItem {
-                    Label("Birikimler", systemImage: "chart.line.uptrend.xyaxis")
+                    Label(tr("Birikimler", "Savings"), systemImage: "chart.line.uptrend.xyaxis")
                 }
                 .tag(2)
 
             DebtsView(loggedInUser: $loggedInUser)
                 .id(tabResetTokens[3])
                 .tabItem {
-                    Label("Borçlar", systemImage: "person.2.fill")
+                    Label(tr("Borçlar", "Debts"), systemImage: "person.2.fill")
                 }
                 .tag(3)
         }

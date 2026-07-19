@@ -28,13 +28,13 @@ let maxAccountsPerDevice = 10
 // Yeni hesap oluştur; sorun varsa hata mesajı döndürür
 func registerUser(name: String, password: String) -> String? {
     let user = name.trimmingCharacters(in: .whitespaces).lowercased()
-    guard !user.isEmpty else { return "İsim boş olamaz." }
-    guard !password.isEmpty else { return "Şifre boş olamaz." }
+    guard !user.isEmpty else { return tr("İsim boş olamaz.", "Name cannot be empty.") }
+    guard !password.isEmpty else { return tr("Şifre boş olamaz.", "Password cannot be empty.") }
     guard !allRegisteredUsers().contains(user) else {
-        return "Bu isimde bir hesap zaten var."
+        return tr("Bu isimde bir hesap zaten var.", "An account with this name already exists.")
     }
     guard allRegisteredUsers().count < maxAccountsPerDevice else {
-        return "Bu telefonda en fazla \(maxAccountsPerDevice) hesap oluşturulabilir."
+        return tr("Bu telefonda en fazla \(maxAccountsPerDevice) hesap oluşturulabilir.", "At most \(maxAccountsPerDevice) accounts can be created on this phone.")
     }
     var registered = UserDefaults.standard.stringArray(forKey: "registeredUsers") ?? []
     registered.append(user)
@@ -70,13 +70,13 @@ struct LoginView: View {
                 Text("İyi Bütçe")
                     .font(.largeTitle.bold())
                     .foregroundStyle(.white)
-                Text("Devam etmek için giriş yap")
+                Text(tr("Devam etmek için giriş yap", "Log in to continue"))
                     .foregroundStyle(.white.opacity(0.8))
 
                 // Giriş formu (beyaz kutu içinde koyu yazılar)
                 VStack(spacing: 14) {
                     TextField("", text: $username,
-                              prompt: Text("İsim").foregroundColor(.black.opacity(0.55)))
+                              prompt: Text(tr("İsim", "Name")).foregroundColor(.black.opacity(0.55)))
                         .textContentType(.username)
                         .textInputAutocapitalization(.never)
                         .autocorrectionDisabled()
@@ -85,7 +85,7 @@ struct LoginView: View {
                     Divider()
 
                     SecureField("", text: $password,
-                                prompt: Text("Şifre").foregroundColor(.black.opacity(0.55)))
+                                prompt: Text(tr("Şifre", "Password")).foregroundColor(.black.opacity(0.55)))
                         .textContentType(.password)
                         .foregroundStyle(.black)
                 }
@@ -97,7 +97,7 @@ struct LoginView: View {
                 )
 
                 Toggle(isOn: $rememberMe) {
-                    Text("Oturumum açık kalsın")
+                    Text(tr("Oturumum açık kalsın", "Keep me logged in"))
                         .foregroundStyle(.white.opacity(0.9))
                 }
                 .tint(.green)
@@ -111,7 +111,7 @@ struct LoginView: View {
                 Button {
                     login()
                 } label: {
-                    Text("Giriş Yap")
+                    Text(tr("Giriş Yap", "Log In"))
                         .font(.headline)
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 6)
@@ -131,7 +131,7 @@ struct LoginView: View {
     private func login() {
         let name = username.trimmingCharacters(in: .whitespaces).lowercased()
         if let expected = currentPassword(for: name), expected == password {
-            // "Oturumum açık kalsın" seçiliyse bir sonraki açılışta sormaz
+            // tr("Oturumum açık kalsın", "Keep me logged in") seçiliyse bir sonraki açılışta sormaz
             if rememberMe {
                 UserDefaults.standard.set(name, forKey: "rememberedUser")
             } else {
@@ -139,7 +139,7 @@ struct LoginView: View {
             }
             loggedInUser = name
         } else {
-            errorMessage = "Kullanıcı adı veya şifre hatalı"
+            errorMessage = tr("Kullanıcı adı veya şifre hatalı", "Wrong name or password")
             password = ""
         }
     }

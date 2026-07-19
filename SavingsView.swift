@@ -13,10 +13,10 @@ enum SavingsAccount: String, CaseIterable, Identifiable {
 
     var title: String {
         switch self {
-        case .fund:  return "Fon Hesabı"
-        case .stock: return "Hisse Hesabı"
-        case .cash:  return "Vadeli Hesap"
-        case .gold:  return "Emtia Hesabı"
+        case .fund:  return tr("Fon Hesabı", "Fund Account")
+        case .stock: return tr("Hisse Hesabı", "Stock Account")
+        case .cash:  return tr("Vadeli Hesap", "Deposit Account")
+        case .gold:  return tr("Emtia Hesabı", "Commodity Account")
         }
     }
 
@@ -41,21 +41,21 @@ enum SavingsAccount: String, CaseIterable, Identifiable {
     // Alış/satış düğme başlıkları ve miktar birimi
     var buyLabel: String {
         switch self {
-        case .cash: return "Para Yatır"
-        default:    return "Alış Ekle"
+        case .cash: return tr("Para Yatır", "Deposit")
+        default:    return tr("Alış Ekle", "Add Buy")
         }
     }
     var sellLabel: String {
         switch self {
-        case .cash: return "Para Çek"
-        default:    return "Satış Ekle"
+        case .cash: return tr("Para Çek", "Withdraw")
+        default:    return tr("Satış Ekle", "Add Sell")
         }
     }
     var unitLabel: String {
         switch self {
-        case .gold: return "gram"
+        case .gold: return tr("gram", "grams")
         case .cash: return "TL"
-        default:    return "adet"
+        default:    return tr("adet", "units")
         }
     }
 }
@@ -102,7 +102,7 @@ struct SavingsView: View {
     private func breakdown(for month: Date) -> [(name: String, amount: Double, color: Color)] {
         let thisMonth = calendar.dateInterval(of: .month, for: .now)!.start
         if month < thisMonth {
-            return [("O ayın kayıtlı birikimi", historicalTotal(for: month), .purple)]
+            return [(tr("O ayın kayıtlı birikimi", "Recorded savings for that month"), historicalTotal(for: month), .purple)]
         }
         return accounts.map { account in
             let kind = SavingsAccount(rawValue: account.kind) ?? .cash
@@ -137,7 +137,7 @@ struct SavingsView: View {
             List {
                 Section {
                     StatCard(
-                        title: "Toplam Birikimim",
+                        title: tr("Toplam Birikimim", "Total Savings"),
                         amount: total,
                         icon: "chart.line.uptrend.xyaxis",
                         colors: [.purple, .indigo],
@@ -177,7 +177,7 @@ struct SavingsView: View {
                     }
                 } header: {
                     HStack {
-                        Text("Hesaplarım")
+                        Text(tr("Hesaplarım", "My Accounts"))
                         Spacer()
                         if isRefreshing {
                             ProgressView()
@@ -188,16 +188,16 @@ struct SavingsView: View {
                     if let priceError {
                         Text("⚠️ \(priceError)")
                     } else if let lastUpdate {
-                        Text("Fiyatlar güncel · son güncelleme \(lastUpdate.formatted(date: .omitted, time: .shortened)). Aşağı çekerek yenileyebilirsin.")
+                        Text(tr("Fiyatlar güncel · son güncelleme \(lastUpdate.formatted(date: .omitted, time: .shortened)). Aşağı çekerek yenileyebilirsin.", "Prices up to date · last update \(lastUpdate.formatted(date: .omitted, time: .shortened)). Pull down to refresh."))
                     } else {
-                        Text("Hesaba dokunup alış/satış işlemlerini gir; + ile yeni hesap ekleyebilirsin.")
+                        Text(tr("Hesaba dokunup alış/satış işlemlerini gir; + ile yeni hesap ekleyebilirsin.", "Tap an account to enter buys/sells; add a new account with +."))
                     }
                 }
 
                 // Birikim gidişatı (son 6 ay + bugün)
                 Section {
                     VStack(alignment: .leading, spacing: 14) {
-                        Label("Birikim Gidişatı", systemImage: "chart.bar.fill")
+                        Label(tr("Birikim Gidişatı", "Savings Trend"), systemImage: "chart.bar.fill")
                             .font(.headline)
 
                         Chart {
@@ -236,7 +236,7 @@ struct SavingsView: View {
                     }
                 }
             }
-            .navigationTitle("Birikimler")
+            .navigationTitle(tr("Birikimler", "Savings"))
             .toolbar {
                 ToolbarItem(placement: .topBarLeading) {
                     ProfileButton(loggedInUser: $loggedInUser)
@@ -245,7 +245,7 @@ struct SavingsView: View {
                     Button {
                         showingAccountForm = true
                     } label: {
-                        Label("Hesap Ekle", systemImage: "plus")
+                        Label(tr("Hesap Ekle", "Add Account"), systemImage: "plus")
                     }
                 }
             }
@@ -257,7 +257,7 @@ struct SavingsView: View {
             }
             .sheet(item: $detailMonth) { selection in
                 MonthBreakdownSheet(
-                    heading: "Birikimler",
+                    heading: tr("Birikimler", "Savings"),
                     month: selection.date,
                     items: breakdown(for: selection.date)
                 )
@@ -364,15 +364,15 @@ struct AccountDetailView: View {
                         }
                     } header: {
                         switch account {
-                        case .fund:  Text("Fonlarım")
-                        case .stock: Text("Hisselerim")
-                        default:     Text("Emtialarım")
+                        case .fund:  Text(tr("Fonlarım", "My Funds"))
+                        case .stock: Text(tr("Hisselerim", "My Stocks"))
+                        default:     Text(tr("Emtialarım", "My Commodities"))
                         }
                     } footer: {
                         if account == .gold {
-                            Text("Emtiaya (altın/gümüş) dokunup alış/satış işlemlerini gir; gram fiyatları canlı güncellenir.")
+                            Text(tr("Emtiaya (altın/gümüş) dokunup alış/satış işlemlerini gir; gram fiyatları canlı güncellenir.", "Tap a commodity (gold/silver) to enter buys/sells; gram prices update live."))
                         } else {
-                            Text("Varlığa dokunup alış/satış işlemlerini ve güncel fiyatını gir.")
+                            Text(tr("Varlığa dokunup alış/satış işlemlerini ve güncel fiyatını gir.", "Tap an asset to enter trades and its current price."))
                         }
                     }
                 }
@@ -381,7 +381,7 @@ struct AccountDetailView: View {
                         Button {
                             showingAssetForm = true
                         } label: {
-                            Label(account == .fund ? "Fon Ekle" : "Hisse Ekle", systemImage: "plus")
+                            Label(account == .fund ? tr("Fon Ekle", "Add Fund") : tr("Hisse Ekle", "Add Stock"), systemImage: "plus")
                         }
                     }
                 }
@@ -391,9 +391,9 @@ struct AccountDetailView: View {
                 .overlay {
                     if assets.isEmpty && account != .gold {
                         ContentUnavailableView(
-                            account == .fund ? "Henüz fon yok" : "Henüz hisse yok",
+                            account == .fund ? tr("Henüz fon yok", "No funds yet") : tr("Henüz hisse yok", "No stocks yet"),
                             systemImage: account.icon,
-                            description: Text("Sağ üstteki + ile ekle, sonra alış/satış işlemlerini gir.")
+                            description: Text(tr("Sağ üstteki + ile ekle, sonra alış/satış işlemlerini gir.", "Add with + at the top right, then enter your trades."))
                         )
                     }
                 }
@@ -423,7 +423,7 @@ struct AccountDetailView: View {
             Task { _ = await refreshAllAssetPrices(modelContext) }
             // Vadeli hesabın tekil varlığını ilk girişte oluştur
             if account == .cash && assets.isEmpty {
-                modelContext.insert(Asset(accountKind: account.rawValue, name: "Vadeli Mevduat",
+                modelContext.insert(Asset(accountKind: account.rawValue, name: tr("Vadeli Mevduat", "Time Deposit"),
                                           unitPrice: 1, account: accountModel))
                 try? modelContext.save()
             }
@@ -431,11 +431,11 @@ struct AccountDetailView: View {
             if account == .gold {
                 let existingCodes = Set(assets.compactMap(\.code))
                 if !existingCodes.contains("GRAM_ALTIN") {
-                    modelContext.insert(Asset(accountKind: "gold", name: "Altın",
+                    modelContext.insert(Asset(accountKind: "gold", name: tr("Altın", "Gold"),
                                               code: "GRAM_ALTIN", account: accountModel))
                 }
                 if !existingCodes.contains("GRAM_GUMUS") {
-                    modelContext.insert(Asset(accountKind: "gold", name: "Gümüş",
+                    modelContext.insert(Asset(accountKind: "gold", name: tr("Gümüş", "Silver"),
                                               code: "GRAM_GUMUS", account: accountModel))
                 }
                 try? modelContext.save()
@@ -502,7 +502,7 @@ struct AssetDetailView: View {
             // Miktar + kar/zarar + birim fiyat
             Section {
                 HStack {
-                    Text("Eldeki miktar")
+                    Text(tr("Eldeki miktar", "Holdings"))
                     Spacer()
                     Text("\(asset.holdings.formatted(.number.precision(.fractionLength(0...2)))) \(account.unitLabel)")
                         .fontWeight(.semibold)
@@ -511,7 +511,7 @@ struct AssetDetailView: View {
 
                 if account == .fund || account == .stock {
                     HStack {
-                        Text("Birim fiyat")
+                        Text(tr("Birim fiyat", "Unit price"))
                         Spacer()
                         TextField("₺", value: $priceText, format: .number)
                             .keyboardType(.decimalPad)
@@ -529,7 +529,7 @@ struct AssetDetailView: View {
 
                     if account == .fund || account == .stock, let updated = asset.priceUpdatedAt {
                         HStack {
-                            Text("Son otomatik güncelleme")
+                            Text(tr("Son otomatik güncelleme", "Last auto update"))
                             Spacer()
                             Text(updated.formatted(.dateTime.day().month(.abbreviated).year().hour().minute().locale(appLocale)))
                                 .foregroundStyle(.secondary)
@@ -542,7 +542,7 @@ struct AssetDetailView: View {
 
                 if account == .gold {
                     HStack {
-                        Text("Gram fiyatı (canlı)")
+                        Text(tr("Gram fiyatı (canlı)", "Gram price (live)"))
                         Spacer()
                         Text(asset.unitPrice, format: .currency(code: "TRY"))
                             .foregroundStyle(.secondary)
@@ -552,15 +552,15 @@ struct AssetDetailView: View {
                 if account == .cash {
                     if let rate = asset.currentInterestRate {
                         HStack {
-                            Text("Güncel faiz oranı")
+                            Text(tr("Güncel faiz oranı", "Current interest rate"))
                             Spacer()
-                            Text("Yıllık %" + rate.formatted(.number.precision(.fractionLength(0...2))))
+                            Text(tr("Yıllık %", "Yearly %") + rate.formatted(.number.precision(.fractionLength(0...2))))
                                 .foregroundStyle(.secondary)
                         }
                     }
                     if asset.accruedInterest > 0 {
                         HStack {
-                            Text("Birikmiş faiz getirisi")
+                            Text(tr("Birikmiş faiz getirisi", "Accrued interest"))
                             Spacer()
                             ProfitText(profit: asset.accruedInterest, percent: nil)
                                 .font(.callout.weight(.bold))
@@ -569,9 +569,9 @@ struct AssetDetailView: View {
                 }
             } footer: {
                 if account == .fund {
-                    Text("Tera Portföy fonlarının fiyatı otomatik güncellenir (Birikimler'i aşağı çekerek yenile). Diğer fonlarda fiyatı buradan elle girebilirsin.")
+                    Text(tr("Tera Portföy fonlarının fiyatı otomatik güncellenir (Birikimler'i aşağı çekerek yenile). Diğer fonlarda fiyatı buradan elle girebilirsin.", "Tera Portföy fund prices update automatically. For other funds enter the price here."))
                 } else if account == .stock {
-                    Text("BIST hisselerinin fiyatı otomatik güncellenir (Birikimler'i aşağı çekerek yenile). Gerekirse buradan elle de girebilirsin.")
+                    Text(tr("BIST hisselerinin fiyatı otomatik güncellenir (Birikimler'i aşağı çekerek yenile). Gerekirse buradan elle de girebilirsin.", "BIST stock prices update automatically. You can also enter manually here."))
                 }
             }
 
@@ -601,9 +601,9 @@ struct AssetDetailView: View {
             }
 
             // İşlem geçmişi
-            Section("İşlem Geçmişi") {
+            Section(tr("İşlem Geçmişi", "Transaction History")) {
                 if sortedTransactions.isEmpty {
-                    Text("Henüz işlem yok.")
+                    Text(tr("Henüz işlem yok.", "No transactions yet."))
                         .foregroundStyle(.secondary)
                 } else {
                     ForEach(sortedTransactions) { tx in
@@ -627,7 +627,7 @@ struct AssetDetailView: View {
                 Button {
                     showingRename = true
                 } label: {
-                    Label("Adı Düzenle", systemImage: "pencil")
+                    Label(tr("Adı Düzenle", "Edit Name"), systemImage: "pencil")
                 }
             }
         }
@@ -689,11 +689,11 @@ struct AssetDetailView: View {
     private func transactionTitle(_ tx: AssetTransaction) -> String {
         let qty = abs(tx.quantity).formatted(.number.precision(.fractionLength(0...2)))
         let action = tx.quantity >= 0
-            ? (account == .cash ? "Yatırılan" : "Alış")
-            : (account == .cash ? "Çekilen" : "Satış")
+            ? (account == .cash ? tr("Yatırılan", "Deposited") : tr("Alış", "Buy"))
+            : (account == .cash ? tr("Çekilen", "Withdrawn") : tr("Satış", "Sell"))
         if account == .cash {
             if let rate = tx.interestRate {
-                return action + " · yıllık %" + rate.formatted(.number.precision(.fractionLength(0...2)))
+                return action + tr(" · yıllık %", " · yearly %") + rate.formatted(.number.precision(.fractionLength(0...2)))
             }
             return action
         }
@@ -723,25 +723,25 @@ struct AccountFormView: View {
         NavigationStack {
             Form {
                 Section {
-                    TextField("Hesap adı (örn. Midas Hisse, Ziraat Vadeli)", text: $name)
+                    TextField(tr("Hesap adı (örn. Midas Hisse, Ziraat Vadeli)", "Account name (e.g. My Broker)"), text: $name)
 
-                    Picker("Hesap türü", selection: $kind) {
+                    Picker(tr("Hesap türü", "Account kind"), selection: $kind) {
                         ForEach(SavingsAccount.allCases) { k in
                             Label(k.title, systemImage: k.icon).tag(k)
                         }
                     }
                 } footer: {
-                    Text("Tür, hesabın nasıl çalışacağını belirler: Fon/Hisse içine varlık eklenir; Vadeli para yatır/çek, Altın gram al/sat ile çalışır.")
+                    Text(tr("Tür, hesabın nasıl çalışacağını belirler: Fon/Hisse içine varlık eklenir; Vadeli para yatır/çek, Altın gram al/sat ile çalışır.", "The kind decides how the account works: funds/stocks hold assets; deposit uses deposit/withdraw; commodities trade in grams."))
                 }
             }
-            .navigationTitle("Hesap Ekle")
+            .navigationTitle(tr("Hesap Ekle", "Add Account"))
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
-                    Button("Vazgeç") { dismiss() }
+                    Button(tr("Vazgeç", "Cancel")) { dismiss() }
                 }
                 ToolbarItem(placement: .confirmationAction) {
-                    Button("Kaydet") {
+                    Button(tr("Kaydet", "Save")) {
                         modelContext.insert(SavingsAccountModel(name: name, kind: kind.rawValue))
                         try? modelContext.save()
                         dismiss()
@@ -767,28 +767,28 @@ struct RenameAssetSheet: View {
         NavigationStack {
             Form {
                 Section {
-                    TextField("Görünen ad", text: $name)
+                    TextField(tr("Görünen ad", "Display name"), text: $name)
 
                     if let code = asset.code, !code.isEmpty {
                         HStack {
-                            Text("Kod")
+                            Text(tr("Kod", "Code"))
                             Spacer()
                             Text(code)
                                 .foregroundStyle(.secondary)
                         }
                     }
                 } footer: {
-                    Text("Sadece görünen ad değişir; kod ve fiyat takibi aynen sürer.")
+                    Text(tr("Sadece görünen ad değişir; kod ve fiyat takibi aynen sürer.", "Only the display name changes; code and price tracking continue."))
                 }
             }
-            .navigationTitle("Adı Düzenle")
+            .navigationTitle(tr("Adı Düzenle", "Edit Name"))
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
-                    Button("Vazgeç") { dismiss() }
+                    Button(tr("Vazgeç", "Cancel")) { dismiss() }
                 }
                 ToolbarItem(placement: .confirmationAction) {
-                    Button("Kaydet") {
+                    Button(tr("Kaydet", "Save")) {
                         asset.name = name
                         try? modelContext.save()
                         dismiss()
@@ -821,26 +821,26 @@ struct AssetFormView: View {
         NavigationStack {
             Form {
                 Section {
-                    TextField(account == .fund ? "Fon adı (örn. TP2 Fonu)" : "Hisse adı (örn. THY)",
+                    TextField(account == .fund ? tr("Fon adı (örn. TP2 Fonu)", "Fund name (e.g. TP2)") : tr("Hisse adı (örn. THY)", "Stock name (e.g. THY)"),
                               text: $name)
-                    TextField(account == .fund ? "Fon kodu (örn. TP2)" : "Hisse kodu (örn. THYAO)",
+                    TextField(account == .fund ? tr("Fon kodu (örn. TP2)", "Fund code (e.g. TP2)") : tr("Hisse kodu (örn. THYAO)", "Ticker (e.g. THYAO)"),
                               text: $code)
                         .textInputAutocapitalization(.characters)
                         .autocorrectionDisabled()
-                    TextField("Güncel birim fiyat (TL)", value: $unitPrice, format: .number)
+                    TextField(tr("Güncel birim fiyat (TL)", "Current unit price (TL)"), value: $unitPrice, format: .number)
                         .keyboardType(.decimalPad)
                 } footer: {
-                    Text("Ekledikten sonra varlığa dokunup alış işlemlerini gir.")
+                    Text(tr("Ekledikten sonra varlığa dokunup alış işlemlerini gir.", "After adding, tap the asset to enter your buys."))
                 }
             }
-            .navigationTitle(account == .fund ? "Fon Ekle" : "Hisse Ekle")
+            .navigationTitle(account == .fund ? tr("Fon Ekle", "Add Fund") : tr("Hisse Ekle", "Add Stock"))
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
-                    Button("Vazgeç") { dismiss() }
+                    Button(tr("Vazgeç", "Cancel")) { dismiss() }
                 }
                 ToolbarItem(placement: .confirmationAction) {
-                    Button("Kaydet") {
+                    Button(tr("Kaydet", "Save")) {
                         modelContext.insert(Asset(accountKind: account.rawValue,
                                                   name: name,
                                                   code: code.uppercased(),
@@ -880,23 +880,23 @@ struct TransactionFormView: View {
             Form {
                 Section {
                     if account == .cash {
-                        TextField("Tutar (TL)", value: $quantity, format: .number)
+                        TextField(tr("Tutar (TL)", "Amount (TL)"), value: $quantity, format: .number)
                             .keyboardType(.decimalPad)
 
                         // Günlük vadeli: para yatırırken faiz oranı sorulur
                         if isBuy {
-                            TextField("Yıllık faiz oranı (örn. 42)", value: $interestRate, format: .number)
+                            TextField(tr("Yıllık faiz oranı (örn. 42)", "Yearly interest rate (e.g. 42)"), value: $interestRate, format: .number)
                                 .keyboardType(.decimalPad)
                         }
                     } else {
-                        TextField("Miktar (\(account.unitLabel))", value: $quantity, format: .number)
+                        TextField(tr("Miktar (\(account.unitLabel))", "Quantity (\(account.unitLabel))"), value: $quantity, format: .number)
                             .keyboardType(.decimalPad)
 
                         // Güncel fiyattan mı, elle mi?
                         if asset.unitPrice > 0 {
                             Toggle(isOn: $useCurrentPrice.animation()) {
                                 VStack(alignment: .leading, spacing: 2) {
-                                    Text("Güncel fiyattan")
+                                    Text(tr("Güncel fiyattan", "At current price"))
                                     Text(asset.unitPrice, format: .currency(code: "TRY"))
                                         .font(.caption)
                                         .foregroundStyle(.secondary)
@@ -905,23 +905,23 @@ struct TransactionFormView: View {
                         }
 
                         if !useCurrentPrice || asset.unitPrice <= 0 {
-                            TextField("Birim fiyat (TL)", value: $price, format: .number)
+                            TextField(tr("Birim fiyat (TL)", "Unit price (TL)"), value: $price, format: .number)
                                 .keyboardType(.decimalPad)
                         }
                     }
 
-                    DatePicker("Tarih", selection: $date, displayedComponents: .date)
+                    DatePicker(tr("Tarih", "Date"), selection: $date, displayedComponents: .date)
                 } footer: {
                     if account == .cash {
                         if isBuy {
-                            Text("Bankanın gösterdiği yıllık basit faiz. Getiri her gün bakiyene işler (bakiye × oran ÷ 365) ve kar olarak görünür.")
+                            Text(tr("Bankanın gösterdiği yıllık basit faiz. Getiri her gün bakiyene işler (bakiye × oran ÷ 365) ve kar olarak görünür.", "The yearly simple rate your bank shows. Interest accrues daily (balance × rate ÷ 365)."))
                         } else {
                             EmptyView()
                         }
                     } else if useCurrentPrice && asset.unitPrice > 0 {
-                        Text("İşlem, güncel fiyat (\(asset.unitPrice.formatted(.currency(code: "TRY")))) üzerinden kaydedilir. Farklı fiyattan işlem yaptıysan kapatıp elle gir.")
+                        Text(tr("İşlem, güncel fiyat (\(asset.unitPrice.formatted(.currency(code: "TRY")))) üzerinden kaydedilir. Farklı fiyattan işlem yaptıysan kapatıp elle gir.", "Recorded at the current price (\(asset.unitPrice.formatted(.currency(code: "TRY")))). Turn off to enter another price."))
                     } else {
-                        Text("İşlemi yaptığın birim fiyatı gir; kar/zarar hesabında kullanılır.")
+                        Text(tr("İşlemi yaptığın birim fiyatı gir; kar/zarar hesabında kullanılır.", "Enter the price you traded at; used for profit/loss."))
                     }
                 }
             }
@@ -929,10 +929,10 @@ struct TransactionFormView: View {
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
-                    Button("Vazgeç") { dismiss() }
+                    Button(tr("Vazgeç", "Cancel")) { dismiss() }
                 }
                 ToolbarItem(placement: .confirmationAction) {
-                    Button("Kaydet") {
+                    Button(tr("Kaydet", "Save")) {
                         save()
                     }
                     .disabled((quantity ?? 0) <= 0)

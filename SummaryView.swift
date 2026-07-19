@@ -90,7 +90,7 @@ struct SummaryView: View {
                             DailyExpensesView()
                         } label: {
                             StatCard(
-                                title: "Harcamalarım",
+                                title: tr("Harcamalarım", "My Spending"),
                                 amount: thisMonthTotal,
                                 icon: "creditcard.fill",
                                 colors: [.pink, .red]
@@ -101,7 +101,7 @@ struct SummaryView: View {
                             FixedPaymentsView()
                         } label: {
                             StatCard(
-                                title: "Ödemelerim",
+                                title: tr("Ödemelerim", "My Payments"),
                                 amount: fixedTotal,
                                 icon: "building.columns.fill",
                                 colors: [.blue, .cyan]
@@ -114,7 +114,7 @@ struct SummaryView: View {
                     // Kategori dağılımı: halka grafik + liste (oklarla ay gezilir)
                     VStack(alignment: .leading, spacing: 14) {
                         HStack(spacing: 10) {
-                            Label("Harcama Dağılımı", systemImage: "chart.pie.fill")
+                            Label(tr("Harcama Dağılımı", "Spending Breakdown"), systemImage: "chart.pie.fill")
                                 .font(.headline)
                             Spacer()
                             Button {
@@ -145,8 +145,8 @@ struct SummaryView: View {
 
                         if categoryTotals.isEmpty {
                             Text(categoryMonthOffset > 0
-                                 ? "Bu aya planlanmış harcama yok (taksitli alışverişler burada görünür)."
-                                 : "Bu ayda harcama yok.")
+                                 ? tr("Bu aya planlanmış harcama yok (taksitli alışverişler burada görünür).", "No planned spending for this month (installments show up here).")
+                                 : tr("Bu ayda harcama yok.", "No spending this month."))
                                 .foregroundStyle(.secondary)
                         } else {
                             Chart(categoryTotals, id: \.category) { item in
@@ -161,7 +161,7 @@ struct SummaryView: View {
                             .frame(height: 210)
                             .chartBackground { _ in
                                 VStack(spacing: 2) {
-                                    Text("Toplam")
+                                    Text(tr("Toplam", "Total"))
                                         .font(.caption)
                                         .foregroundStyle(.secondary)
                                     Text(categoryMonthTotal, format: .currency(code: "TRY"))
@@ -204,7 +204,7 @@ struct SummaryView: View {
 
                     // Aylık durum: 6 ay geri + bu ay + 6 ay ileri, sabit giderler (gelecek = plan)
                     VStack(alignment: .leading, spacing: 14) {
-                        Label("Ödeme Planı", systemImage: "chart.bar.fill")
+                        Label(tr("Ödeme Planı", "Payment Plan"), systemImage: "chart.bar.fill")
                             .font(.headline)
 
                         Chart {
@@ -261,7 +261,7 @@ struct SummaryView: View {
                 .padding()
             }
             .background(Color(.systemGroupedBackground))
-            .navigationTitle("Giderler")
+            .navigationTitle(tr("Giderler", "Expenses"))
             // Kategoriye dokununca alttan açılan yarım ekran detay paneli
             .sheet(item: $selectedCategory) { category in
                 CategoryDetailSheet(
@@ -274,7 +274,7 @@ struct SummaryView: View {
             // Ödeme Planı çubuğuna dokununca ayın kalem dökümü
             .sheet(item: $detailMonth) { selection in
                 MonthBreakdownSheet(
-                    heading: "Ödemeler",
+                    heading: tr("Ödemeler", "Payments"),
                     month: selection.date,
                     items: paymentBreakdown(for: selection.date)
                 )
@@ -323,7 +323,7 @@ struct CategoryDetailSheet: View {
                 Section {
                     HStack(spacing: 12) {
                         RowIcon(systemName: category.icon, color: category.color)
-                        Text("Bu Ay Toplam")
+                        Text(tr("Bu Ay Toplam", "This Month Total"))
                             .font(.headline)
                         Spacer()
                         Text(total, format: .currency(code: "TRY"))
@@ -353,9 +353,9 @@ struct CategoryDetailSheet: View {
             .overlay {
                 if expenses.isEmpty {
                     ContentUnavailableView(
-                        "Bu ay harcama yok",
+                        tr("Bu ay harcama yok", "No spending this month"),
                         systemImage: category.icon,
-                        description: Text("\(category.name) kategorisinde bu ay kayıt bulunmuyor.")
+                        description: Text(tr("\(category.name) kategorisinde bu ay kayıt bulunmuyor.", "No records in \(category.name) this month."))
                     )
                 }
             }

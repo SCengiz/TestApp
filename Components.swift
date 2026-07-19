@@ -7,6 +7,15 @@ var appLocale: Locale {
     return Locale(identifier: lang == "en" ? "en_US" : "tr_TR")
 }
 
+// Seçili dile göre metin: tr("Türkçe", "English")
+var isEnglishUI: Bool {
+    UserDefaults.standard.string(forKey: "appLanguage") == "en"
+}
+
+func tr(_ turkish: String, _ english: String) -> String {
+    isEnglishUI ? english : turkish
+}
+
 // Renkli özet kartı: başlık + tutar (+ isteğe bağlı kar/zarar rozeti)
 struct StatCard: View {
     let title: String
@@ -105,7 +114,7 @@ struct MonthBreakdownSheet: View {
                         .frame(height: 26)
 
                         HStack {
-                            Text("Toplam")
+                            Text(tr("Toplam", "Total"))
                                 .font(.headline)
                             Spacer()
                             Text(total, format: .currency(code: "TRY"))

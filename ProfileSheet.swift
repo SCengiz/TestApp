@@ -11,9 +11,9 @@ enum AppTheme: String, CaseIterable, Identifiable {
 
     var title: String {
         switch self {
-        case .system: return "Sistem"
-        case .light:  return "Açık"
-        case .dark:   return "Koyu"
+        case .system: return tr("Sistem", "System")
+        case .light:  return tr("Açık", "Light")
+        case .dark:   return tr("Koyu", "Dark")
         }
     }
 
@@ -76,13 +76,13 @@ struct ProfileSheet: View {
                     NavigationLink {
                         SettingsView(user: loggedInUser ?? "")
                     } label: {
-                        Label("Ayarlar", systemImage: "gearshape.fill")
+                        Label(tr("Ayarlar", "Settings"), systemImage: "gearshape.fill")
                     }
                 }
 
                 // Çıkış
                 Section {
-                    Button("Çıkış Yap", role: .destructive) {
+                    Button(tr("Çıkış Yap", "Log Out"), role: .destructive) {
                         UserDefaults.standard.removeObject(forKey: "rememberedUser")
                         loggedInUser = nil
                         dismiss()
@@ -90,11 +90,11 @@ struct ProfileSheet: View {
                     .frame(maxWidth: .infinity)
                 }
             }
-            .navigationTitle("Profil")
+            .navigationTitle(tr("Profil", "Profile"))
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
-                    Button("Kapat") { dismiss() }
+                    Button(tr("Kapat", "Close")) { dismiss() }
                 }
             }
         }
@@ -116,40 +116,40 @@ struct SettingsView: View {
                         Text(theme.title).tag(theme.rawValue)
                     }
                 } label: {
-                    Label("Tema", systemImage: "circle.lefthalf.filled")
+                    Label(tr("Tema", "Theme"), systemImage: "circle.lefthalf.filled")
                 }
                 .pickerStyle(.menu)
                 Picker(selection: $appLanguage) {
-                    Text("Türkçe").tag("tr")
-                    Text("English").tag("en")
+                    Text(tr("Türkçe", "Türkçe")).tag("tr")
+                    Text(tr("English", "English")).tag("en")
                 } label: {
-                    Label("Dil", systemImage: "globe")
+                    Label(tr("Dil", "Language"), systemImage: "globe")
                 }
                 .pickerStyle(.menu)
             } header: {
-                Text("Görünüm")
+                Text(tr("Görünüm", "Appearance"))
             } footer: {
-                Text("\"Sistem\" teması telefonun açık/koyu ayarına uyar. Dil seçimi ay adlarını, tarih ve sayı biçimlerini etkiler.")
+                Text(tr("\"Sistem\" teması telefonun açık/koyu ayarına uyar. Dil seçimi tüm uygulama metinlerini değiştirir.", "\"System\" theme follows your phone. Language changes all app texts."))
             }
 
-            Section("Hesap") {
+            Section(tr("Hesap", "Account")) {
                 NavigationLink {
                     ChangePasswordView(user: user)
                 } label: {
-                    Label("Şifre Değiştir", systemImage: "key.fill")
+                    Label(tr("Şifre Değiştir", "Change Password"), systemImage: "key.fill")
                 }
             }
 
-            Section("Hakkında") {
+            Section(tr("Hakkında", "About")) {
                 HStack {
-                    Label("Uygulama Sürümü", systemImage: "info.circle")
+                    Label(tr("Uygulama Sürümü", "App Version"), systemImage: "info.circle")
                     Spacer()
                     Text("1.0")
                         .foregroundStyle(.secondary)
                 }
             }
         }
-        .navigationTitle("Ayarlar")
+        .navigationTitle(tr("Ayarlar", "Settings"))
         .navigationBarTitleDisplayMode(.inline)
     }
 }
@@ -168,9 +168,9 @@ struct ChangePasswordView: View {
     var body: some View {
         Form {
             Section {
-                SecureField("Mevcut şifre", text: $oldPassword)
-                SecureField("Yeni şifre", text: $newPassword)
-                SecureField("Yeni şifre (tekrar)", text: $newPasswordAgain)
+                SecureField(tr("Mevcut şifre", "Current password"), text: $oldPassword)
+                SecureField(tr("Yeni şifre", "New password"), text: $newPassword)
+                SecureField(tr("Yeni şifre (tekrar)", "New password (again)"), text: $newPasswordAgain)
             } footer: {
                 if let message {
                     Text(message)
@@ -179,34 +179,34 @@ struct ChangePasswordView: View {
             }
 
             Section {
-                Button("Şifreyi Değiştir") {
+                Button(tr("Şifreyi Değiştir", "Change Password")) {
                     changePassword()
                 }
                 .frame(maxWidth: .infinity)
                 .disabled(oldPassword.isEmpty || newPassword.isEmpty || newPasswordAgain.isEmpty)
             }
         }
-        .navigationTitle("Şifre Değiştir")
+        .navigationTitle(tr("Şifre Değiştir", "Change Password"))
         .navigationBarTitleDisplayMode(.inline)
     }
 
     private func changePassword() {
         isSuccess = false
         guard currentPassword(for: user) == oldPassword else {
-            message = "Mevcut şifre hatalı."
+            message = tr("Mevcut şifre hatalı.", "Current password is wrong.")
             return
         }
         guard newPassword == newPasswordAgain else {
-            message = "Yeni şifreler birbiriyle uyuşmuyor."
+            message = tr("Yeni şifreler birbiriyle uyuşmuyor.", "New passwords do not match.")
             return
         }
         guard newPassword != oldPassword else {
-            message = "Yeni şifre eskisiyle aynı olamaz."
+            message = tr("Yeni şifre eskisiyle aynı olamaz.", "New password cannot be the same as the old one.")
             return
         }
         setPassword(newPassword, for: user)
         isSuccess = true
-        message = "Şifren değiştirildi. Bir sonraki girişte yeni şifreni kullan."
+        message = tr("Şifren değiştirildi. Bir sonraki girişte yeni şifreni kullan.", "Password changed. Use the new password next time you log in.")
         oldPassword = ""
         newPassword = ""
         newPasswordAgain = ""

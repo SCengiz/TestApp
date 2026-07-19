@@ -26,7 +26,7 @@ struct IncomeView: View {
     private func incomeBreakdown(for month: Date) -> [(name: String, amount: Double, color: Color)] {
         let thisMonth = calendar.dateInterval(of: .month, for: .now)!.start
         if month < thisMonth {
-            return [("O ayın kayıtlı geliri", historicalTotal(for: month), .green)]
+            return [(tr("O ayın kayıtlı geliri", "Recorded income for that month"), historicalTotal(for: month), .green)]
         }
         return incomes.map { ($0.name, $0.amount, incomeColors[$0.name] ?? .green) }
     }
@@ -66,7 +66,7 @@ struct IncomeView: View {
             List {
                 Section {
                     StatCard(
-                        title: "Aylık Gelirim",
+                        title: tr("Aylık Gelirim", "Monthly Income"),
                         amount: monthlyTotal,
                         icon: "banknote.fill",
                         colors: [.green, .mint],
@@ -112,15 +112,15 @@ struct IncomeView: View {
                     }
                     .onDelete(perform: deleteIncomes)
                 } header: {
-                    Text("Gelir Kaynakları")
+                    Text(tr("Gelir Kaynakları", "Income Sources"))
                 } footer: {
-                    Text("Gelirlerin çoğu zaman sabittir: her ay yeniden girmek yerine, değiştiğinde üzerine dokunup güncelle.")
+                    Text(tr("Gelirlerin çoğu zaman sabittir: her ay yeniden girmek yerine, değiştiğinde üzerine dokunup güncelle.", "Income is usually fixed: instead of re-entering monthly, tap to update when it changes."))
                 }
 
                 // Gelir planı grafiği (Ödeme Planı ile aynı tarz)
                 Section {
                     VStack(alignment: .leading, spacing: 14) {
-                        Label("Gelir Planı", systemImage: "chart.bar.fill")
+                        Label(tr("Gelir Planı", "Income Plan"), systemImage: "chart.bar.fill")
                             .font(.headline)
 
                         Chart {
@@ -169,7 +169,7 @@ struct IncomeView: View {
                     }
                 }
             }
-            .navigationTitle("Gelirler")
+            .navigationTitle(tr("Gelirler", "Income"))
             .toolbar {
                 ToolbarItem(placement: .topBarLeading) {
                     ProfileButton(loggedInUser: $loggedInUser)
@@ -178,7 +178,7 @@ struct IncomeView: View {
                     Button {
                         showingAddSheet = true
                     } label: {
-                        Label("Gelir Ekle", systemImage: "plus")
+                        Label(tr("Gelir Ekle", "Add Income"), systemImage: "plus")
                     }
                 }
             }
@@ -191,7 +191,7 @@ struct IncomeView: View {
             // Gelir Planı çubuğuna dokununca ayın kalem dökümü
             .sheet(item: $detailMonth) { selection in
                 MonthBreakdownSheet(
-                    heading: "Gelirler",
+                    heading: tr("Gelirler", "Income"),
                     month: selection.date,
                     items: incomeBreakdown(for: selection.date)
                 )
@@ -201,9 +201,9 @@ struct IncomeView: View {
             .overlay {
                 if incomes.isEmpty {
                     ContentUnavailableView(
-                        "Henüz gelir yok",
+                        tr("Henüz gelir yok", "No income yet"),
                         systemImage: "banknote",
-                        description: Text("Sağ üstteki + ile maaş, kira geliri gibi gelir kaynaklarını ekle.")
+                        description: Text(tr("Sağ üstteki + ile maaş, kira geliri gibi gelir kaynaklarını ekle.", "Add income sources like salary or rent with + at the top right."))
                     )
                 }
             }
@@ -239,34 +239,34 @@ struct IncomeFormView: View {
         NavigationStack {
             Form {
                 Section {
-                    TextField("Gelir kaynağı (örn. Maaş, Kira geliri)", text: $name)
+                    TextField(tr("Gelir kaynağı (örn. Maaş, Kira geliri)", "Income source (e.g. Salary, Rent)"), text: $name)
 
-                    TextField("Aylık tutar (TL)", value: $amount, format: .number)
+                    TextField(tr("Aylık tutar (TL)", "Monthly amount (TL)"), value: $amount, format: .number)
                         .keyboardType(.decimalPad)
                 } footer: {
-                    Text("Bu tutar her ay için geçerli sayılır. Zam veya değişiklik olunca buradan güncelle.")
+                    Text(tr("Bu tutar her ay için geçerli sayılır. Zam veya değişiklik olunca buradan güncelle.", "This amount applies every month. Update it here when it changes."))
                 }
 
                 // Var olan geliri silme (geçmiş aylar etkilenmez, gelecek plan güncellenir)
                 if income != nil {
                     Section {
-                        Button("Geliri Sil", role: .destructive) {
+                        Button(tr("Geliri Sil", "Delete Income"), role: .destructive) {
                             deleteIncome()
                         }
                         .frame(maxWidth: .infinity)
                     } footer: {
-                        Text("Silince geçmiş ayların geliri değişmez; sadece bu ay ve gelecek plan güncellenir.")
+                        Text(tr("Silince geçmiş ayların geliri değişmez; sadece bu ay ve gelecek plan güncellenir.", "Deleting does not change past months; only this month and the future plan update."))
                     }
                 }
             }
-            .navigationTitle(income == nil ? "Gelir Ekle" : "Geliri Güncelle")
+            .navigationTitle(income == nil ? tr("Gelir Ekle", "Add Income") : tr("Geliri Güncelle", "Update Income"))
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
-                    Button("Vazgeç") { dismiss() }
+                    Button(tr("Vazgeç", "Cancel")) { dismiss() }
                 }
                 ToolbarItem(placement: .confirmationAction) {
-                    Button("Kaydet") {
+                    Button(tr("Kaydet", "Save")) {
                         save()
                     }
                     .disabled(name.isEmpty || (amount ?? 0) <= 0)

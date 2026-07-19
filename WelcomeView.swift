@@ -108,17 +108,17 @@ struct WelcomeView: View {
                         Text("İyi Bütçe")
                             .font(.system(size: 42, weight: .bold))
                             .foregroundStyle(.white)
-                        Text("Gelirinizi bilin, giderinizi yönetin.")
+                        Text(tr("Gelirinizi bilin, giderinizi yönetin.", "Know your income, manage your spending."))
                             .font(.headline)
                             .foregroundStyle(.white.opacity(0.9))
                     }
 
                     // Özellik rozetleri
                     HStack(spacing: 10) {
-                        featureChip("chart.pie.fill", "Gider")
-                        featureChip("banknote.fill", "Gelir")
-                        featureChip("chart.line.uptrend.xyaxis", "Birikim")
-                        featureChip("person.2.fill", "Borç")
+                        featureChip("chart.pie.fill", tr("Gider", "Spend"))
+                        featureChip("banknote.fill", tr("Gelir", "Income"))
+                        featureChip("chart.line.uptrend.xyaxis", tr("Birikim", "Savings"))
+                        featureChip("person.2.fill", tr("Borç", "Debt"))
                     }
                 }
 
@@ -129,7 +129,7 @@ struct WelcomeView: View {
                     NavigationLink {
                         LoginView(loggedInUser: $loggedInUser)
                     } label: {
-                        Text("Giriş Yap")
+                        Text(tr("Giriş Yap", "Log In"))
                             .font(.headline)
                             .frame(maxWidth: .infinity)
                             .padding(.vertical, 8)
@@ -141,7 +141,7 @@ struct WelcomeView: View {
                     NavigationLink {
                         RegisterView(loggedInUser: $loggedInUser)
                     } label: {
-                        Text("Kayıt Ol")
+                        Text(tr("Kayıt Ol", "Sign Up"))
                             .font(.headline)
                             .frame(maxWidth: .infinity)
                             .padding(.vertical, 8)
@@ -193,15 +193,15 @@ struct RegisterView: View {
                 Spacer()
 
                 AppMark(size: 88)
-                Text("Hesap Oluştur")
+                Text(tr("Hesap Oluştur", "Create Account"))
                     .font(.largeTitle.bold())
                     .foregroundStyle(.white)
-                Text("İsim ve şifre belirlemen yeterli")
+                Text(tr("İsim ve şifre belirlemen yeterli", "Just pick a name and password"))
                     .foregroundStyle(.white.opacity(0.8))
 
                 VStack(spacing: 14) {
                     TextField("", text: $name,
-                              prompt: Text("İsim").foregroundColor(.black.opacity(0.55)))
+                              prompt: Text(tr("İsim", "Name")).foregroundColor(.black.opacity(0.55)))
                         .textInputAutocapitalization(.never)
                         .autocorrectionDisabled()
                         .foregroundStyle(.black)
@@ -209,7 +209,7 @@ struct RegisterView: View {
                     Divider()
 
                     SecureField("", text: $password,
-                                prompt: Text("Şifre").foregroundColor(.black.opacity(0.55)))
+                                prompt: Text(tr("Şifre", "Password")).foregroundColor(.black.opacity(0.55)))
                         .foregroundStyle(.black)
                 }
                 .padding(14)
@@ -227,7 +227,7 @@ struct RegisterView: View {
                 Button {
                     register()
                 } label: {
-                    Text("Kayıt Ol")
+                    Text(tr("Kayıt Ol", "Sign Up"))
                         .font(.headline)
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 6)
