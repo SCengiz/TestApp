@@ -227,6 +227,62 @@ final class SavingsSnapshot {
     }
 }
 
+// Tüm varlıkların (emtia/fon/hisse) fiyatlarını o an kaynaktan çekip değerleri
+// yeniden hesaplar. Hata mesajı döndürür (yoksa nil). Her sayfa girişinde ve
+// 30 sn'lik döngüde çağrılır.
+@MainActor
+func refreshAllAssetPrices(_ context: ModelContext) async -> String? {
+    let assets = (try? context.fetch(FetchDescriptor<Asset>())) ?? []
+    var priceError: String?
+
+    // Emtia: altın + gümüş gram fiyatları
+    let goldAssets = assets.filter { $0.accountKind == "gold" }
+    if !goldAssets.isEmpty {
+        if let market = try? await PriceService.fetchMarketPrices() {
+            for asset in goldAssets {
+                let price = asset.code == "GRAM_GUMUS" ? market.silverGram : market.goldGram
+                if let price {
+                    asset.unitPrice = price
+                    asset.priceUpdatedAt = .now
+                }
+            }
+        } else {
+            priceError = "Emtia fiyatları alınamadı; son bilinen fiyatlar kullanılıyor."
+        }
+    }
+
+    // Fonlar: tanınan portföy şirketlerinin sitelerinden
+    let fundAssets = assets.filter { $0.accountKind == "fund" && !($0.code ?? "").isEmpty }
+    if !fundAssets.isEmpty {
+        let teraHome = try? await PriceService.fetchTeraHomePage()
+        for asset in fundAssets {
+            guard let code = asset.code else { continue }
+            if let price = await PriceService.fetchAnyFundPrice(code: code, teraHomePage: teraHome) {
+                asset.unitPrice = price
+                asset.priceUpdatedAt = .now
+            } else if priceError == nil {
+                priceError = "\(code.uppercased()) fiyatı otomatik alınamadı; elle girilen fiyat kullanılıyor."
+            }
+        }
+    }
+
+    // Hisseler: BIST fiyatları
+    let stockAssets = assets.filter { $0.accountKind == "stock" && !($0.code ?? "").isEmpty }
+    for asset in stockAssets {
+        guard let code = asset.code else { continue }
+        if let price = try? await PriceService.fetchBistStockPrice(code: code) {
+            asset.unitPrice = price
+            asset.priceUpdatedAt = .now
+        } else if priceError == nil {
+            priceError = "\(code.uppercased()) hisse fiyatı alınamadı; son bilinen fiyat kullanılıyor."
+        }
+    }
+
+    try? context.save()
+    syncSavingsSnapshot(context)
+    return priceError
+}
+
 // Bu ayın birikim fotoğrafını güncel toplamla eşitle
 @MainActor
 func syncSavingsSnapshot(_ context: ModelContext) {

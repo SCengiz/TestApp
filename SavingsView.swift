@@ -279,64 +279,13 @@ struct SavingsView: View {
         try? modelContext.save()
     }
 
-    // Canlı fiyatları yenile: altın (kur) + fonlar (Tera Portföy sitesi)
+    // Tüm fiyatları o an kaynaktan çek ve yeniden hesapla
     @MainActor
     private func refreshPrices() async {
         guard !isRefreshing else { return }
         isRefreshing = true
         defer { isRefreshing = false }
-        priceError = nil
-
-        // Altın: canlı gram fiyatı
-        let goldAssets = assets.filter { $0.accountKind == "gold" }
-        if !goldAssets.isEmpty {
-            if let market = try? await PriceService.fetchMarketPrices() {
-                for asset in goldAssets {
-                    let price = asset.code == "GRAM_GUMUS" ? market.silverGram : market.goldGram
-                    if let price {
-                        asset.unitPrice = price
-                        asset.priceUpdatedAt = .now
-                    }
-                }
-            } else {
-                priceError = "Emtia fiyatları alınamadı; son bilinen fiyatlar kullanılıyor."
-            }
-        }
-
-        // Fonlar: tanınan portföy şirketlerinin sitelerinden otomatik
-        // (şu an: Tera Portföy, İş Portföy — yenileri PriceService'e eklenir)
-        let fundAssets = assets.filter {
-            $0.accountKind == "fund" && !($0.code ?? "").isEmpty
-        }
-        if !fundAssets.isEmpty {
-            let teraHome = try? await PriceService.fetchTeraHomePage()
-            for asset in fundAssets {
-                guard let code = asset.code else { continue }
-                if let price = await PriceService.fetchAnyFundPrice(code: code, teraHomePage: teraHome) {
-                    asset.unitPrice = price
-                    asset.priceUpdatedAt = .now
-                } else if priceError == nil {
-                    priceError = "\(code.uppercased()) fiyatı otomatik alınamadı; elle girilen fiyat kullanılıyor."
-                }
-            }
-        }
-
-        // Hisseler: BIST fiyatları otomatik (Yahoo Finance)
-        let stockAssets = assets.filter {
-            $0.accountKind == "stock" && !($0.code ?? "").isEmpty
-        }
-        for asset in stockAssets {
-            guard let code = asset.code else { continue }
-            if let price = try? await PriceService.fetchBistStockPrice(code: code) {
-                asset.unitPrice = price
-                asset.priceUpdatedAt = .now
-            } else if priceError == nil {
-                priceError = "\(code.uppercased()) hisse fiyatı alınamadı; son bilinen fiyat kullanılıyor."
-            }
-        }
-
-        try? modelContext.save()
-        syncSavingsSnapshot(modelContext)
+        priceError = await refreshAllAssetPrices(modelContext)
         lastUpdate = .now
     }
 }
@@ -348,6 +297,8 @@ struct AccountDetailView: View {
 
     @Environment(\.modelContext) private var modelContext
     @State private var showingAssetForm = false
+    @State private var isVisible = false
+    private let autoRefresh = Timer.publish(every: 30, on: .main, in: .common).autoconnect()
 
     private var account: SavingsAccount {
         SavingsAccount(rawValue: accountModel.kind) ?? .cash
@@ -442,7 +393,17 @@ struct AccountDetailView: View {
             }
         }
         .navigationTitle(accountModel.name)
+        .onDisappear {
+            isVisible = false
+        }
+        .onReceive(autoRefresh) { _ in
+            guard isVisible else { return }
+            Task { _ = await refreshAllAssetPrices(modelContext) }
+        }
         .onAppear {
+            isVisible = true
+            // Sayfaya girildiği an güncel fiyatları çek
+            Task { _ = await refreshAllAssetPrices(modelContext) }
             // Vadeli hesabın tekil varlığını ilk girişte oluştur
             if account == .cash && assets.isEmpty {
                 modelContext.insert(Asset(accountKind: account.rawValue, name: "Vadeli Mevduat",
@@ -498,7 +459,9 @@ struct AssetDetailView: View {
     @State private var showingBuy = false
     @State private var showingSell = false
     @State private var showingRename = false
+    @State private var isVisible = false
     @State private var priceText: Double?
+    private let autoRefresh = Timer.publish(every: 30, on: .main, in: .common).autoconnect()
 
     private var sortedTransactions: [AssetTransaction] {
         asset.transactions.sorted { $0.date > $1.date }
@@ -658,7 +621,17 @@ struct AssetDetailView: View {
             TransactionFormView(asset: asset, account: account, isBuy: false)
         }
         .onAppear {
+            isVisible = true
             priceText = asset.unitPrice > 0 ? asset.unitPrice : nil
+            // Sayfaya girildiği an güncel fiyatları çek
+            Task { _ = await refreshAllAssetPrices(modelContext) }
+        }
+        .onDisappear {
+            isVisible = false
+        }
+        .onReceive(autoRefresh) { _ in
+            guard isVisible else { return }
+            Task { _ = await refreshAllAssetPrices(modelContext) }
         }
         .onChange(of: asset.unitPrice) {
             priceText = asset.unitPrice > 0 ? asset.unitPrice : nil
