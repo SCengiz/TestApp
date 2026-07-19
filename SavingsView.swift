@@ -383,6 +383,9 @@ struct AccountDetailView: View {
                         )
                     }
                 }
+                .refreshable {
+                    _ = await refreshAllAssetPrices(modelContext)
+                }
             } else {
                 // Altın/Vadeli: tek varlık, doğrudan işlem listesi
                 if let asset = assets.first {
@@ -600,6 +603,9 @@ struct AssetDetailView: View {
                     }
                 }
             }
+        }
+        .refreshable {
+            _ = await refreshAllAssetPrices(modelContext)
         }
         .navigationTitle(embedded ? account.title : asset.name)
         .toolbar {
