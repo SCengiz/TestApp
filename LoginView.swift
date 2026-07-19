@@ -68,7 +68,7 @@ struct LoginView: View {
                 Text("₺")
                     .font(.system(size: 80, weight: .heavy))
                     .foregroundStyle(.white)
-                Text("Bütçem")
+                Text("Kasam")
                     .font(.largeTitle.bold())
                     .foregroundStyle(.white)
                 Text("Devam etmek için giriş yap")

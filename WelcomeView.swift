@@ -37,10 +37,10 @@ struct WelcomeView: View {
                     }
 
                     VStack(spacing: 8) {
-                        Text("Bütçem")
+                        Text("Kasam")
                             .font(.system(size: 40, weight: .bold))
                             .foregroundStyle(.white)
-                        Text("Sürdürülebilir bütçe için Bütçem")
+                        Text("Gelirin, giderin, birikimin — hepsi kasanda")
                             .font(.subheadline)
                             .foregroundStyle(.white.opacity(0.85))
                     }

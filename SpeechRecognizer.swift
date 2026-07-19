@@ -22,13 +22,13 @@ final class SpeechRecognizer {
         SFSpeechRecognizer.requestAuthorization { status in
             DispatchQueue.main.async {
                 guard status == .authorized else {
-                    self.errorMessage = "Konuşma tanıma izni verilmedi. Ayarlar > Bütçem'den açabilirsin."
+                    self.errorMessage = "Konuşma tanıma izni verilmedi. Ayarlar > Kasam'dan açabilirsin."
                     return
                 }
                 AVAudioApplication.requestRecordPermission { granted in
                     DispatchQueue.main.async {
                         guard granted else {
-                            self.errorMessage = "Mikrofon izni verilmedi. Ayarlar > Bütçem'den açabilirsin."
+                            self.errorMessage = "Mikrofon izni verilmedi. Ayarlar > Kasam'dan açabilirsin."
                             return
                         }
                         self.beginRecording()
