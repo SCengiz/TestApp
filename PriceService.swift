@@ -6,8 +6,11 @@ import Foundation
 enum PriceService {
 
     struct MarketPrices {
-        var goldGram: Double? // 1 gram altın (TL, satış)
-        var usd: Double?
+        var goldGram: Double?     // gram altın alış (varlık değerlemesi)
+        var goldGramSell: Double? // gram altın satış (borç değerlemesi)
+        var ceyrekSell: Double?   // çeyrek altın satış
+        var usd: Double?          // dolar alış
+        var usdSell: Double?      // dolar satış
         var eur: Double?
     }
 
@@ -33,12 +36,14 @@ enum PriceService {
         }
 
         // Anahtar adları sürüme göre değişebiliyor; esnek ara.
-        // Değerleme için ALIŞ kuru kullanılır (bozdurduğunda eline geçecek tutar).
-        func price(forKeys keys: [String]) -> Double? {
+        // Varlıklarda ALIŞ (bozdurunca eline geçen), borçlarda SATIŞ (kapatmak
+        // için ödeyeceğin) kuru kullanılır.
+        let buyKeys = ["Alış", "Alis", "Buying", "alis", "alış"]
+        let sellKeys = ["Satış", "Satis", "Selling", "satis", "satış"]
+        func price(forKeys keys: [String], valueKeys: [String]) -> Double? {
             for key in keys {
                 if let entry = json[key] as? [String: Any] {
-                    for valueKey in ["Alış", "Alis", "Buying", "alis", "alış",
-                                     "Satış", "Satis", "Selling"] {
+                    for valueKey in valueKeys {
                         if let value = parseNumber(entry[valueKey]) { return value }
                     }
                 }
@@ -46,10 +51,15 @@ enum PriceService {
             return nil
         }
 
+        let goldKeys = ["gram-altin", "gram-altın", "GRA", "Gram Altın"]
+        let ceyrekKeys = ["ceyrek-altin", "ceyrek-altın", "CEYREK", "Çeyrek Altın"]
         return MarketPrices(
-            goldGram: price(forKeys: ["gram-altin", "gram-altın", "GRA", "Gram Altın"]),
-            usd: price(forKeys: ["USD", "usd"]),
-            eur: price(forKeys: ["EUR", "eur"])
+            goldGram: price(forKeys: goldKeys, valueKeys: buyKeys),
+            goldGramSell: price(forKeys: goldKeys, valueKeys: sellKeys),
+            ceyrekSell: price(forKeys: ceyrekKeys, valueKeys: sellKeys),
+            usd: price(forKeys: ["USD", "usd"], valueKeys: buyKeys),
+            usdSell: price(forKeys: ["USD", "usd"], valueKeys: sellKeys),
+            eur: price(forKeys: ["EUR", "eur"], valueKeys: buyKeys)
         )
     }
 

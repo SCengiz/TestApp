@@ -245,6 +245,33 @@ func syncSavingsSnapshot(_ context: ModelContext) {
     try? context.save()
 }
 
+// Elden alınan borç: TL, dolar veya altın cinsinden
+// (altın/dolar borçları güncel satış kurundan TL'ye çevrilir)
+@Model
+final class Debt {
+    var name: String // kime / açıklama
+    var kind: String // tl | usd | gram | ceyrek
+    var quantity: Double // TL tutarı / dolar miktarı / gram / adet
+    var date: Date
+    var lastKnownRate: Double = 1 // son bilinen birim kur (TL); tl için 1
+
+    init(name: String, kind: String, quantity: Double, date: Date = .now,
+         lastKnownRate: Double = 1) {
+        self.name = name
+        self.kind = kind
+        self.quantity = quantity
+        self.date = date
+        self.lastKnownRate = lastKnownRate
+    }
+}
+
+extension Debt {
+    // Güncel TL karşılığı (son bilinen kurla)
+    var valueTL: Double {
+        kind == "tl" ? quantity : quantity * lastKnownRate
+    }
+}
+
 // Her ay tekrarlayan sabit ödeme: kredi kartı ekstresi, kredi taksidi gibi
 @Model
 final class FixedPayment {

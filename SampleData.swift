@@ -88,6 +88,17 @@ func seedSampleDataIfNeeded(_ context: ModelContext) {
         }
     }
 
+    // Örnek borçlar (elden alınan)
+    let existingDebts = (try? context.fetchCount(FetchDescriptor<Debt>())) ?? 0
+    if existingDebts == 0 {
+        context.insert(Debt(name: "Ahmet", kind: "tl", quantity: 50000,
+                            date: calendar.date(byAdding: .month, value: -2, to: now)!))
+        context.insert(Debt(name: "Annem", kind: "gram", quantity: 6,
+                            date: calendar.date(byAdding: .month, value: -1, to: now)!))
+        context.insert(Debt(name: "Dayım", kind: "ceyrek", quantity: 8,
+                            date: calendar.date(byAdding: .day, value: -10, to: now)!))
+    }
+
     // Zaten veri varsa dokunma (tekrar tekrar eklemeyi önler)
     let existing = (try? context.fetchCount(FetchDescriptor<Expense>())) ?? 0
     guard existing == 0 else { return }

@@ -9,6 +9,7 @@ struct TestAppApp: App {
         }
         .modelContainer(for: [Expense.self, FixedPayment.self, IncomeSource.self,
                               IncomeSnapshot.self, SavingsAccountModel.self,
-                              Asset.self, AssetTransaction.self, SavingsSnapshot.self])
+                              Asset.self, AssetTransaction.self, SavingsSnapshot.self,
+                              Debt.self])
     }
 }
