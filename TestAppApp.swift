@@ -7,13 +7,10 @@ struct TestAppApp: App {
     @AppStorage("appTheme") private var themeRaw = AppTheme.system.rawValue
 
     var body: some Scene {
+        // Veri deposu kullanıcı bazlı olarak UserSessionView içinde kurulur
         WindowGroup {
             ContentView()
                 .preferredColorScheme(AppTheme(rawValue: themeRaw)?.colorScheme)
         }
-        .modelContainer(for: [Expense.self, FixedPayment.self, IncomeSource.self,
-                              IncomeSnapshot.self, SavingsAccountModel.self,
-                              Asset.self, AssetTransaction.self, SavingsSnapshot.self,
-                              Debt.self])
     }
 }
