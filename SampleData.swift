@@ -105,6 +105,39 @@ func seedSampleDataIfNeeded(_ context: ModelContext) {
                             initialRate: 9200))
     }
 
+    // Taksitli kredi kartı harcamaları (bir kez eklenir; mevcut test
+    // depolarına da sonradan eklenebilsin diye ayrı kontrol edilir)
+    let hasInstallments = ((try? context.fetch(FetchDescriptor<Expense>())) ?? [])
+        .contains { $0.installmentCount != nil }
+    if !hasInstallments {
+        func seedInstallment(title: String, category: String, monthly: Double,
+                             count: Int, startMonthsAgo: Int, day: Int) {
+            let groupID = UUID()
+            for number in 1...count {
+                let base = calendar.date(byAdding: .month,
+                                         value: -startMonthsAgo + (number - 1), to: now)!
+                var comps = calendar.dateComponents([.year, .month], from: base)
+                comps.day = day
+                comps.hour = 12
+                let date = calendar.date(from: comps) ?? base
+                context.insert(Expense(title: title, amount: monthly, date: date,
+                                       category: category,
+                                       installmentCount: count,
+                                       installmentNumber: number,
+                                       installmentGroupID: groupID))
+            }
+        }
+        // iPhone: 12 taksit, 2 ay önce başladı (şu an 3/12) → 9 ay daha sürecek
+        seedInstallment(title: "iPhone 16", category: "Alışveriş",
+                        monthly: 7500, count: 12, startMonthsAgo: 2, day: 8)
+        // Çamaşır makinesi: 6 taksit, geçen ay başladı (şu an 2/6)
+        seedInstallment(title: "Çamaşır Makinesi", category: "Alışveriş",
+                        monthly: 3200, count: 6, startMonthsAgo: 1, day: 15)
+        // Mont: 4 taksit, bu ay başladı (1/4)
+        seedInstallment(title: "Kışlık Mont", category: "Giyim",
+                        monthly: 1250, count: 4, startMonthsAgo: 0, day: 5)
+    }
+
     // Zaten veri varsa dokunma (tekrar tekrar eklemeyi önler)
     let existing = (try? context.fetchCount(FetchDescriptor<Expense>())) ?? 0
     guard existing == 0 else { return }
