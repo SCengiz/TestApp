@@ -5,26 +5,40 @@ struct DailyExpensesView: View {
     @Environment(\.modelContext) private var modelContext
     @Query(sort: \Expense.date, order: .reverse) private var expenses: [Expense]
     @State private var showingAddSheet = false
+    @State private var monthOffset = 0 // -3 (3 ay geri) ... +3 (3 ay ileri)
 
-    // Bu ayın harcamaları
-    private var thisMonthExpenses: [Expense] {
-        let calendar = Calendar.current
-        return expenses.filter {
-            calendar.isDate($0.date, equalTo: .now, toGranularity: .month)
-        }
+    private var calendar: Calendar { .current }
+
+    // Görüntülenen ay
+    private var selectedMonth: Date {
+        let thisMonth = calendar.dateInterval(of: .month, for: .now)!.start
+        return calendar.date(byAdding: .month, value: monthOffset, to: thisMonth)!
     }
 
-    private var thisMonthTotal: Double {
-        thisMonthExpenses.reduce(0) { $0 + $1.amount }
+    // Seçili ayın harcamaları (kronolojik: en yeni en üstte)
+    private var monthExpenses: [Expense] {
+        expenses
+            .filter { calendar.isDate($0.date, equalTo: selectedMonth, toGranularity: .month) }
+            .sorted { $0.date > $1.date }
     }
 
-    // Harcamaları günlere göre grupla (en yeni gün en üstte)
+    private var monthTotal: Double {
+        monthExpenses.reduce(0) { $0 + $1.amount }
+    }
+
+    private var cardTitle: String {
+        monthOffset == 0
+            ? "Bu Ay Toplam"
+            : selectedMonth.formatted(.dateTime.month(.wide).year())
+    }
+
+    // Harcamaları günlere göre grupla (günler ve gün içi kayıtlar kronolojik)
     private var groupedByDay: [(day: Date, items: [Expense])] {
-        let groups = Dictionary(grouping: expenses) {
-            Calendar.current.startOfDay(for: $0.date)
+        let groups = Dictionary(grouping: monthExpenses) {
+            calendar.startOfDay(for: $0.date)
         }
         return groups
-            .map { (day: $0.key, items: $0.value) }
+            .map { (day: $0.key, items: $0.value.sorted { $0.date > $1.date }) }
             .sorted { $0.day > $1.day }
     }
 
@@ -32,11 +46,23 @@ struct DailyExpensesView: View {
         List {
             Section {
                 StatCard(
-                    title: "Bu Ay Toplam",
-                    amount: thisMonthTotal,
+                    title: cardTitle,
+                    amount: monthTotal,
                     icon: "cart.fill",
                     colors: [.pink, .red]
                 )
+                // Ay gezinme okları: 3 ay geri / 3 ay ileri
+                .overlay(alignment: .trailing) {
+                    HStack(spacing: 8) {
+                        monthArrow("chevron.left", enabled: monthOffset > -3) {
+                            monthOffset -= 1
+                        }
+                        monthArrow("chevron.right", enabled: monthOffset < 3) {
+                            monthOffset += 1
+                        }
+                    }
+                    .padding(.trailing, 14)
+                }
                 .listRowInsets(EdgeInsets())
                 .listRowBackground(Color.clear)
             }
@@ -49,7 +75,7 @@ struct DailyExpensesView: View {
                             RowIcon(systemName: cat.icon, color: cat.color)
                             VStack(alignment: .leading, spacing: 2) {
                                 Text(expense.title)
-                                Text(cat.name)
+                                Text(rowSubtitle(expense, category: cat))
                                     .font(.caption)
                                     .foregroundStyle(.secondary)
                             }
@@ -82,14 +108,36 @@ struct DailyExpensesView: View {
             AddExpenseView()
         }
         .overlay {
-            if expenses.isEmpty {
+            if monthExpenses.isEmpty {
                 ContentUnavailableView(
-                    "Henüz harcama yok",
+                    monthOffset > 0 ? "Bu aya planlanmış harcama yok" : "Bu ayda harcama yok",
                     systemImage: "cart",
-                    description: Text("Sağ üstteki + ile ilk harcamanı ekle.")
+                    description: Text(monthOffset == 0
+                                      ? "Sağ üstteki + ile ilk harcamanı ekle."
+                                      : "Karttaki oklarla aylar arasında gezinebilirsin.")
                 )
             }
         }
+    }
+
+    private func monthArrow(_ icon: String, enabled: Bool, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            Image(systemName: icon)
+                .font(.body.weight(.bold))
+                .foregroundStyle(.white.opacity(enabled ? 1 : 0.35))
+                .frame(width: 36, height: 36)
+                .background(Circle().fill(.white.opacity(0.18)))
+        }
+        .buttonStyle(.plain)
+        .disabled(!enabled)
+    }
+
+    // "Market · Taksit 2/6" gibi alt satır
+    private func rowSubtitle(_ expense: Expense, category: ExpenseCategory) -> String {
+        if let number = expense.installmentNumber, let count = expense.installmentCount {
+            return "\(category.name) · Taksit \(number)/\(count)"
+        }
+        return category.name
     }
 
     private func dayTotal(_ items: [Expense]) -> Double {
@@ -112,6 +160,9 @@ struct AddExpenseView: View {
     @State private var amount: Double?
     @State private var date = Date.now
     @State private var category = "Market"
+    @State private var isInstallment = false
+    @State private var installmentCount = 2
+    @State private var currentInstallment = 1
 
     var body: some View {
         NavigationStack {
@@ -135,7 +186,8 @@ struct AddExpenseView: View {
                             }
                         }
 
-                    TextField("Tutar (TL)", value: $amount, format: .number)
+                    TextField(isInstallment ? "Aylık taksit tutarı (TL)" : "Tutar (TL)",
+                              value: $amount, format: .number)
                         .keyboardType(.decimalPad)
 
                     Picker("Kategori", selection: $category) {
@@ -145,6 +197,32 @@ struct AddExpenseView: View {
                     }
 
                     DatePicker("Tarih", selection: $date, displayedComponents: .date)
+                }
+
+                // Peşin / Taksitli seçimi
+                Section {
+                    Picker("Ödeme şekli", selection: $isInstallment.animation()) {
+                        Text("Peşin").tag(false)
+                        Text("Taksitli").tag(true)
+                    }
+                    .pickerStyle(.segmented)
+
+                    if isInstallment {
+                        Picker("Toplam taksit", selection: $installmentCount) {
+                            ForEach(2...36, id: \.self) { n in
+                                Text("\(n) taksit").tag(n)
+                            }
+                        }
+                        Picker("Şu an kaçıncı taksit", selection: $currentInstallment) {
+                            ForEach(1...installmentCount, id: \.self) { n in
+                                Text("\(n). taksit").tag(n)
+                            }
+                        }
+                    }
+                } footer: {
+                    if isInstallment {
+                        Text("Tutar, AYLIK taksit tutarıdır. Kalan taksitler sonraki ayların harcamalarına otomatik eklenir; ileri aylara gidince görürsün.")
+                    }
                 }
             }
             .navigationTitle("Harcama Ekle")
@@ -165,12 +243,30 @@ struct AddExpenseView: View {
 
     private func save() {
         guard let amount else { return }
-        modelContext.insert(Expense(title: title, amount: amount, date: date, category: category))
+        if isInstallment {
+            // Bu taksit + kalan taksitler sonraki aylara otomatik yazılır
+            let groupID = UUID()
+            for number in currentInstallment...installmentCount {
+                guard let installmentDate = Calendar.current.date(
+                    byAdding: .month, value: number - currentInstallment, to: date
+                ) else { continue }
+                modelContext.insert(Expense(title: title, amount: amount,
+                                            date: installmentDate, category: category,
+                                            installmentCount: installmentCount,
+                                            installmentNumber: number,
+                                            installmentGroupID: groupID))
+            }
+        } else {
+            modelContext.insert(Expense(title: title, amount: amount,
+                                        date: date, category: category))
+        }
         dismiss()
     }
 }
 
 #Preview {
-    DailyExpensesView()
-        .modelContainer(for: [Expense.self, FixedPayment.self], inMemory: true)
+    NavigationStack {
+        DailyExpensesView()
+    }
+    .modelContainer(for: [Expense.self, FixedPayment.self], inMemory: true)
 }

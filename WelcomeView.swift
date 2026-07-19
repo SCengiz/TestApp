@@ -250,7 +250,9 @@ struct RegisterView: View {
             return
         }
         // Kayıt başarılı: doğrudan giriş yap (tertemiz kişisel depo açılır)
-        loggedInUser = name.trimmingCharacters(in: .whitespaces).lowercased()
+        let user = name.trimmingCharacters(in: .whitespaces).lowercased()
+        UserDefaults.standard.set(user, forKey: "rememberedUser")
+        loggedInUser = user
     }
 }
 

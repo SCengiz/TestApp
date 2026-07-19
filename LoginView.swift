@@ -48,6 +48,7 @@ struct LoginView: View {
 
     @State private var username = ""
     @State private var password = ""
+    @State private var rememberMe = true
     @State private var errorMessage: String?
 
     var body: some View {
@@ -95,6 +96,12 @@ struct LoginView: View {
                         .fill(.white)
                 )
 
+                Toggle(isOn: $rememberMe) {
+                    Text("Oturumum açık kalsın")
+                        .foregroundStyle(.white.opacity(0.9))
+                }
+                .tint(.green)
+
                 if let errorMessage {
                     Text(errorMessage)
                         .font(.callout.weight(.semibold))
@@ -124,6 +131,12 @@ struct LoginView: View {
     private func login() {
         let name = username.trimmingCharacters(in: .whitespaces).lowercased()
         if let expected = currentPassword(for: name), expected == password {
+            // "Oturumum açık kalsın" seçiliyse bir sonraki açılışta sormaz
+            if rememberMe {
+                UserDefaults.standard.set(name, forKey: "rememberedUser")
+            } else {
+                UserDefaults.standard.removeObject(forKey: "rememberedUser")
+            }
             loggedInUser = name
         } else {
             errorMessage = "Kullanıcı adı veya şifre hatalı"

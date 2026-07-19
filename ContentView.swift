@@ -3,8 +3,11 @@ import SwiftData
 
 struct ContentView: View {
     // -skipLogin / -openTab N: geliştirme/test kestirmeleri (simülatör otomasyonu için)
-    @State private var loggedInUser: String? =
-        CommandLine.arguments.contains("-skipLogin") ? "test" : nil
+    // Normal açılışta: "oturumum açık kalsın" denmişse o kullanıcıyla doğrudan girilir
+    @State private var loggedInUser: String? = {
+        if CommandLine.arguments.contains("-skipLogin") { return "test" }
+        return UserDefaults.standard.string(forKey: "rememberedUser")
+    }()
     @State private var selectedTab: Int = {
         if let i = CommandLine.arguments.firstIndex(of: "-openTab"),
            i + 1 < CommandLine.arguments.count,
@@ -36,6 +39,8 @@ struct UserSessionView: View {
     @Binding var loggedInUser: String?
     @Binding var selectedTab: Int
     @State private var container: ModelContainer
+    // Sekmeden ayrılınca o sekme kök sayfasına döner (kimlik değişince baştan kurulur)
+    @State private var tabResetTokens: [UUID] = [UUID(), UUID(), UUID(), UUID()]
 
     init(user: String, loggedInUser: Binding<String?>, selectedTab: Binding<Int>) {
         self.user = user
@@ -67,30 +72,40 @@ struct UserSessionView: View {
     var body: some View {
         TabView(selection: $selectedTab) {
             SummaryView(loggedInUser: $loggedInUser)
+                .id(tabResetTokens[0])
                 .tabItem {
                     Label("Giderler", systemImage: "chart.pie.fill")
                 }
                 .tag(0)
 
             IncomeView(loggedInUser: $loggedInUser)
+                .id(tabResetTokens[1])
                 .tabItem {
                     Label("Gelirler", systemImage: "banknote.fill")
                 }
                 .tag(1)
 
             SavingsView(loggedInUser: $loggedInUser)
+                .id(tabResetTokens[2])
                 .tabItem {
                     Label("Birikimler", systemImage: "chart.line.uptrend.xyaxis")
                 }
                 .tag(2)
 
             DebtsView(loggedInUser: $loggedInUser)
+                .id(tabResetTokens[3])
                 .tabItem {
                     Label("Borçlar", systemImage: "person.2.fill")
                 }
                 .tag(3)
         }
         .modelContainer(container)
+        .onChange(of: selectedTab) { oldValue, _ in
+            // Terk edilen sekme bir sonraki girişte kök sayfasıyla açılır
+            if (0..<tabResetTokens.count).contains(oldValue) {
+                tabResetTokens[oldValue] = UUID()
+            }
+        }
         .onAppear {
             // Örnek veriler SADECE test kullanıcısına yüklenir;
             // soray (gerçek kullanım) tertemiz başlar

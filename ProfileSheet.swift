@@ -83,6 +83,7 @@ struct ProfileSheet: View {
                 // Çıkış
                 Section {
                     Button("Çıkış Yap", role: .destructive) {
+                        UserDefaults.standard.removeObject(forKey: "rememberedUser")
                         loggedInUser = nil
                         dismiss()
                     }

@@ -9,6 +9,7 @@ struct SummaryView: View {
     @State private var selectedMonth: Date? // grafikte dokunulan ay
     @State private var detailMonth: MonthSelection? // dökümü açılan ay
     @State private var selectedCategory: ExpenseCategory? // detayı açılan kategori
+    @State private var categoryMonthOffset = 0 // Harcama Dağılımı: -3...+3 ay
 
     private var calendar: Calendar { .current }
 
@@ -54,10 +55,22 @@ struct SummaryView: View {
         }
     }
 
-    // Bu ay kategori kategori toplamlar (büyükten küçüğe)
+    // Harcama Dağılımı'nda görüntülenen ay (oklarla -3...+3 gezilir)
+    private var categoryMonth: Date {
+        let thisMonth = calendar.dateInterval(of: .month, for: .now)!.start
+        return calendar.date(byAdding: .month, value: categoryMonthOffset, to: thisMonth)!
+    }
+
+    private var categoryMonthTotal: Double {
+        expenses
+            .filter { calendar.isDate($0.date, equalTo: categoryMonth, toGranularity: .month) }
+            .reduce(0) { $0 + $1.amount }
+    }
+
+    // Seçili ayın kategori kategori toplamları (büyükten küçüğe)
     private var categoryTotals: [(category: ExpenseCategory, total: Double)] {
         let monthExpenses = expenses.filter {
-            calendar.isDate($0.date, equalTo: .now, toGranularity: .month)
+            calendar.isDate($0.date, equalTo: categoryMonth, toGranularity: .month)
         }
         let groups = Dictionary(grouping: monthExpenses) { $0.category }
         return groups
@@ -98,13 +111,42 @@ struct SummaryView: View {
                     .buttonStyle(.plain)
                     .fixedSize(horizontal: false, vertical: true)
 
-                    // Bu ay kategori dağılımı: halka grafik + liste
+                    // Kategori dağılımı: halka grafik + liste (oklarla ay gezilir)
                     VStack(alignment: .leading, spacing: 14) {
-                        Label("Harcama Dağılımı", systemImage: "chart.pie.fill")
-                            .font(.headline)
+                        HStack(spacing: 10) {
+                            Label("Harcama Dağılımı", systemImage: "chart.pie.fill")
+                                .font(.headline)
+                            Spacer()
+                            Button {
+                                withAnimation { categoryMonthOffset -= 1 }
+                            } label: {
+                                Image(systemName: "chevron.left")
+                                    .font(.body.weight(.bold))
+                                    .foregroundStyle(categoryMonthOffset > -3 ? Color.accentColor : .gray.opacity(0.4))
+                            }
+                            .buttonStyle(.plain)
+                            .disabled(categoryMonthOffset <= -3)
+
+                            Text(categoryMonth, format: .dateTime.month(.abbreviated).year())
+                                .font(.subheadline.weight(.semibold))
+                                .foregroundStyle(categoryMonthOffset == 0 ? .primary : .secondary)
+                                .frame(minWidth: 76)
+
+                            Button {
+                                withAnimation { categoryMonthOffset += 1 }
+                            } label: {
+                                Image(systemName: "chevron.right")
+                                    .font(.body.weight(.bold))
+                                    .foregroundStyle(categoryMonthOffset < 3 ? Color.accentColor : .gray.opacity(0.4))
+                            }
+                            .buttonStyle(.plain)
+                            .disabled(categoryMonthOffset >= 3)
+                        }
 
                         if categoryTotals.isEmpty {
-                            Text("Bu ay henüz harcama yok.")
+                            Text(categoryMonthOffset > 0
+                                 ? "Bu aya planlanmış harcama yok (taksitli alışverişler burada görünür)."
+                                 : "Bu ayda harcama yok.")
                                 .foregroundStyle(.secondary)
                         } else {
                             Chart(categoryTotals, id: \.category) { item in
@@ -122,7 +164,7 @@ struct SummaryView: View {
                                     Text("Toplam")
                                         .font(.caption)
                                         .foregroundStyle(.secondary)
-                                    Text(thisMonthTotal, format: .currency(code: "TRY"))
+                                    Text(categoryMonthTotal, format: .currency(code: "TRY"))
                                         .font(.headline)
                                 }
                             }
@@ -138,8 +180,8 @@ struct SummaryView: View {
                                         VStack(alignment: .trailing, spacing: 2) {
                                             Text(item.total, format: .currency(code: "TRY"))
                                                 .font(.callout.weight(.semibold))
-                                            Text(thisMonthTotal > 0
-                                                 ? "%\(Int((item.total / thisMonthTotal * 100).rounded()))"
+                                            Text(categoryMonthTotal > 0
+                                                 ? "%\(Int((item.total / categoryMonthTotal * 100).rounded()))"
                                                  : "%0")
                                                 .font(.caption)
                                                 .foregroundStyle(.secondary)
@@ -247,12 +289,12 @@ struct SummaryView: View {
             .reduce(0) { $0 + $1.amount }
     }
 
-    // Bu ay, seçilen kategorideki harcamalar (yeniden eskiye)
+    // Seçili ayda, seçilen kategorideki harcamalar (yeniden eskiye)
     private func monthExpenses(for category: ExpenseCategory) -> [Expense] {
         expenses
             .filter {
                 $0.category == category.name &&
-                calendar.isDate($0.date, equalTo: .now, toGranularity: .month)
+                calendar.isDate($0.date, equalTo: categoryMonth, toGranularity: .month)
             }
             .sorted { $0.date > $1.date }
     }

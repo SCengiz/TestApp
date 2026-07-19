@@ -5,15 +5,23 @@ import SwiftData
 @Model
 final class Expense {
     var title: String
-    var amount: Double
+    var amount: Double // taksitli harcamada AYLIK taksit tutarı
     var date: Date
     var category: String = "Diğer"
+    var installmentCount: Int? = nil // toplam taksit (peşinse nil)
+    var installmentNumber: Int? = nil // bu kayıt kaçıncı taksit
+    var installmentGroupID: UUID? = nil // aynı taksitli alışverişin kayıtlarını bağlar
 
-    init(title: String, amount: Double, date: Date = .now, category: String = "Diğer") {
+    init(title: String, amount: Double, date: Date = .now, category: String = "Diğer",
+         installmentCount: Int? = nil, installmentNumber: Int? = nil,
+         installmentGroupID: UUID? = nil) {
         self.title = title
         self.amount = amount
         self.date = date
         self.category = category
+        self.installmentCount = installmentCount
+        self.installmentNumber = installmentNumber
+        self.installmentGroupID = installmentGroupID
     }
 }
 
