@@ -30,6 +30,82 @@ struct StatCard: View {
     }
 }
 
+// Grafik kalemleri için renk paletleri (kalem sırasına göre atanır)
+let paymentPalette: [Color] = [.blue, .cyan, .indigo, .purple, .teal, .mint, .orange, .pink]
+let incomePalette: [Color] = [.green, .mint, .teal, .cyan, .yellow, .orange]
+
+// Grafikte dokunulan ayı sheet'e taşımak için
+struct MonthSelection: Identifiable {
+    let date: Date
+    var id: Date { date }
+}
+
+// Bir ayın kalem kalem dökümünü gösteren küçük ekran:
+// üstte renkli parçalı bar, altında kalem listesi
+struct MonthBreakdownSheet: View {
+    let heading: String // "Ödemeler" / "Gelirler"
+    let month: Date
+    let items: [(name: String, amount: Double, color: Color)]
+
+    private var total: Double { items.reduce(0) { $0 + $1.amount } }
+
+    var body: some View {
+        NavigationStack {
+            List {
+                Section {
+                    VStack(spacing: 14) {
+                        // Kalemlerin üst üste bindiği parçalı bar
+                        GeometryReader { geo in
+                            HStack(spacing: 2) {
+                                ForEach(items, id: \.name) { seg in
+                                    RoundedRectangle(cornerRadius: 3, style: .continuous)
+                                        .fill(seg.color.gradient)
+                                        .frame(width: total > 0
+                                               ? max(5, (geo.size.width - CGFloat(items.count - 1) * 2) * seg.amount / total)
+                                               : 0)
+                                }
+                            }
+                        }
+                        .frame(height: 26)
+
+                        HStack {
+                            Text("Toplam")
+                                .font(.headline)
+                            Spacer()
+                            Text(total, format: .currency(code: "TRY"))
+                                .font(.title3.bold())
+                        }
+                    }
+                    .padding(.vertical, 4)
+                }
+
+                Section(heading) {
+                    ForEach(items, id: \.name) { seg in
+                        HStack(spacing: 12) {
+                            Circle()
+                                .fill(seg.color.gradient)
+                                .frame(width: 14, height: 14)
+                            Text(seg.name)
+                            Spacer()
+                            VStack(alignment: .trailing, spacing: 2) {
+                                Text(seg.amount, format: .currency(code: "TRY"))
+                                    .font(.callout.weight(.semibold))
+                                Text(total > 0
+                                     ? "%\(Int((seg.amount / total * 100).rounded()))"
+                                     : "%0")
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                            }
+                        }
+                    }
+                }
+            }
+            .navigationTitle(month.formatted(.dateTime.month(.wide).year()))
+            .navigationBarTitleDisplayMode(.inline)
+        }
+    }
+}
+
 // Liste satırlarının solundaki yuvarlak ikon
 struct RowIcon: View {
     let systemName: String

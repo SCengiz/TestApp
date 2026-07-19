@@ -9,8 +9,25 @@ struct IncomeView: View {
     @State private var showingAddSheet = false
     @State private var editingIncome: IncomeSource?
     @State private var selectedMonth: Date? // grafikte dokunulan ay
+    @State private var detailMonth: MonthSelection? // dökümü açılan ay
 
     private var calendar: Calendar { .current }
+
+    // Her gelir kaynağına sırasına göre renk ata
+    private var incomeColors: [String: Color] {
+        Dictionary(incomes.enumerated().map {
+            ($0.element.name, incomePalette[$0.offset % incomePalette.count])
+        }, uniquingKeysWith: { first, _ in first })
+    }
+
+    // Bir ayın gelir kalemleri: geçmişte kayıtlı toplam, bugünden itibaren kaynak kaynak
+    private func incomeBreakdown(for month: Date) -> [(name: String, amount: Double, color: Color)] {
+        let thisMonth = calendar.dateInterval(of: .month, for: .now)!.start
+        if month < thisMonth {
+            return [("O ayın kayıtlı geliri", historicalTotal(for: month), .green)]
+        }
+        return incomes.map { ($0.name, $0.amount, incomeColors[$0.name] ?? .green) }
+    }
 
     private var monthlyTotal: Double {
         incomes.reduce(0) { $0 + $1.amount }
@@ -41,13 +58,6 @@ struct IncomeView: View {
         return monthlyTotal
     }
 
-    // Dokunulan ayın verisi
-    private var selectedStatus: (date: Date, total: Double, isFuture: Bool)? {
-        guard let selectedMonth else { return nil }
-        return monthlyIncome.first {
-            calendar.isDate($0.date, equalTo: selectedMonth, toGranularity: .month)
-        }
-    }
 
     var body: some View {
         NavigationStack {
@@ -97,48 +107,30 @@ struct IncomeView: View {
                             .font(.headline)
 
                         Chart {
+                            // Her ay: gelir kalemleri farklı renklerde üst üste biner
                             ForEach(monthlyIncome, id: \.date) { item in
-                                BarMark(
-                                    x: .value("Ay", item.date, unit: .month),
-                                    y: .value("Tutar", item.total)
-                                )
-                                .foregroundStyle(
-                                    LinearGradient(colors: [.green, .mint],
-                                                   startPoint: .top, endPoint: .bottom)
-                                )
-                                .cornerRadius(4)
-                                .opacity(item.isFuture ? 0.45 : 1)
+                                ForEach(incomeBreakdown(for: item.date), id: \.name) { seg in
+                                    BarMark(
+                                        x: .value("Ay", item.date, unit: .month),
+                                        y: .value("Tutar", seg.amount)
+                                    )
+                                    .foregroundStyle(seg.color.gradient)
+                                    .cornerRadius(2)
+                                    .opacity(item.isFuture ? 0.45 : 1)
+                                }
                             }
 
                             // Bugünü işaretle (kesikli çizgi)
                             RuleMark(x: .value("Bugün", Date.now, unit: .month))
                                 .foregroundStyle(.secondary.opacity(0.5))
                                 .lineStyle(StrokeStyle(lineWidth: 1, dash: [4, 4]))
-
-                            // Dokunulan ayı vurgula
-                            if let sel = selectedStatus {
-                                RuleMark(x: .value("Seçili", sel.date, unit: .month))
-                                    .foregroundStyle(.secondary.opacity(0.35))
-                            }
                         }
                         .chartXSelection(value: $selectedMonth)
-                        // Baloncuk yüzen katmanda: grafik kaymaz
-                        .chartOverlay { proxy in
-                            GeometryReader { geo in
-                                if let sel = selectedStatus,
-                                   let plotAnchor = proxy.plotFrame,
-                                   let center = calendar.date(byAdding: .day, value: 15, to: sel.date),
-                                   let xInPlot = proxy.position(forX: center) {
-                                    let plotFrame = geo[plotAnchor]
-                                    let bubbleWidth: CGFloat = 190
-                                    let rawX = plotFrame.minX + xInPlot
-                                    let x = min(max(rawX, bubbleWidth / 2 + 2),
-                                                geo.size.width - bubbleWidth / 2 - 2)
-                                    incomeTooltip(for: sel)
-                                        .frame(width: bubbleWidth)
-                                        .position(x: x, y: 46)
-                                        .allowsHitTesting(false)
-                                }
+                        // Çubuğa dokununca o ayın dökümü küçük ekranda açılır
+                        .onChange(of: selectedMonth) {
+                            if let month = selectedMonth {
+                                detailMonth = MonthSelection(date: month)
+                                selectedMonth = nil
                             }
                         }
                         .chartXAxis {
@@ -163,6 +155,16 @@ struct IncomeView: View {
             }
             .sheet(item: $editingIncome) { income in
                 IncomeFormView(income: income)
+            }
+            // Gelir Planı çubuğuna dokununca ayın kalem dökümü
+            .sheet(item: $detailMonth) { selection in
+                MonthBreakdownSheet(
+                    heading: "Gelirler",
+                    month: selection.date,
+                    items: incomeBreakdown(for: selection.date)
+                )
+                .presentationDetents([.medium, .large])
+                .presentationDragIndicator(.visible)
             }
             .overlay {
                 if incomes.isEmpty {
@@ -189,27 +191,6 @@ struct IncomeView: View {
         }
     }
 
-    // Dokunulan ayın gelir baloncuğu
-    private func incomeTooltip(for sel: (date: Date, total: Double, isFuture: Bool)) -> some View {
-        VStack(alignment: .leading, spacing: 5) {
-            Text(sel.date, format: .dateTime.month(.wide).year())
-                .font(.subheadline.bold())
-            HStack {
-                Text(sel.isFuture ? "Plan" : "Gelir")
-                    .foregroundStyle(.secondary)
-                Spacer()
-                Text(sel.total, format: .currency(code: "TRY"))
-                    .fontWeight(.bold)
-            }
-            .font(.footnote)
-        }
-        .padding(12)
-        .background(
-            RoundedRectangle(cornerRadius: 12, style: .continuous)
-                .fill(Color(.systemBackground))
-                .shadow(color: .black.opacity(0.18), radius: 8, y: 3)
-        )
-    }
 }
 
 // Gelir ekleme / güncelleme formu (income nil ise yeni kayıt)

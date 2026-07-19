@@ -7,16 +7,23 @@ struct SummaryView: View {
     @Query(sort: \Expense.date, order: .reverse) private var expenses: [Expense]
     @Query private var payments: [FixedPayment]
     @State private var selectedMonth: Date? // grafikte dokunulan ay
+    @State private var detailMonth: MonthSelection? // dökümü açılan ay
     @State private var selectedCategory: ExpenseCategory? // detayı açılan kategori
 
     private var calendar: Calendar { .current }
 
-    // Dokunulan ayın verileri
-    private var selectedStatus: (date: Date, fixed: Double, isFuture: Bool)? {
-        guard let selectedMonth else { return nil }
-        return monthlyStatus.first {
-            calendar.isDate($0.date, equalTo: selectedMonth, toGranularity: .month)
-        }
+    // Her sabit ödemeye sırasına göre renk ata
+    private var paymentColors: [String: Color] {
+        Dictionary(payments.enumerated().map {
+            ($0.element.name, paymentPalette[$0.offset % paymentPalette.count])
+        }, uniquingKeysWith: { first, _ in first })
+    }
+
+    // Bir ayın ödeme kalemleri (ad, tutar, renk)
+    private func paymentBreakdown(for month: Date) -> [(name: String, amount: Double, color: Color)] {
+        payments
+            .filter { $0.isActive(inMonth: month, calendar: calendar) }
+            .map { ($0.name, $0.amount, paymentColors[$0.name] ?? .blue) }
     }
 
     // Bu ayın günlük harcama toplamı
@@ -158,48 +165,30 @@ struct SummaryView: View {
                             .font(.headline)
 
                         Chart {
+                            // Her ay: kalemler farklı renklerde üst üste biner
                             ForEach(monthlyStatus, id: \.date) { item in
-                                BarMark(
-                                    x: .value("Ay", item.date, unit: .month),
-                                    y: .value("Tutar", item.fixed)
-                                )
-                                .foregroundStyle(
-                                    LinearGradient(colors: [.blue, .cyan],
-                                                   startPoint: .top, endPoint: .bottom)
-                                )
-                                .cornerRadius(4)
-                                .opacity(item.isFuture ? 0.45 : 1)
+                                ForEach(paymentBreakdown(for: item.date), id: \.name) { seg in
+                                    BarMark(
+                                        x: .value("Ay", item.date, unit: .month),
+                                        y: .value("Tutar", seg.amount)
+                                    )
+                                    .foregroundStyle(seg.color.gradient)
+                                    .cornerRadius(2)
+                                    .opacity(item.isFuture ? 0.45 : 1)
+                                }
                             }
 
                             // Bugünü işaretle (yazısız, sadece kesikli çizgi)
                             RuleMark(x: .value("Bugün", Date.now, unit: .month))
                                 .foregroundStyle(.secondary.opacity(0.5))
                                 .lineStyle(StrokeStyle(lineWidth: 1, dash: [4, 4]))
-
-                            // Dokunulan ayı ince çizgiyle vurgula
-                            if let sel = selectedStatus {
-                                RuleMark(x: .value("Seçili", sel.date, unit: .month))
-                                    .foregroundStyle(.secondary.opacity(0.35))
-                            }
                         }
                         .chartXSelection(value: $selectedMonth)
-                        // Baloncuk yüzen katmanda çizilir: yerleşimi etkilemez, grafik kaymaz
-                        .chartOverlay { proxy in
-                            GeometryReader { geo in
-                                if let sel = selectedStatus,
-                                   let plotAnchor = proxy.plotFrame,
-                                   let center = calendar.date(byAdding: .day, value: 15, to: sel.date),
-                                   let xInPlot = proxy.position(forX: center) {
-                                    let plotFrame = geo[plotAnchor]
-                                    let bubbleWidth: CGFloat = 190
-                                    let rawX = plotFrame.minX + xInPlot
-                                    let x = min(max(rawX, bubbleWidth / 2 + 2),
-                                                geo.size.width - bubbleWidth / 2 - 2)
-                                    tooltip(for: sel)
-                                        .frame(width: bubbleWidth)
-                                        .position(x: x, y: 52)
-                                        .allowsHitTesting(false)
-                                }
+                        // Çubuğa dokununca o ayın dökümü küçük ekranda açılır
+                        .onChange(of: selectedMonth) {
+                            if let month = selectedMonth {
+                                detailMonth = MonthSelection(date: month)
+                                selectedMonth = nil
                             }
                         }
                         .chartXAxis {
@@ -228,6 +217,16 @@ struct SummaryView: View {
                 CategoryDetailSheet(
                     category: category,
                     expenses: monthExpenses(for: category)
+                )
+                .presentationDetents([.medium, .large])
+                .presentationDragIndicator(.visible)
+            }
+            // Ödeme Planı çubuğuna dokununca ayın kalem dökümü
+            .sheet(item: $detailMonth) { selection in
+                MonthBreakdownSheet(
+                    heading: "Ödemeler",
+                    month: selection.date,
+                    items: paymentBreakdown(for: selection.date)
                 )
                 .presentationDetents([.medium, .large])
                 .presentationDragIndicator(.visible)
@@ -268,31 +267,6 @@ struct SummaryView: View {
             .sorted { $0.date > $1.date }
     }
 
-    // Dokunulan ayın detay baloncuğu
-    private func tooltip(for sel: (date: Date, fixed: Double, isFuture: Bool)) -> some View {
-        VStack(alignment: .leading, spacing: 5) {
-            Text(sel.date, format: .dateTime.month(.wide).year())
-                .font(.subheadline.bold())
-            tooltipRow(sel.isFuture ? "Plan" : "Sabit Gider", sel.fixed, bold: true)
-        }
-        .padding(12)
-        .background(
-            RoundedRectangle(cornerRadius: 12, style: .continuous)
-                .fill(Color(.systemBackground))
-                .shadow(color: .black.opacity(0.18), radius: 8, y: 3)
-        )
-    }
-
-    private func tooltipRow(_ label: String, _ amount: Double, bold: Bool = false) -> some View {
-        HStack {
-            Text(label)
-                .foregroundStyle(.secondary)
-            Spacer()
-            Text(amount, format: .currency(code: "TRY"))
-                .fontWeight(bold ? .bold : .regular)
-        }
-        .font(.footnote)
-    }
 }
 
 // Kategoriye dokununca açılan yarım ekran detay paneli
