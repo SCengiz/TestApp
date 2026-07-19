@@ -236,7 +236,7 @@ struct SummaryView: View {
                         }
                         .chartXAxis {
                             AxisMarks(values: .stride(by: .month)) {
-                                AxisValueLabel(format: .dateTime.month(.abbreviated))
+                                AxisValueLabel(format: .dateTime.month(.abbreviated).locale(appLocale))
                             }
                         }
                         .frame(height: 220)

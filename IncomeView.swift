@@ -155,7 +155,7 @@ struct IncomeView: View {
                         .chartYAxis(amountsHidden ? .hidden : .automatic)
                         .chartXAxis {
                             AxisMarks(values: .stride(by: .month)) {
-                                AxisValueLabel(format: .dateTime.month(.abbreviated))
+                                AxisValueLabel(format: .dateTime.month(.abbreviated).locale(appLocale))
                             }
                         }
                         .frame(height: 200)
