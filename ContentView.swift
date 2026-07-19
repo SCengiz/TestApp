@@ -19,7 +19,9 @@ struct ContentView: View {
             UserSessionView(user: user, loggedInUser: $loggedInUser, selectedTab: $selectedTab)
                 .id(user) // farklı kullanıcı girişinde oturum baştan kurulur
         } else {
-            LoginView(loggedInUser: $loggedInUser)
+            NavigationStack {
+                WelcomeView(loggedInUser: $loggedInUser)
+            }
         }
     }
 }

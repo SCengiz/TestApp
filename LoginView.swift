@@ -17,6 +17,32 @@ func setPassword(_ password: String, for user: String) {
     UserDefaults.standard.set(password, forKey: "password_\(user)")
 }
 
+// Bu telefonda kayıtlı tüm hesaplar (varsayılanlar + sonradan kayıt olanlar)
+func allRegisteredUsers() -> [String] {
+    let registered = UserDefaults.standard.stringArray(forKey: "registeredUsers") ?? []
+    return Array(appUsers.keys) + registered
+}
+
+let maxAccountsPerDevice = 10
+
+// Yeni hesap oluştur; sorun varsa hata mesajı döndürür
+func registerUser(name: String, password: String) -> String? {
+    let user = name.trimmingCharacters(in: .whitespaces).lowercased()
+    guard !user.isEmpty else { return "İsim boş olamaz." }
+    guard !password.isEmpty else { return "Şifre boş olamaz." }
+    guard !allRegisteredUsers().contains(user) else {
+        return "Bu isimde bir hesap zaten var."
+    }
+    guard allRegisteredUsers().count < maxAccountsPerDevice else {
+        return "Bu telefonda en fazla \(maxAccountsPerDevice) hesap oluşturulabilir."
+    }
+    var registered = UserDefaults.standard.stringArray(forKey: "registeredUsers") ?? []
+    registered.append(user)
+    UserDefaults.standard.set(registered, forKey: "registeredUsers")
+    setPassword(password, for: user)
+    return nil
+}
+
 struct LoginView: View {
     @Binding var loggedInUser: String?
 
