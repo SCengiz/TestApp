@@ -72,6 +72,20 @@ struct IncomeView: View {
                         colors: [.green, .mint],
                         masked: amountsHidden
                     )
+                    // Gizlilik: kartın sağındaki gözle tutarları sakla/göster
+                    .overlay(alignment: .trailing) {
+                        Button {
+                            amountsHidden.toggle()
+                        } label: {
+                            Image(systemName: amountsHidden ? "eye.slash.fill" : "eye.fill")
+                                .font(.title3)
+                                .foregroundStyle(.white)
+                                .frame(width: 44, height: 44)
+                                .background(Circle().fill(.white.opacity(0.18)))
+                        }
+                        .buttonStyle(.plain)
+                        .padding(.trailing, 14)
+                    }
                     .listRowInsets(EdgeInsets())
                     .listRowBackground(Color.clear)
                 }
@@ -158,14 +172,6 @@ struct IncomeView: View {
                         showingAddSheet = true
                     } label: {
                         Label("Gelir Ekle", systemImage: "plus")
-                    }
-                }
-                ToolbarItem(placement: .topBarTrailing) {
-                    Button {
-                        amountsHidden.toggle()
-                    } label: {
-                        Label(amountsHidden ? "Tutarları Göster" : "Tutarları Gizle",
-                              systemImage: amountsHidden ? "eye.slash.fill" : "eye.fill")
                     }
                 }
             }
