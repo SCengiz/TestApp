@@ -10,6 +10,8 @@ struct SavingsView: View {
     @State private var editingItem: SavingsItem?
     @State private var selectedMonth: Date? // grafikte dokunulan ay
     @State private var detailMonth: MonthSelection? // dökümü açılan ay
+    @State private var isRefreshing = false
+    @State private var priceError: String?
 
     private var calendar: Calendar { .current }
 
@@ -24,7 +26,7 @@ struct SavingsView: View {
         }, uniquingKeysWith: { first, _ in first })
     }
 
-    // Bir ayın birikim kalemleri: geçmişte kayıtlı toplam, bugünden itibaren kalem kalem
+    // Bir ayın birikim kalemleri: geçmişte kayıtlı toplam, bu ay kalem kalem
     private func savingsBreakdown(for month: Date) -> [(name: String, amount: Double, color: Color)] {
         let thisMonth = calendar.dateInterval(of: .month, for: .now)!.start
         if month < thisMonth {
@@ -33,13 +35,13 @@ struct SavingsView: View {
         return items.map { ($0.name, $0.amount, itemColors[$0.name] ?? .purple) }
     }
 
-    // Birikim gidişatı: 6 ay geri + bu ay + 6 ay ileri
-    private var monthlySavings: [(date: Date, total: Double, isFuture: Bool)] {
+    // Birikim gidişatı: son 6 ay + bu ay (geleceğe dönük plan yok)
+    private var monthlySavings: [(date: Date, total: Double)] {
         let thisMonth = calendar.dateInterval(of: .month, for: .now)!.start
-        return (-6...6).map { offset in
+        return (-6...0).map { offset in
             let month = calendar.date(byAdding: .month, value: offset, to: thisMonth)!
-            let value = offset >= 0 ? total : historicalTotal(for: month)
-            return (month, value, offset > 0)
+            let value = offset == 0 ? total : historicalTotal(for: month)
+            return (month, value)
         }
     }
 
@@ -76,10 +78,15 @@ struct SavingsView: View {
                             editingItem = item
                         } label: {
                             HStack(spacing: 12) {
-                                RowIcon(systemName: "banknote.fill",
+                                RowIcon(systemName: icon(for: item),
                                         color: itemColors[item.name] ?? .purple)
-                                Text(item.name)
-                                    .foregroundStyle(.primary)
+                                VStack(alignment: .leading, spacing: 2) {
+                                    Text(item.name)
+                                        .foregroundStyle(.primary)
+                                    Text(subtitle(for: item))
+                                        .font(.caption)
+                                        .foregroundStyle(.secondary)
+                                }
                                 Spacer()
                                 Text(item.amount, format: .currency(code: "TRY"))
                                     .font(.callout.weight(.semibold))
@@ -93,12 +100,23 @@ struct SavingsView: View {
                     }
                     .onDelete(perform: deleteItems)
                 } header: {
-                    Text("Birikim Kalemleri")
+                    HStack {
+                        Text("Birikim Kalemleri")
+                        Spacer()
+                        if isRefreshing {
+                            ProgressView()
+                                .controlSize(.mini)
+                        }
+                    }
                 } footer: {
-                    Text("Vadeli hesap, altın, yastık altı gibi birikimlerini gir; tutar değişince üzerine dokunup güncelle.")
+                    if let priceError {
+                        Text("⚠️ \(priceError)")
+                    } else {
+                        Text("Altın, döviz ve fon fiyatları otomatik güncellenir; aşağı çekerek yenileyebilirsin.")
+                    }
                 }
 
-                // Birikim gidişatı grafiği
+                // Birikim gidişatı grafiği (sadece geçmiş + bugün)
                 Section {
                     VStack(alignment: .leading, spacing: 14) {
                         Label("Birikim Gidişatı", systemImage: "chart.bar.fill")
@@ -113,13 +131,8 @@ struct SavingsView: View {
                                     )
                                     .foregroundStyle(seg.color.gradient)
                                     .cornerRadius(2)
-                                    .opacity(item.isFuture ? 0.45 : 1)
                                 }
                             }
-
-                            RuleMark(x: .value("Bugün", Date.now, unit: .month))
-                                .foregroundStyle(.secondary.opacity(0.5))
-                                .lineStyle(StrokeStyle(lineWidth: 1, dash: [4, 4]))
                         }
                         .chartXSelection(value: $selectedMonth)
                         .onChange(of: selectedMonth) {
@@ -130,7 +143,7 @@ struct SavingsView: View {
                         }
                         .chartXAxis {
                             AxisMarks(values: .stride(by: .month)) {
-                                AxisValueLabel(format: .dateTime.month(.narrow))
+                                AxisValueLabel(format: .dateTime.month(.abbreviated))
                             }
                         }
                         .frame(height: 200)
@@ -144,6 +157,9 @@ struct SavingsView: View {
                 } label: {
                     Label("Birikim Ekle", systemImage: "plus")
                 }
+            }
+            .refreshable {
+                await refreshPrices()
             }
             .sheet(isPresented: $showingAddSheet) {
                 SavingsFormView(item: nil)
@@ -165,7 +181,7 @@ struct SavingsView: View {
                     ContentUnavailableView(
                         "Henüz birikim yok",
                         systemImage: "chart.line.uptrend.xyaxis",
-                        description: Text("Sağ üstteki + ile vadeli hesap, altın gibi birikim kalemlerini ekle.")
+                        description: Text("Sağ üstteki + ile vadeli hesap, altın, fon gibi birikimlerini ekle.")
                     )
                 }
             }
@@ -175,6 +191,80 @@ struct SavingsView: View {
             .onChange(of: total) {
                 syncSavingsSnapshot(modelContext)
             }
+            .task {
+                await refreshPrices()
+            }
+            .onChange(of: items.count) {
+                Task { await refreshPrices() }
+            }
+        }
+    }
+
+    // Otomatik türlerin TL karşılığını canlı fiyatlarla yenile
+    @MainActor
+    private func refreshPrices() async {
+        let autoItems = items.filter { $0.kind != "manual" }
+        guard !autoItems.isEmpty else { return }
+        isRefreshing = true
+        priceError = nil
+
+        // Altın/döviz fiyatları (tek istek)
+        var market: PriceService.MarketPrices?
+        if autoItems.contains(where: { ["gold", "usd", "eur"].contains($0.kind) }) {
+            market = try? await PriceService.fetchMarketPrices()
+            if market == nil {
+                priceError = "Altın/döviz fiyatları alınamadı; son bilinen değerler gösteriliyor."
+            }
+        }
+
+        for item in autoItems {
+            guard let quantity = item.quantity else { continue }
+            var unitPrice: Double?
+            switch item.kind {
+            case "gold": unitPrice = market?.goldGram
+            case "usd":  unitPrice = market?.usd
+            case "eur":  unitPrice = market?.eur
+            case "fund": unitPrice = item.unitPrice // fon fiyatı elle girilir
+            default: break
+            }
+            if let unitPrice {
+                item.amount = quantity * unitPrice
+                item.priceUpdatedAt = .now
+            }
+        }
+
+        try? modelContext.save()
+        syncSavingsSnapshot(modelContext)
+        isRefreshing = false
+    }
+
+    private func icon(for item: SavingsItem) -> String {
+        switch item.kind {
+        case "gold": return "medal.fill"
+        case "usd":  return "dollarsign.circle.fill"
+        case "eur":  return "eurosign.circle.fill"
+        case "fund": return "chart.pie.fill"
+        default:     return "banknote.fill"
+        }
+    }
+
+    private func subtitle(for item: SavingsItem) -> String {
+        let qty = (item.quantity ?? 0).formatted(.number.precision(.fractionLength(0...2)))
+        switch item.kind {
+        case "gold", "usd", "eur":
+            let unit = item.kind == "gold" ? "gram altın" : (item.kind == "usd" ? "dolar" : "euro")
+            if let updated = item.priceUpdatedAt {
+                return "\(qty) \(unit) · fiyat: \(updated.formatted(date: .omitted, time: .shortened))"
+            }
+            return "\(qty) \(unit)"
+        case "fund":
+            let code = item.code?.uppercased() ?? "fon"
+            if let price = item.unitPrice {
+                return "\(qty) adet \(code) × \(price.formatted(.currency(code: "TRY")))"
+            }
+            return "\(qty) adet \(code)"
+        default:
+            return "Elle girilen tutar"
         }
     }
 
@@ -192,19 +282,75 @@ struct SavingsFormView: View {
 
     let item: SavingsItem?
 
+    // Tür seçenekleri
+    enum Kind: String, CaseIterable {
+        case manual = "Elle"
+        case gold = "Altın"
+        case usd = "Dolar"
+        case eur = "Euro"
+        case fund = "Fon"
+
+        var storageKey: String {
+            switch self {
+            case .manual: return "manual"
+            case .gold: return "gold"
+            case .usd: return "usd"
+            case .eur: return "eur"
+            case .fund: return "fund"
+            }
+        }
+    }
+
+    @State private var kind: Kind = .manual
     @State private var name = ""
     @State private var amount: Double?
+    @State private var quantity: Double?
+    @State private var code = ""
+    @State private var unitPrice: Double?
 
     var body: some View {
         NavigationStack {
             Form {
                 Section {
-                    TextField("Birikim adı (örn. Vadeli hesap, Altın)", text: $name)
+                    Picker("Tür", selection: $kind.animation()) {
+                        ForEach(Kind.allCases, id: \.self) { k in
+                            Text(k.rawValue).tag(k)
+                        }
+                    }
+                    .pickerStyle(.segmented)
 
-                    TextField("Tutar (TL)", value: $amount, format: .number)
-                        .keyboardType(.decimalPad)
+                    TextField("Adı (örn. Vadeli hesap, Altın hesabı)", text: $name)
+
+                    switch kind {
+                    case .manual:
+                        TextField("Tutar (TL)", value: $amount, format: .number)
+                            .keyboardType(.decimalPad)
+                    case .gold:
+                        TextField("Kaç gram?", value: $quantity, format: .number)
+                            .keyboardType(.decimalPad)
+                    case .usd, .eur:
+                        TextField("Miktar", value: $quantity, format: .number)
+                            .keyboardType(.decimalPad)
+                    case .fund:
+                        TextField("Fon kodu (örn. TP2)", text: $code)
+                            .textInputAutocapitalization(.characters)
+                            .autocorrectionDisabled()
+                        TextField("Kaç adet?", value: $quantity, format: .number)
+                            .keyboardType(.decimalPad)
+                        TextField("Birim fiyat (TL)", value: $unitPrice, format: .number)
+                            .keyboardType(.decimalPad)
+                    }
                 } footer: {
-                    Text("Birikimin büyüyünce veya bozdurunca buradan güncelle; geçmiş ayların kaydı değişmez.")
+                    switch kind {
+                    case .manual:
+                        Text("Tutarı kendin girersin; değişince güncellersin.")
+                    case .gold:
+                        Text("Gram sayısını gir; TL karşılığı güncel altın fiyatından otomatik hesaplanır.")
+                    case .usd, .eur:
+                        Text("Miktarı gir; TL karşılığı güncel kurdan otomatik hesaplanır.")
+                    case .fund:
+                        Text("Adet × birim fiyat otomatik hesaplanır. Fon fiyatı değişince buradan birim fiyatı güncelle.")
+                    }
                 }
 
                 if item != nil {
@@ -214,7 +360,7 @@ struct SavingsFormView: View {
                         }
                         .frame(maxWidth: .infinity)
                     } footer: {
-                        Text("Silince geçmiş ayların birikimi değişmez; sadece bu ay ve gelecek güncellenir.")
+                        Text("Silince geçmiş ayların birikimi değişmez; sadece bu ay güncellenir.")
                     }
                 }
             }
@@ -228,26 +374,56 @@ struct SavingsFormView: View {
                     Button("Kaydet") {
                         save()
                     }
-                    .disabled(name.isEmpty || (amount ?? 0) <= 0)
+                    .disabled(!isValid)
                 }
             }
             .onAppear {
                 if let item {
+                    kind = Kind.allCases.first { $0.storageKey == item.kind } ?? .manual
                     name = item.name
                     amount = item.amount
+                    quantity = item.quantity
+                    code = item.code ?? ""
+                    unitPrice = item.unitPrice
                 }
             }
         }
-        .presentationDetents([.medium])
+        .presentationDetents([.medium, .large])
+    }
+
+    private var isValid: Bool {
+        guard !name.isEmpty else { return false }
+        switch kind {
+        case .manual: return (amount ?? 0) > 0
+        case .fund:   return (quantity ?? 0) > 0 && !code.isEmpty && (unitPrice ?? 0) > 0
+        default:      return (quantity ?? 0) > 0
+        }
     }
 
     private func save() {
-        guard let amount else { return }
+        let storageKind = kind.storageKey
+        // Başlangıç tutarı: elle → girilen; fon → adet × birim fiyat;
+        // altın/döviz → ilk fiyat güncellemesinde hesaplanır
+        let initialAmount: Double
+        switch kind {
+        case .manual: initialAmount = amount ?? 0
+        case .fund:   initialAmount = (quantity ?? 0) * (unitPrice ?? 0)
+        default:      initialAmount = item?.amount ?? 0
+        }
+
         if let item {
             item.name = name
-            item.amount = amount
+            item.kind = storageKind
+            item.amount = initialAmount
+            item.quantity = kind == .manual ? nil : quantity
+            item.code = kind == .fund ? code.uppercased() : nil
+            item.unitPrice = kind == .fund ? unitPrice : nil
         } else {
-            modelContext.insert(SavingsItem(name: name, amount: amount))
+            modelContext.insert(SavingsItem(name: name, amount: initialAmount,
+                                            kind: storageKind,
+                                            quantity: kind == .manual ? nil : quantity,
+                                            code: kind == .fund ? code.uppercased() : nil,
+                                            unitPrice: kind == .fund ? unitPrice : nil))
         }
         syncSavingsSnapshot(modelContext)
         dismiss()

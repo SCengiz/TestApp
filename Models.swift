@@ -62,15 +62,27 @@ func syncIncomeSnapshot(_ context: ModelContext) {
     try? context.save()
 }
 
-// Birikim kalemi: vadeli hesap, yastık altı, altın gibi (tutar değişince güncellenir)
+// Birikim kalemi. İki tarz:
+// - Elle (manual): tutarı kullanıcı girer (vadeli hesap gibi)
+// - Otomatik (gold/usd/eur/fund): miktar girilir, TL karşılığı canlı fiyattan hesaplanır
 @Model
 final class SavingsItem {
     var name: String
-    var amount: Double
+    var amount: Double // TL karşılığı (otomatik türlerde fiyat güncellenince yenilenir)
+    var kind: String = "manual" // manual | gold | usd | eur | fund
+    var quantity: Double? = nil // gram / adet / miktar
+    var code: String? = nil // fon kodu (örn. TP2)
+    var unitPrice: Double? = nil // fon birim fiyatı (elle güncellenir)
+    var priceUpdatedAt: Date? = nil // son fiyat güncellemesi
 
-    init(name: String, amount: Double) {
+    init(name: String, amount: Double, kind: String = "manual",
+         quantity: Double? = nil, code: String? = nil, unitPrice: Double? = nil) {
         self.name = name
         self.amount = amount
+        self.kind = kind
+        self.quantity = quantity
+        self.code = code
+        self.unitPrice = unitPrice
     }
 }
 
