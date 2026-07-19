@@ -142,14 +142,21 @@ struct IncomeView: View {
                                 .foregroundStyle(.secondary.opacity(0.5))
                                 .lineStyle(StrokeStyle(lineWidth: 1, dash: [4, 4]))
                         }
-                        .chartXSelection(value: $selectedMonth)
-                        // Çubuğa dokununca o ayın dökümü küçük ekranda açılır (gizli modda kapalı)
-                        .onChange(of: selectedMonth) {
-                            if let month = selectedMonth {
-                                if !amountsHidden {
-                                    detailMonth = MonthSelection(date: month)
-                                }
-                                selectedMonth = nil
+                        .chartOverlay { proxy in
+                            GeometryReader { geo in
+                                Rectangle()
+                                    .fill(Color.clear)
+                                    .contentShape(Rectangle())
+                                    .onTapGesture { location in
+                                        // Tek dokunuşla o ayın dökümünü aç
+                                        guard let plotFrame = proxy.plotFrame else { return }
+                                        let x = location.x - geo[plotFrame].origin.x
+                                        if let date: Date = proxy.value(atX: x) {
+                                            if !amountsHidden {
+                                                detailMonth = MonthSelection(date: date)
+                                            }
+                                        }
+                                    }
                             }
                         }
                         .chartYAxis(amountsHidden ? .hidden : .automatic)

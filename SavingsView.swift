@@ -212,11 +212,19 @@ struct SavingsView: View {
                                 }
                             }
                         }
-                        .chartXSelection(value: $selectedMonth)
-                        .onChange(of: selectedMonth) {
-                            if let month = selectedMonth {
-                                detailMonth = MonthSelection(date: month)
-                                selectedMonth = nil
+                        .chartOverlay { proxy in
+                            GeometryReader { geo in
+                                Rectangle()
+                                    .fill(Color.clear)
+                                    .contentShape(Rectangle())
+                                    .onTapGesture { location in
+                                        // Tek dokunuşla o ayın dökümünü aç
+                                        guard let plotFrame = proxy.plotFrame else { return }
+                                        let x = location.x - geo[plotFrame].origin.x
+                                        if let date: Date = proxy.value(atX: x) {
+                                            detailMonth = MonthSelection(date: date)
+                                        }
+                                    }
                             }
                         }
                         .chartXAxis {
