@@ -385,6 +385,7 @@ struct AssetDetailView: View {
     @Environment(\.modelContext) private var modelContext
     @State private var showingBuy = false
     @State private var showingSell = false
+    @State private var showingTefas = false
     @State private var priceText: Double?
 
     private var sortedTransactions: [AssetTransaction] {
@@ -431,10 +432,11 @@ struct AssetDetailView: View {
                         .buttonStyle(.plain)
                     }
 
-                    if account == .fund, let code = asset.code, !code.isEmpty,
-                       let url = URL(string: "https://www.tefas.gov.tr/tr/fon-detayli-analiz/\(code)") {
-                        Link(destination: url) {
-                            Label("Güncel fiyatı TEFAS'ta gör", systemImage: "safari")
+                    if account == .fund, let code = asset.code, !code.isEmpty {
+                        Button {
+                            showingTefas = true
+                        } label: {
+                            Label("Fiyatı TEFAS'tan Getir", systemImage: "arrow.down.circle.fill")
                         }
                     }
                 }
@@ -503,7 +505,13 @@ struct AssetDetailView: View {
         .sheet(isPresented: $showingSell) {
             TransactionFormView(asset: asset, account: account, isBuy: false)
         }
+        .sheet(isPresented: $showingTefas) {
+            TefasPriceSheet(asset: asset)
+        }
         .onAppear {
+            priceText = asset.unitPrice > 0 ? asset.unitPrice : nil
+        }
+        .onChange(of: asset.unitPrice) {
             priceText = asset.unitPrice > 0 ? asset.unitPrice : nil
         }
     }
