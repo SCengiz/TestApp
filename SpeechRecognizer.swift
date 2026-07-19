@@ -58,6 +58,13 @@ final class SpeechRecognizer {
 
             let inputNode = audioEngine.inputNode
             let format = inputNode.outputFormat(forBus: 0)
+
+            // Mikrofon hattı gerçekten var mı? (simülatörde sık görülen sorun)
+            guard format.sampleRate > 0, format.channelCount > 0 else {
+                errorMessage = "Mikrofon girişi bulunamadı. Simulator menüsünden I/O > Audio Input > Internal Microphone'u seç, olmazsa simülatörü yeniden başlat. En sağlıklısı gerçek iPhone'da denemek."
+                return
+            }
+
             inputNode.installTap(onBus: 0, bufferSize: 1024, format: format) { buffer, _ in
                 request.append(buffer)
             }
@@ -73,6 +80,10 @@ final class SpeechRecognizer {
                         self.transcript = result.bestTranscription.formattedString
                     }
                     if error != nil || (result?.isFinal ?? false) {
+                        // Hiçbir şey tanınmadan hata geldiyse sebebini göster
+                        if let error, self.isRecording, self.transcript.isEmpty {
+                            self.errorMessage = "Ses tanınamadı: \(error.localizedDescription)"
+                        }
                         self.stop()
                     }
                 }
