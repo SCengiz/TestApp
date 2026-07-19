@@ -5,6 +5,16 @@ import Foundation
 // - Yatırım fonu fiyatları: TEFAS
 enum PriceService {
 
+    // Önbelleksiz oturum: "yenile" her zaman o anın verisini getirir
+    static let session: URLSession = {
+        let config = URLSessionConfiguration.ephemeral
+        config.requestCachePolicy = .reloadIgnoringLocalAndRemoteCacheData
+        config.timeoutIntervalForRequest = 15
+        config.urlCache = nil
+        return URLSession(configuration: config)
+    }()
+
+
     struct MarketPrices {
         var goldGram: Double?     // gram altın alış (varlık değerlemesi)
         var goldGramSell: Double? // gram altın satış (borç değerlemesi)
@@ -30,7 +40,7 @@ enum PriceService {
 
     static func fetchMarketPrices() async throws -> MarketPrices {
         let url = URL(string: "https://finans.truncgil.com/today.json")!
-        let (data, _) = try await URLSession.shared.data(from: url)
+        let (data, _) = try await session.data(from: url)
         guard let json = try JSONSerialization.jsonObject(with: data) as? [String: Any] else {
             throw URLError(.cannotParseResponse)
         }
@@ -67,7 +77,7 @@ enum PriceService {
     // 1) Ana sayfadaki menüden fonun kendi sayfa linki bulunur
     // 2) Fon sayfasındaki "product-price" değeri okunur
     static func fetchTeraHomePage() async throws -> String {
-        let (data, _) = try await URLSession.shared.data(from: URL(string: "https://www.teraportfoy.com")!)
+        let (data, _) = try await session.data(from: URL(string: "https://www.teraportfoy.com")!)
         guard let html = String(data: data, encoding: .utf8) else {
             throw URLError(.cannotParseResponse)
         }
@@ -95,7 +105,7 @@ enum PriceService {
             throw URLError(.badURL)
         }
 
-        let (fundData, _) = try await URLSession.shared.data(from: fundURL)
+        let (fundData, _) = try await session.data(from: fundURL)
         guard let fundHTML = String(data: fundData, encoding: .utf8) else {
             throw URLError(.cannotParseResponse)
         }
@@ -122,7 +132,7 @@ enum PriceService {
         func get(_ urlString: String) async throws -> String {
             var request = URLRequest(url: URL(string: urlString)!)
             request.setValue("Mozilla/5.0", forHTTPHeaderField: "User-Agent")
-            let (data, _) = try await URLSession.shared.data(for: request)
+            let (data, _) = try await session.data(for: request)
             guard let html = String(data: data, encoding: .utf8) else {
                 throw URLError(.cannotParseResponse)
             }
@@ -170,7 +180,7 @@ enum PriceService {
             guard let url = URL(string: "https://\(host).finance.yahoo.com/v8/finance/chart/\(symbol).IS?interval=1d&range=1d") else { continue }
             var request = URLRequest(url: url)
             request.setValue("Mozilla/5.0", forHTTPHeaderField: "User-Agent")
-            guard let (data, _) = try? await URLSession.shared.data(for: request),
+            guard let (data, _) = try? await session.data(for: request),
                   let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
                   let chart = json["chart"] as? [String: Any],
                   let results = chart["result"] as? [[String: Any]],

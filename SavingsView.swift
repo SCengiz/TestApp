@@ -71,6 +71,8 @@ struct SavingsView: View {
     @State private var detailMonth: MonthSelection?
     @State private var showingAccountForm = false
     @State private var priceError: String?
+    @State private var isRefreshing = false
+    @State private var lastUpdate: Date?
 
     private var calendar: Calendar { .current }
 
@@ -171,10 +173,19 @@ struct SavingsView: View {
                         syncSavingsSnapshot(modelContext)
                     }
                 } header: {
-                    Text("Hesaplarım")
+                    HStack {
+                        Text("Hesaplarım")
+                        Spacer()
+                        if isRefreshing {
+                            ProgressView()
+                                .controlSize(.mini)
+                        }
+                    }
                 } footer: {
                     if let priceError {
                         Text("⚠️ \(priceError)")
+                    } else if let lastUpdate {
+                        Text("Fiyatlar güncel · son güncelleme \(lastUpdate.formatted(date: .omitted, time: .shortened)). Aşağı çekerek yenileyebilirsin.")
                     } else {
                         Text("Hesaba dokunup alış/satış işlemlerini gir; + ile yeni hesap ekleyebilirsin.")
                     }
@@ -240,12 +251,10 @@ struct SavingsView: View {
             .onAppear {
                 ensureDefaultAccounts()
                 syncSavingsSnapshot(modelContext)
+                Task { await refreshPrices() }
             }
             .onChange(of: total) {
                 syncSavingsSnapshot(modelContext)
-            }
-            .task {
-                await refreshPrices()
             }
         }
     }
@@ -262,6 +271,9 @@ struct SavingsView: View {
     // Canlı fiyatları yenile: altın (kur) + fonlar (Tera Portföy sitesi)
     @MainActor
     private func refreshPrices() async {
+        guard !isRefreshing else { return }
+        isRefreshing = true
+        defer { isRefreshing = false }
         priceError = nil
 
         // Altın: canlı gram fiyatı
@@ -312,6 +324,7 @@ struct SavingsView: View {
 
         try? modelContext.save()
         syncSavingsSnapshot(modelContext)
+        lastUpdate = .now
     }
 }
 
