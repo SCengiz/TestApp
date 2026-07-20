@@ -264,6 +264,7 @@ struct DebtFormView: View {
             Form {
                 Section {
                     TextField(tr("Kimden / açıklama (örn. Ahmet)", "From whom / note (e.g. Ahmet)"), text: $name)
+                        .textInputAutocapitalization(.words)
 
                     Picker(tr("Borç türü", "Debt kind"), selection: $kind.animation()) {
                         ForEach(DebtKind.allCases) { k in

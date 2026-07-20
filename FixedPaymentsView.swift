@@ -163,6 +163,7 @@ struct AddFixedPaymentView: View {
 
                 Section(tr("Elle Gir", "Manual Entry")) {
                     TextField(tr("Adı (örn. Kredi kartı ekstresi)", "Name (e.g. Card statement)"), text: $name)
+                        .textInputAutocapitalization(.words)
 
                     TextField(tr("Aylık tutar (TL)", "Monthly amount (TL)"), value: $amount, format: .number)
                         .keyboardType(.decimalPad)

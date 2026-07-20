@@ -724,6 +724,7 @@ struct AccountFormView: View {
             Form {
                 Section {
                     TextField(tr("Hesap adı (örn. Midas Hisse, Ziraat Vadeli)", "Account name (e.g. My Broker)"), text: $name)
+                        .textInputAutocapitalization(.words)
 
                     Picker(tr("Hesap türü", "Account kind"), selection: $kind) {
                         ForEach(SavingsAccount.allCases) { k in
@@ -768,6 +769,7 @@ struct RenameAssetSheet: View {
             Form {
                 Section {
                     TextField(tr("Görünen ad", "Display name"), text: $name)
+                        .textInputAutocapitalization(.words)
 
                     if let code = asset.code, !code.isEmpty {
                         HStack {
@@ -823,6 +825,7 @@ struct AssetFormView: View {
                 Section {
                     TextField(account == .fund ? tr("Fon adı (örn. TP2 Fonu)", "Fund name (e.g. TP2)") : tr("Hisse adı (örn. THY)", "Stock name (e.g. THY)"),
                               text: $name)
+                        .textInputAutocapitalization(.words)
                     TextField(account == .fund ? tr("Fon kodu (örn. TP2)", "Fund code (e.g. TP2)") : tr("Hisse kodu (örn. THYAO)", "Ticker (e.g. THYAO)"),
                               text: $code)
                         .textInputAutocapitalization(.characters)

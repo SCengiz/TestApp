@@ -240,6 +240,7 @@ struct IncomeFormView: View {
             Form {
                 Section {
                     TextField(tr("Gelir kaynağı (örn. Maaş, Kira geliri)", "Income source (e.g. Salary, Rent)"), text: $name)
+                        .textInputAutocapitalization(.words)
 
                     TextField(tr("Aylık tutar (TL)", "Monthly amount (TL)"), value: $amount, format: .number)
                         .keyboardType(.decimalPad)

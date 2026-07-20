@@ -179,6 +179,7 @@ struct AddExpenseView: View {
 
                 Section(tr("Elle Gir", "Manual Entry")) {
                     TextField(tr("Ne aldın? (örn. Market alışverişi)", "What did you buy? (e.g. Groceries)"), text: $title)
+                        .textInputAutocapitalization(.words)
                         .onChange(of: title) {
                             // Yazdıkça kategoriyi otomatik tahmin et
                             if let guessed = guessCategory(from: title) {
