@@ -40,7 +40,7 @@ struct UserSessionView: View {
     @Binding var selectedTab: Int
     @State private var container: ModelContainer
     // Sekmeden ayrılınca o sekme kök sayfasına döner (kimlik değişince baştan kurulur)
-    @State private var tabResetTokens: [UUID] = [UUID(), UUID(), UUID(), UUID(), UUID()]
+    @State private var tabResetTokens: [UUID] = [UUID(), UUID(), UUID(), UUID()]
 
     init(user: String, loggedInUser: Binding<String?>, selectedTab: Binding<Int>) {
         self.user = user
@@ -71,40 +71,33 @@ struct UserSessionView: View {
 
     var body: some View {
         TabView(selection: $selectedTab) {
-            OverviewView(loggedInUser: $loggedInUser)
-                .id(tabResetTokens[0])
-                .tabItem {
-                    Label(tr("Özet", "Overview"), systemImage: "square.grid.2x2.fill")
-                }
-                .tag(0)
-
             SummaryView(loggedInUser: $loggedInUser)
-                .id(tabResetTokens[1])
+                .id(tabResetTokens[0])
                 .tabItem {
                     Label(tr("Giderler", "Expenses"), systemImage: "chart.pie.fill")
                 }
-                .tag(1)
+                .tag(0)
 
             IncomeView(loggedInUser: $loggedInUser)
-                .id(tabResetTokens[2])
+                .id(tabResetTokens[1])
                 .tabItem {
                     Label(tr("Gelirler", "Income"), systemImage: "banknote.fill")
                 }
-                .tag(2)
+                .tag(1)
 
             SavingsView(loggedInUser: $loggedInUser)
-                .id(tabResetTokens[3])
+                .id(tabResetTokens[2])
                 .tabItem {
                     Label(tr("Birikimler", "Savings"), systemImage: "chart.line.uptrend.xyaxis")
                 }
-                .tag(3)
+                .tag(2)
 
             DebtsView(loggedInUser: $loggedInUser)
-                .id(tabResetTokens[4])
+                .id(tabResetTokens[3])
                 .tabItem {
                     Label(tr("Borçlar", "Debts"), systemImage: "person.2.fill")
                 }
-                .tag(4)
+                .tag(3)
         }
         .modelContainer(container)
         .onChange(of: selectedTab) { oldValue, _ in
