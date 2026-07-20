@@ -40,7 +40,7 @@ struct UserSessionView: View {
     @Binding var selectedTab: Int
     @State private var container: ModelContainer
     // Sekmeden ayrılınca o sekme kök sayfasına döner (kimlik değişince baştan kurulur)
-    @State private var tabResetTokens: [UUID] = [UUID(), UUID(), UUID(), UUID()]
+    @State private var tabResetTokens: [UUID] = [UUID(), UUID(), UUID(), UUID(), UUID()]
 
     init(user: String, loggedInUser: Binding<String?>, selectedTab: Binding<Int>) {
         self.user = user
@@ -71,33 +71,40 @@ struct UserSessionView: View {
 
     var body: some View {
         TabView(selection: $selectedTab) {
-            SummaryView(loggedInUser: $loggedInUser)
+            OverviewView(loggedInUser: $loggedInUser)
                 .id(tabResetTokens[0])
                 .tabItem {
-                    Label(tr("Giderler", "Expenses"), systemImage: "chart.pie.fill")
+                    Label(tr("Özet", "Overview"), systemImage: "square.grid.2x2.fill")
                 }
                 .tag(0)
 
-            IncomeView(loggedInUser: $loggedInUser)
+            SummaryView(loggedInUser: $loggedInUser)
                 .id(tabResetTokens[1])
                 .tabItem {
-                    Label(tr("Gelirler", "Income"), systemImage: "banknote.fill")
+                    Label(tr("Giderler", "Expenses"), systemImage: "chart.pie.fill")
                 }
                 .tag(1)
 
-            SavingsView(loggedInUser: $loggedInUser)
+            IncomeView(loggedInUser: $loggedInUser)
                 .id(tabResetTokens[2])
                 .tabItem {
-                    Label(tr("Birikimler", "Savings"), systemImage: "chart.line.uptrend.xyaxis")
+                    Label(tr("Gelirler", "Income"), systemImage: "banknote.fill")
                 }
                 .tag(2)
 
-            DebtsView(loggedInUser: $loggedInUser)
+            SavingsView(loggedInUser: $loggedInUser)
                 .id(tabResetTokens[3])
+                .tabItem {
+                    Label(tr("Birikimler", "Savings"), systemImage: "chart.line.uptrend.xyaxis")
+                }
+                .tag(3)
+
+            DebtsView(loggedInUser: $loggedInUser)
+                .id(tabResetTokens[4])
                 .tabItem {
                     Label(tr("Borçlar", "Debts"), systemImage: "person.2.fill")
                 }
-                .tag(3)
+                .tag(4)
         }
         .modelContainer(container)
         .onChange(of: selectedTab) { oldValue, _ in
