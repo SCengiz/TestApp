@@ -19,6 +19,7 @@ struct ExpenseCategory: Identifiable, Hashable {
         .init(name: "Eğlence", icon: "gamecontroller.fill", color: .mint),
         .init(name: "Abonelik", icon: "tv.fill", color: .cyan),
         .init(name: "Eğitim", icon: "graduationcap.fill", color: .brown),
+        .init(name: "Nakit Avans", icon: "banknote.fill", color: .yellow),
         .init(name: "Diğer", icon: "ellipsis.circle.fill", color: .gray),
     ]
 
@@ -37,6 +38,7 @@ struct ExpenseCategory: Identifiable, Hashable {
         case "Eğlence":         return "Entertainment"
         case "Abonelik":        return "Subscriptions"
         case "Eğitim":          return "Education"
+        case "Nakit Avans":     return "Cash Advance"
         case "Diğer":           return "Other"
         default:                return name
         }

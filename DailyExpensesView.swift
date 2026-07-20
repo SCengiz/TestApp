@@ -5,6 +5,7 @@ struct DailyExpensesView: View {
     @Environment(\.modelContext) private var modelContext
     @Query(sort: \Expense.date, order: .reverse) private var expenses: [Expense]
     @State private var showingAddSheet = false
+    @State private var editingExpense: Expense? // dokunulan harcama düzenlenir
     @State private var monthOffset = 0 // -3 (3 ay geri) ... +3 (3 ay ileri)
 
     private var calendar: Calendar { .current }
@@ -71,18 +72,28 @@ struct DailyExpensesView: View {
                 Section {
                     ForEach(group.items) { expense in
                         let cat = ExpenseCategory.named(expense.category)
-                        HStack(spacing: 12) {
-                            RowIcon(systemName: cat.icon, color: cat.color)
-                            VStack(alignment: .leading, spacing: 2) {
-                                Text(expense.title)
-                                Text(rowSubtitle(expense, category: cat))
-                                    .font(.caption)
-                                    .foregroundStyle(.secondary)
+                        Button {
+                            editingExpense = expense
+                        } label: {
+                            HStack(spacing: 12) {
+                                RowIcon(systemName: cat.icon, color: cat.color)
+                                VStack(alignment: .leading, spacing: 2) {
+                                    Text(expense.title)
+                                        .foregroundStyle(.primary)
+                                    Text(rowSubtitle(expense, category: cat))
+                                        .font(.caption)
+                                        .foregroundStyle(.secondary)
+                                }
+                                Spacer()
+                                Text(expense.amount, format: .currency(code: "TRY"))
+                                    .font(.callout.weight(.semibold))
+                                    .foregroundStyle(.primary)
+                                Image(systemName: "chevron.right")
+                                    .font(.caption.weight(.semibold))
+                                    .foregroundStyle(.tertiary)
                             }
-                            Spacer()
-                            Text(expense.amount, format: .currency(code: "TRY"))
-                                .font(.callout.weight(.semibold))
                         }
+                        .buttonStyle(.plain)
                     }
                     .onDelete { offsets in
                         deleteExpenses(group.items, at: offsets)
@@ -106,6 +117,9 @@ struct DailyExpensesView: View {
         }
         .sheet(isPresented: $showingAddSheet) {
             AddExpenseView()
+        }
+        .sheet(item: $editingExpense) { expense in
+            AddExpenseView(expense: expense)
         }
         .overlay {
             if monthExpenses.isEmpty {
@@ -151,10 +165,13 @@ struct DailyExpensesView: View {
     }
 }
 
-// Yeni harcama ekleme formu
+// Harcama ekleme / düzenleme formu (expense nil ise yeni kayıt)
 struct AddExpenseView: View {
     @Environment(\.modelContext) private var modelContext
     @Environment(\.dismiss) private var dismiss
+    @Query private var allExpenses: [Expense] // taksit grubunu bulmak için
+
+    var expense: Expense? = nil
 
     @State private var title = ""
     @State private var amount: Double?
@@ -167,21 +184,26 @@ struct AddExpenseView: View {
     var body: some View {
         NavigationStack {
             Form {
-                VoiceEntrySection(hint: tr("Sesle söyle", "Say it out loud")) { spoken in
-                    // "Dün Bim'den 100 TL'lik market alışverişi yaptım"
-                    // → 4 alan birden dolar
-                    let parsed = parseSpokenExpense(spoken)
-                    if let spokenTitle = parsed.title { title = spokenTitle }
-                    if let spokenAmount = parsed.amount { amount = spokenAmount }
-                    if let spokenCategory = parsed.category { category = spokenCategory }
-                    if let spokenDate = parsed.date { date = spokenDate }
+                // Sesli giriş sadece yeni kayıtta; düzenlerken alanları ezmesin
+                if expense == nil {
+                    VoiceEntrySection(hint: tr("Sesle söyle", "Say it out loud")) { spoken in
+                        // "Dün Bim'den 100 TL'lik market alışverişi yaptım"
+                        // → 4 alan birden dolar
+                        let parsed = parseSpokenExpense(spoken)
+                        if let spokenTitle = parsed.title { title = spokenTitle }
+                        if let spokenAmount = parsed.amount { amount = spokenAmount }
+                        if let spokenCategory = parsed.category { category = spokenCategory }
+                        if let spokenDate = parsed.date { date = spokenDate }
+                    }
                 }
 
                 Section(tr("Elle Gir", "Manual Entry")) {
                     TextField(tr("Ne aldın? (örn. Market alışverişi)", "What did you buy? (e.g. Groceries)"), text: $title)
                         .textInputAutocapitalization(.words)
                         .onChange(of: title) {
-                            // Yazdıkça kategoriyi otomatik tahmin et
+                            // Yazdıkça kategoriyi otomatik tahmin et.
+                            // Düzenlerken elle seçilen kategoriyi bozmamak için kapalı.
+                            guard expense == nil else { return }
                             if let guessed = guessCategory(from: title) {
                                 category = guessed
                             }
@@ -201,33 +223,49 @@ struct AddExpenseView: View {
                         .id(date)
                 }
 
-                // Peşin / Taksitli seçimi
-                Section {
-                    Picker(tr("Ödeme şekli", "Payment type"), selection: $isInstallment.animation()) {
-                        Text(tr("Peşin", "One-time")).tag(false)
-                        Text(tr("Taksitli", "Installments")).tag(true)
-                    }
-                    .pickerStyle(.segmented)
+                // Peşin / Taksitli seçimi (sadece yeni kayıtta)
+                if expense == nil {
+                    Section {
+                        Picker(tr("Ödeme şekli", "Payment type"), selection: $isInstallment.animation()) {
+                            Text(tr("Peşin", "One-time")).tag(false)
+                            Text(tr("Taksitli", "Installments")).tag(true)
+                        }
+                        .pickerStyle(.segmented)
 
-                    if isInstallment {
-                        Picker(tr("Toplam taksit", "Total installments"), selection: $installmentCount) {
-                            ForEach(2...36, id: \.self) { n in
-                                Text(tr("\(n) taksit", "\(n) installments")).tag(n)
+                        if isInstallment {
+                            Picker(tr("Toplam taksit", "Total installments"), selection: $installmentCount) {
+                                ForEach(2...36, id: \.self) { n in
+                                    Text(tr("\(n) taksit", "\(n) installments")).tag(n)
+                                }
+                            }
+                            Picker(tr("Şu an kaçıncı taksit", "Which installment now"), selection: $currentInstallment) {
+                                ForEach(1...installmentCount, id: \.self) { n in
+                                    Text(tr("\(n). taksit", "installment #\(n)")).tag(n)
+                                }
                             }
                         }
-                        Picker(tr("Şu an kaçıncı taksit", "Which installment now"), selection: $currentInstallment) {
-                            ForEach(1...installmentCount, id: \.self) { n in
-                                Text(tr("\(n). taksit", "installment #\(n)")).tag(n)
-                            }
+                    } footer: {
+                        if isInstallment {
+                            Text(tr("Tutar, AYLIK taksit tutarıdır. Kalan taksitler sonraki ayların harcamalarına otomatik eklenir; ileri aylara gidince görürsün.", "The amount is the MONTHLY installment. Remaining installments are added to future months automatically."))
                         }
                     }
-                } footer: {
-                    if isInstallment {
-                        Text(tr("Tutar, AYLIK taksit tutarıdır. Kalan taksitler sonraki ayların harcamalarına otomatik eklenir; ileri aylara gidince görürsün.", "The amount is the MONTHLY installment. Remaining installments are added to future months automatically."))
+                }
+
+                // Var olan harcamayı silme
+                if let expense {
+                    Section {
+                        Button(deleteTitle(for: expense), role: .destructive) {
+                            deleteExpense()
+                        }
+                        .frame(maxWidth: .infinity)
+                    } footer: {
+                        if let number = expense.installmentNumber, let count = expense.installmentCount {
+                            Text(tr("Bu kayıt \(count) taksitlik bir alışverişin \(number). taksidi. Ad, tutar ve kategori değişikliği tüm taksitlere uygulanır; tarih sadece bu taksidi değiştirir.", "This is installment \(number) of \(count). Name, amount and category changes apply to all installments; the date changes only this one."))
+                        }
                     }
                 }
             }
-            .navigationTitle(tr("Harcama Ekle", "Add Expense"))
+            .navigationTitle(expense == nil ? tr("Harcama Ekle", "Add Expense") : tr("Harcamayı Düzenle", "Edit Expense"))
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
@@ -240,11 +278,54 @@ struct AddExpenseView: View {
                     .disabled(title.isEmpty || (amount ?? 0) <= 0)
                 }
             }
+            .onAppear {
+                if let expense {
+                    title = expense.title
+                    amount = expense.amount
+                    date = expense.date
+                    category = expense.category
+                }
+            }
         }
+    }
+
+    // Taksitliyse silme butonu tüm grubu sildiğini açıkça söyler
+    private func deleteTitle(for expense: Expense) -> String {
+        if let count = expense.installmentCount {
+            return tr("Tüm Taksitleri Sil (\(count) kayıt)", "Delete All Installments (\(count) records)")
+        }
+        return tr("Harcamayı Sil", "Delete Expense")
+    }
+
+    // Aynı taksitli alışverişe ait tüm kayıtlar
+    private func installmentGroup(of expense: Expense) -> [Expense] {
+        guard let groupID = expense.installmentGroupID else { return [expense] }
+        return allExpenses.filter { $0.installmentGroupID == groupID }
+    }
+
+    private func deleteExpense() {
+        guard let expense else { return }
+        for item in installmentGroup(of: expense) {
+            modelContext.delete(item)
+        }
+        dismiss()
     }
 
     private func save() {
         guard let amount else { return }
+
+        // Düzenleme: ad/tutar/kategori tüm taksitlere, tarih sadece bu kayda
+        if let expense {
+            for item in installmentGroup(of: expense) {
+                item.title = title
+                item.amount = amount
+                item.category = category
+            }
+            expense.date = date
+            dismiss()
+            return
+        }
+
         if isInstallment {
             // Bu taksit + kalan taksitler sonraki aylara otomatik yazılır
             let groupID = UUID()
