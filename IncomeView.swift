@@ -57,7 +57,8 @@ struct IncomeView: View {
         if let earlier = snapshots.last(where: { $0.monthStart < month }) {
             return earlier.total
         }
-        return monthlyTotal
+        // Bu aydan önce hiç kayıt yoksa (henüz gelir girilmemişti): sıfır
+        return 0
     }
 
 

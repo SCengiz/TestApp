@@ -14,6 +14,7 @@ targets:
           - README.md
           - "*.xcodeproj"
           - Info.plist
+          - ".git/**"
     info:
       path: Info.plist
       properties:

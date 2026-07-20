@@ -129,7 +129,8 @@ struct SavingsView: View {
         if let earlier = snapshots.last(where: { $0.monthStart < month }) {
             return earlier.total
         }
-        return total
+        // Bu aydan önce hiç kayıt yoksa (henüz birikim yoktu): sıfır
+        return 0
     }
 
     var body: some View {
