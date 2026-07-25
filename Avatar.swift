@@ -179,22 +179,18 @@ struct AvatarEditSheet: View {
     var body: some View {
         NavigationStack {
             ScrollView {
-                VStack(spacing: 22) {
-                    AvatarView(avatar: avatar(withID: selectedID), size: 104)
-                        .padding(.top, 12)
+                VStack(spacing: 14) {
+                    AvatarView(avatar: avatar(withID: selectedID), size: 72)
+                        .padding(.top, 4)
 
                     Text(avatar(withID: selectedID).name)
-                        .font(.title3.bold())
+                        .font(.headline)
 
-                    AvatarPicker(selectedID: $selectedID, size: 58, showsNames: false)
-
-                    Text(tr("Avatarını seç; profil simgende görünür.",
-                            "Pick your avatar; it shows as your profile icon."))
-                        .font(.footnote)
-                        .foregroundStyle(.secondary)
-                        .multilineTextAlignment(.center)
+                    AvatarPicker(selectedID: $selectedID, size: 52, showsNames: false)
+                        .padding(.top, 2)
                 }
-                .padding(24)
+                .padding(.horizontal, 20)
+                .padding(.bottom, 20)
             }
             .navigationTitle(tr("Avatarı Değiştir", "Change Avatar"))
             .navigationBarTitleDisplayMode(.inline)
@@ -210,6 +206,8 @@ struct AvatarEditSheet: View {
                 }
             }
         }
-        .presentationDetents([.large])
+        // Yarım ekran açılır; istenirse yukarı çekip büyütülebilir
+        .presentationDetents([.medium, .large])
+        .presentationDragIndicator(.visible)
     }
 }
