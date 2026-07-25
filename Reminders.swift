@@ -196,24 +196,19 @@ struct RemindersButton: View {
         Button {
             showingSheet = true
         } label: {
-            // Sabit çerçeveli ZStack: rozet araç çubuğunda kırpılmadan,
-            // zilin kendi noktasıyla çakışmadan temiz çizilir
+            // Bekleyen ödeme varsa zilin sağ üst köşesinde kırmızı nokta
             ZStack(alignment: .topTrailing) {
                 Image(systemName: pendingCount > 0 ? "bell.fill" : "bell")
                     .font(.title3)
-                    .frame(width: 28, height: 28, alignment: .bottomLeading)
+                    .frame(width: 26, height: 26, alignment: .bottomLeading)
 
                 if pendingCount > 0 {
-                    Text(pendingCount > 9 ? "9+" : "\(pendingCount)")
-                        .font(.system(size: 10, weight: .bold, design: .rounded))
-                        .foregroundStyle(.white)
-                        .padding(.horizontal, 4)
-                        .frame(minWidth: 15, minHeight: 15)
-                        .background(Capsule().fill(.red))
-                        .fixedSize()
+                    Circle()
+                        .fill(.red)
+                        .frame(width: 10, height: 10)
                 }
             }
-            .frame(width: 32, height: 30)
+            .frame(width: 28, height: 28)
         }
         .sheet(isPresented: $showingSheet) {
             RemindersSheet()
