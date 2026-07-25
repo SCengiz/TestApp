@@ -359,6 +359,7 @@ final class FixedPayment {
     var totalInstallments: Int? = nil // toplam taksit sayısı (örn. 12)
     var firstPaymentDate: Date? = nil // ilk taksitin ödendiği ay
 
+
     init(name: String, amount: Double, dueDay: Int,
          totalInstallments: Int? = nil, firstPaymentDate: Date? = nil) {
         self.name = name
@@ -385,6 +386,15 @@ extension FixedPayment {
         guard totalInstallments != nil, firstPaymentDate != nil else { return true }
         return installmentNumber(inMonth: month, calendar: calendar) != nil
     }
+
+    // Verilen ayda son ödeme günü (ödeme günü 1-28 olduğu için hep geçerli bir tarih)
+    func dueDate(inMonth month: Date, calendar: Calendar = .current) -> Date? {
+        let monthStart = calendar.dateInterval(of: .month, for: month)!.start
+        var components = calendar.dateComponents([.year, .month], from: monthStart)
+        components.day = dueDay
+        return calendar.date(from: components)
+    }
+
 }
 
 // Kullanıcının Ayarlar'dan eklediği kendi harcama kategorisi.
@@ -402,5 +412,21 @@ final class CustomCategory {
         self.icon = icon
         self.colorName = colorName
         self.createdAt = createdAt
+    }
+}
+
+// "Ödedim" işaretlenen ödemeler. Ayrı tabloda tutulur: mevcut bir tabloya
+// yeni kolon eklemek eski kayıtlarda beklenmedik değerler oluşturabiliyor,
+// yeni tablo ise her zaman boş başlar.
+@Model
+final class PaidPayment {
+    var paymentName: String = ""
+    var monthStart: Date = Date.now // işaretlenen ayın başı
+    var paidAt: Date = Date.now
+
+    init(paymentName: String, monthStart: Date, paidAt: Date = .now) {
+        self.paymentName = paymentName
+        self.monthStart = monthStart
+        self.paidAt = paidAt
     }
 }

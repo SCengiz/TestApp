@@ -120,6 +120,12 @@ struct FixedPaymentsView: View {
         }
     }
 
+    private func refreshReminders() {
+        let all = (try? modelContext.fetch(FetchDescriptor<FixedPayment>())) ?? []
+        let paid = (try? modelContext.fetch(FetchDescriptor<PaidPayment>())) ?? []
+        PaymentReminders.reschedule(payments: all, paidRecords: paid)
+    }
+
     private func monthArrow(_ icon: String, enabled: Bool, action: @escaping () -> Void) -> some View {
         Button(action: action) {
             Image(systemName: icon)
@@ -136,6 +142,8 @@ struct FixedPaymentsView: View {
         for index in offsets {
             modelContext.delete(monthPayments[index])
         }
+        try? modelContext.save()
+        refreshReminders()
     }
 
     // "Taksit 5/12 · kalan 7 ay · Her ayın 15'i" gibi alt satır
@@ -344,14 +352,25 @@ struct AddFixedPaymentView: View {
                                              totalInstallments: total,
                                              firstPaymentDate: firstPayment))
         }
+        try? modelContext.save()
+        refreshReminders()
         dismiss()
     }
 
     private func deletePayment() {
         if let payment {
             modelContext.delete(payment)
+            try? modelContext.save()
         }
+        refreshReminders()
         dismiss()
+    }
+
+    // Kayıt değişince hatırlatma planını baştan kur
+    private func refreshReminders() {
+        let all = (try? modelContext.fetch(FetchDescriptor<FixedPayment>())) ?? []
+        let paid = (try? modelContext.fetch(FetchDescriptor<PaidPayment>())) ?? []
+        PaymentReminders.reschedule(payments: all, paidRecords: paid)
     }
 }
 

@@ -6,6 +6,7 @@ struct SummaryView: View {
     @Binding var loggedInUser: String?
     @Query(sort: \Expense.date, order: .reverse) private var expenses: [Expense]
     @Query private var payments: [FixedPayment]
+    @Query private var paidRecords: [PaidPayment]
     @State private var selectedMonth: Date? // grafikte dokunulan ay
     @State private var detailMonth: MonthSelection? // dökümü açılan ay
     @State private var selectedCategory: ExpenseCategory? // detayı açılan kategori
@@ -285,6 +286,14 @@ struct SummaryView: View {
                 ToolbarItem(placement: .topBarLeading) {
                     ProfileButton(loggedInUser: $loggedInUser)
                 }
+                ToolbarItem(placement: .topBarTrailing) {
+                    RemindersButton(payments: payments, paidRecords: paidRecords)
+                }
+            }
+            .onAppear {
+                // Ödeme hatırlatmaları: izin iste ve planı tazele
+                PaymentReminders.requestAuthorization()
+                PaymentReminders.reschedule(payments: payments, paidRecords: paidRecords)
             }
         }
     }
