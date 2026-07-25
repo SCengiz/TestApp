@@ -29,14 +29,22 @@ enum AppTheme: String, CaseIterable, Identifiable {
 // Sol üstteki kullanıcı simgesi: dokununca profil penceresi açılır
 struct ProfileButton: View {
     @Binding var loggedInUser: String?
+    @AppStorage private var avatarID: String
     @State private var showingSheet = false
+
+    init(loggedInUser: Binding<String?>) {
+        self._loggedInUser = loggedInUser
+        let user = loggedInUser.wrappedValue ?? ""
+        // Avatar değişince buton kendiliğinden güncellensin
+        self._avatarID = AppStorage(wrappedValue: defaultAvatarID,
+                                    avatarStorageKey(for: user))
+    }
 
     var body: some View {
         Button {
             showingSheet = true
         } label: {
-            Image(systemName: "person.crop.circle.fill")
-                .font(.title3)
+            AvatarView(avatar: avatar(withID: avatarID), size: 30)
         }
         .sheet(isPresented: $showingSheet) {
             ProfileSheet(loggedInUser: $loggedInUser)
@@ -47,8 +55,17 @@ struct ProfileButton: View {
 // Profil penceresi: ad, ayarlar ve çıkış
 struct ProfileSheet: View {
     @Binding var loggedInUser: String?
+    @AppStorage private var avatarID: String
+    @State private var showingAvatarSheet = false
 
     @Environment(\.dismiss) private var dismiss
+
+    init(loggedInUser: Binding<String?>) {
+        self._loggedInUser = loggedInUser
+        let user = loggedInUser.wrappedValue ?? ""
+        self._avatarID = AppStorage(wrappedValue: defaultAvatarID,
+                                    avatarStorageKey(for: user))
+    }
 
     private var displayName: String {
         (loggedInUser ?? "").capitalized
@@ -60,11 +77,24 @@ struct ProfileSheet: View {
                 // En üstte kullanıcı adı
                 Section {
                     VStack(spacing: 10) {
-                        Image(systemName: "person.crop.circle.fill")
-                            .font(.system(size: 64))
-                            .foregroundStyle(.tint)
+                        // Avatara dokununca değiştirme ekranı açılır
+                        Button {
+                            showingAvatarSheet = true
+                        } label: {
+                            AvatarView(avatar: avatar(withID: avatarID), size: 88)
+                                .overlay(alignment: .bottomTrailing) {
+                                    Image(systemName: "pencil.circle.fill")
+                                        .font(.system(size: 28))
+                                        .foregroundStyle(.white, Color.accentColor)
+                                }
+                        }
+                        .buttonStyle(.plain)
+
                         Text(displayName)
                             .font(.title2.bold())
+                        Text(tr("Avatarı değiştirmek için dokun", "Tap to change your avatar"))
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
                     }
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, 8)
@@ -97,6 +127,9 @@ struct ProfileSheet: View {
                     Button(tr("Kapat", "Close")) { dismiss() }
                 }
             }
+            .sheet(isPresented: $showingAvatarSheet) {
+                AvatarEditSheet(user: loggedInUser ?? "")
+            }
         }
         .presentationDetents([.medium, .large])
     }
@@ -107,6 +140,14 @@ struct SettingsView: View {
     let user: String
     @AppStorage("appTheme") private var themeRaw = AppTheme.system.rawValue
     @AppStorage("appLanguage") private var appLanguage = "tr"
+    @AppStorage private var avatarID: String
+    @State private var showingAvatarSheet = false
+
+    init(user: String) {
+        self.user = user
+        self._avatarID = AppStorage(wrappedValue: defaultAvatarID,
+                                    avatarStorageKey(for: user))
+    }
 
     var body: some View {
         List {
@@ -143,6 +184,17 @@ struct SettingsView: View {
             }
 
             Section(tr("Hesap", "Account")) {
+                Button {
+                    showingAvatarSheet = true
+                } label: {
+                    HStack {
+                        Label(tr("Avatarım", "My Avatar"), systemImage: "person.crop.circle")
+                        Spacer()
+                        AvatarView(avatar: avatar(withID: avatarID), size: 28)
+                    }
+                }
+                .buttonStyle(.plain)
+
                 NavigationLink {
                     ChangePasswordView(user: user)
                 } label: {
@@ -161,6 +213,9 @@ struct SettingsView: View {
         }
         .navigationTitle(tr("Ayarlar", "Settings"))
         .navigationBarTitleDisplayMode(.inline)
+        .sheet(isPresented: $showingAvatarSheet) {
+            AvatarEditSheet(user: user)
+        }
     }
 }
 

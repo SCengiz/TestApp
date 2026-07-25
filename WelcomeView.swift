@@ -178,6 +178,7 @@ struct RegisterView: View {
     @State private var name = ""
     @State private var password = ""
     @State private var errorMessage: String?
+    @State private var selectedAvatarID = defaultAvatarID
 
     var body: some View {
         ZStack {
@@ -192,12 +193,15 @@ struct RegisterView: View {
             VStack(spacing: 24) {
                 Spacer()
 
-                AppMark(size: 88)
+                AvatarView(avatar: avatar(withID: selectedAvatarID), size: 88)
                 Text(tr("Hesap Oluştur", "Create Account"))
                     .font(.largeTitle.bold())
                     .foregroundStyle(.white)
-                Text(tr("İsim ve şifre belirlemen yeterli", "Just pick a name and password"))
+                Text(tr("İsim, şifre ve avatarını seç", "Pick a name, password and avatar"))
                     .foregroundStyle(.white.opacity(0.8))
+
+                AvatarPicker(selectedID: $selectedAvatarID, size: 52, showsNames: false)
+                    .foregroundStyle(.white)
 
                 VStack(spacing: 14) {
                     TextField("", text: $name,
@@ -251,6 +255,7 @@ struct RegisterView: View {
         }
         // Kayıt başarılı: doğrudan giriş yap (tertemiz kişisel depo açılır)
         let user = name.trimmingCharacters(in: .whitespaces).lowercased()
+        setAvatar(selectedAvatarID, for: user)
         UserDefaults.standard.set(user, forKey: "rememberedUser")
         loggedInUser = user
     }
