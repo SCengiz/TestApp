@@ -140,14 +140,6 @@ struct SettingsView: View {
     let user: String
     @AppStorage("appTheme") private var themeRaw = AppTheme.system.rawValue
     @AppStorage("appLanguage") private var appLanguage = "tr"
-    @AppStorage private var avatarID: String
-    @State private var showingAvatarSheet = false
-
-    init(user: String) {
-        self.user = user
-        self._avatarID = AppStorage(wrappedValue: defaultAvatarID,
-                                    avatarStorageKey(for: user))
-    }
 
     var body: some View {
         List {
@@ -184,17 +176,6 @@ struct SettingsView: View {
             }
 
             Section(tr("Hesap", "Account")) {
-                Button {
-                    showingAvatarSheet = true
-                } label: {
-                    HStack {
-                        Label(tr("Avatarım", "My Avatar"), systemImage: "person.crop.circle")
-                        Spacer()
-                        AvatarView(avatar: avatar(withID: avatarID), size: 28)
-                    }
-                }
-                .buttonStyle(.plain)
-
                 NavigationLink {
                     ChangePasswordView(user: user)
                 } label: {
@@ -213,9 +194,6 @@ struct SettingsView: View {
         }
         .navigationTitle(tr("Ayarlar", "Settings"))
         .navigationBarTitleDisplayMode(.inline)
-        .sheet(isPresented: $showingAvatarSheet) {
-            AvatarEditSheet(user: user)
-        }
     }
 }
 
