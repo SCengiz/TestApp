@@ -4,7 +4,7 @@ import SwiftUI
 // Kullanıcıya özel olarak UserDefaults'ta saklanır (şifre gibi).
 struct ProfileAvatar: Identifiable, Hashable {
     let id: String
-    let symbol: String
+    let emoji: String
     let colors: [Color]
 
     var turkishName: String
@@ -14,56 +14,57 @@ struct ProfileAvatar: Identifiable, Hashable {
 }
 
 let profileAvatars: [ProfileAvatar] = [
-    .init(id: "cat", symbol: "cat.fill",
-          colors: [Color(red: 1.00, green: 0.68, blue: 0.30),
-                   Color(red: 0.96, green: 0.42, blue: 0.24),
-                   Color(red: 0.85, green: 0.24, blue: 0.35)],
+    .init(id: "cat", emoji: "🐱",
+          colors: [Color(red: 1.00, green: 0.85, blue: 0.45), Color(red: 0.97, green: 0.62, blue: 0.25)],
           turkishName: "Kedi", englishName: "Cat"),
-    .init(id: "dog", symbol: "dog.fill",
-          colors: [Color(red: 0.55, green: 0.78, blue: 1.00),
-                   Color(red: 0.28, green: 0.50, blue: 0.95),
-                   Color(red: 0.18, green: 0.30, blue: 0.80)],
+    .init(id: "dog", emoji: "🐶",
+          colors: [Color(red: 0.72, green: 0.88, blue: 1.00), Color(red: 0.36, green: 0.60, blue: 0.95)],
           turkishName: "Köpek", englishName: "Dog"),
-    .init(id: "bird", symbol: "bird.fill",
-          colors: [Color(red: 0.45, green: 0.95, blue: 0.80),
-                   Color(red: 0.15, green: 0.75, blue: 0.68),
-                   Color(red: 0.08, green: 0.52, blue: 0.55)],
-          turkishName: "Kuş", englishName: "Bird"),
-    .init(id: "night", symbol: "moon.stars.fill",
-          colors: [Color(red: 0.42, green: 0.38, blue: 0.85),
-                   Color(red: 0.26, green: 0.20, blue: 0.62),
-                   Color(red: 0.12, green: 0.10, blue: 0.35)],
-          turkishName: "Gece", englishName: "Night"),
-    .init(id: "bolt", symbol: "bolt.fill",
-          colors: [Color(red: 1.00, green: 0.86, blue: 0.30),
-                   Color(red: 0.98, green: 0.66, blue: 0.10),
-                   Color(red: 0.90, green: 0.45, blue: 0.05)],
-          turkishName: "Şimşek", englishName: "Bolt"),
-    .init(id: "leaf", symbol: "leaf.fill",
-          colors: [Color(red: 0.65, green: 0.92, blue: 0.45),
-                   Color(red: 0.33, green: 0.74, blue: 0.32),
-                   Color(red: 0.15, green: 0.50, blue: 0.28)],
-          turkishName: "Yaprak", englishName: "Leaf"),
-    .init(id: "music", symbol: "music.note",
-          colors: [Color(red: 1.00, green: 0.60, blue: 0.85),
-                   Color(red: 0.88, green: 0.32, blue: 0.70),
-                   Color(red: 0.60, green: 0.18, blue: 0.62)],
-          turkishName: "Müzik", englishName: "Music"),
-    .init(id: "flame", symbol: "flame.fill",
-          colors: [Color(red: 1.00, green: 0.72, blue: 0.35),
-                   Color(red: 0.95, green: 0.38, blue: 0.20),
-                   Color(red: 0.75, green: 0.14, blue: 0.16)],
-          turkishName: "Ateş", englishName: "Flame"),
-    .init(id: "crown", symbol: "crown.fill",
-          colors: [Color(red: 1.00, green: 0.90, blue: 0.55),
-                   Color(red: 0.92, green: 0.72, blue: 0.22),
-                   Color(red: 0.70, green: 0.48, blue: 0.08)],
-          turkishName: "Taç", englishName: "Crown"),
-    .init(id: "game", symbol: "gamecontroller.fill",
-          colors: [Color(red: 0.72, green: 0.62, blue: 1.00),
-                   Color(red: 0.45, green: 0.35, blue: 0.92),
-                   Color(red: 0.26, green: 0.18, blue: 0.65)],
-          turkishName: "Oyun", englishName: "Gaming"),
+    .init(id: "fox", emoji: "🦊",
+          colors: [Color(red: 1.00, green: 0.76, blue: 0.52), Color(red: 0.94, green: 0.46, blue: 0.20)],
+          turkishName: "Tilki", englishName: "Fox"),
+    .init(id: "panda", emoji: "🐼",
+          colors: [Color(red: 0.92, green: 0.94, blue: 0.97), Color(red: 0.62, green: 0.67, blue: 0.75)],
+          turkishName: "Panda", englishName: "Panda"),
+    .init(id: "bear", emoji: "🐻",
+          colors: [Color(red: 0.86, green: 0.72, blue: 0.58), Color(red: 0.60, green: 0.42, blue: 0.28)],
+          turkishName: "Ayı", englishName: "Bear"),
+    .init(id: "tiger", emoji: "🐯",
+          colors: [Color(red: 1.00, green: 0.82, blue: 0.35), Color(red: 0.95, green: 0.55, blue: 0.12)],
+          turkishName: "Kaplan", englishName: "Tiger"),
+    .init(id: "koala", emoji: "🐨",
+          colors: [Color(red: 0.85, green: 0.88, blue: 0.92), Color(red: 0.55, green: 0.62, blue: 0.70)],
+          turkishName: "Koala", englishName: "Koala"),
+    .init(id: "rabbit", emoji: "🐰",
+          colors: [Color(red: 1.00, green: 0.85, blue: 0.92), Color(red: 0.92, green: 0.58, blue: 0.75)],
+          turkishName: "Tavşan", englishName: "Rabbit"),
+    .init(id: "mouse", emoji: "🐭",
+          colors: [Color(red: 0.90, green: 0.88, blue: 0.96), Color(red: 0.62, green: 0.58, blue: 0.85)],
+          turkishName: "Fare", englishName: "Mouse"),
+    .init(id: "owl", emoji: "🦉",
+          colors: [Color(red: 0.88, green: 0.80, blue: 0.66), Color(red: 0.58, green: 0.45, blue: 0.32)],
+          turkishName: "Baykuş", englishName: "Owl"),
+    .init(id: "giraffe", emoji: "🦒",
+          colors: [Color(red: 1.00, green: 0.84, blue: 0.52), Color(red: 0.85, green: 0.58, blue: 0.22)],
+          turkishName: "Zürafa", englishName: "Giraffe"),
+    .init(id: "shark", emoji: "🦈",
+          colors: [Color(red: 0.68, green: 0.86, blue: 0.95), Color(red: 0.24, green: 0.55, blue: 0.78)],
+          turkishName: "Köpekbalığı", englishName: "Shark"),
+    .init(id: "boar", emoji: "🐗",
+          colors: [Color(red: 0.80, green: 0.70, blue: 0.60), Color(red: 0.50, green: 0.38, blue: 0.30)],
+          turkishName: "Yaban Domuzu", englishName: "Boar"),
+    .init(id: "chicken", emoji: "🐔",
+          colors: [Color(red: 1.00, green: 0.88, blue: 0.62), Color(red: 0.94, green: 0.48, blue: 0.35)],
+          turkishName: "Tavuk", englishName: "Chicken"),
+    .init(id: "unicorn", emoji: "🦄",
+          colors: [Color(red: 0.95, green: 0.78, blue: 1.00), Color(red: 0.62, green: 0.42, blue: 0.92)],
+          turkishName: "Tek Boynuzlu", englishName: "Unicorn"),
+    .init(id: "alien", emoji: "👽",
+          colors: [Color(red: 0.72, green: 0.92, blue: 0.85), Color(red: 0.30, green: 0.68, blue: 0.62)],
+          turkishName: "Uzaylı", englishName: "Alien"),
+    .init(id: "skull", emoji: "💀",
+          colors: [Color(red: 0.82, green: 0.84, blue: 0.88), Color(red: 0.42, green: 0.46, blue: 0.54)],
+          turkishName: "Kurukafa", englishName: "Skull"),
 ]
 
 let defaultAvatarID = "cat"
@@ -111,16 +112,15 @@ struct AvatarView: View {
                 )
             // İnce iç kenar
             Circle()
-                .strokeBorder(.white.opacity(0.35), lineWidth: max(1, size * 0.02))
+                .strokeBorder(.white.opacity(0.45), lineWidth: max(1, size * 0.02))
 
-            Image(systemName: avatar.symbol)
-                .font(.system(size: size * 0.46, weight: .semibold))
-                .foregroundStyle(.white)
-                .shadow(color: .black.opacity(0.25), radius: size * 0.03, y: size * 0.02)
+            Text(avatar.emoji)
+                .font(.system(size: size * 0.58))
+                .shadow(color: .black.opacity(0.18), radius: size * 0.025, y: size * 0.015)
         }
         .frame(width: size, height: size)
-        .shadow(color: (avatar.colors.last ?? .black).opacity(0.45),
-                radius: size * 0.10, y: size * 0.05)
+        .shadow(color: (avatar.colors.last ?? .black).opacity(0.35),
+                radius: size * 0.09, y: size * 0.04)
     }
 }
 
