@@ -50,7 +50,7 @@ struct UserSessionView: View {
         let schema = Schema([Expense.self, FixedPayment.self, IncomeSource.self,
                              IncomeSnapshot.self, SavingsAccountModel.self,
                              Asset.self, AssetTransaction.self, SavingsSnapshot.self,
-                             Debt.self])
+                             Debt.self, CustomCategory.self])
         let supportDir = URL.applicationSupportDirectory
         try? FileManager.default.createDirectory(at: supportDir, withIntermediateDirectories: true)
         let storeURL = supportDir.appending(path: "butcem-\(user).store")
@@ -112,6 +112,8 @@ struct UserSessionView: View {
             if user == "test" {
                 seedSampleDataIfNeeded(container.mainContext)
             }
+            // Kullanıcının kendi kategorileri satırlarda ve seçim listelerinde görünsün
+            ExpenseCategory.refreshCustom(container.mainContext)
         }
     }
 }

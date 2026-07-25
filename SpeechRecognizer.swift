@@ -112,19 +112,82 @@ final class SpeechRecognizer {
 // (sıra önemli: "market alışverişi" önce Market'e yakalanır, Alışveriş'e değil)
 func guessCategory(from text: String) -> String? {
     let t = text.lowercased(with: Locale(identifier: "tr_TR"))
+
+    // Önce kullanıcının kendi eklediği kategoriler: adı geçiyorsa o seçilir
+    for category in ExpenseCategory.custom
+    where t.contains(category.name.lowercased(with: Locale(identifier: "tr_TR"))) {
+        return category.name
+    }
+
+    // Sıra önemli: yukarıdaki kural önce yakalar
+    // ("market alışverişi" → Market, "kırtasiye alışverişi" → Eğitim)
     let rules: [(category: String, keywords: [String])] = [
-        ("Market", ["market", "bim", "a101", "şok", "migros", "carrefour", "manav", "bakkal"]),
-        ("Akaryakıt", ["benzin", "motorin", "mazot", "akaryakıt", "yakıt", "opet", "shell", "petrol"]),
-        ("Kafe & Restoran", ["kafe", "cafe", "kahve", "restoran", "lokanta", "yemek", "starbucks", "burger", "pizza", "döner", "dürüm"]),
-        ("Ulaşım", ["otobüs", "metro", "taksi", "dolmuş", "marmaray", "vapur", "ulaşım", "akbil"]),
-        ("Giyim", ["giyim", "kıyafet", "ayakkabı", "pantolon", "tişört", "gömlek", "elbise", "mont", "ceket", "zara", "koton", "lcw"]),
-        ("Fatura", ["fatura", "elektrik", "doğalgaz", "internet"]),
-        ("Sağlık", ["eczane", "ilaç", "doktor", "hastane", "muayene", "diş", "sağlık", "vitamin"]),
-        ("Abonelik", ["abonelik", "netflix", "spotify", "youtube"]),
-        ("Eğlence", ["sinema", "konser", "tiyatro", "oyun", "eğlence"]),
-        ("Eğitim", ["eğitim", "okul", "kurs", "dershane", "üniversite", "kitap", "kırtasiye", "harç"]),
-        ("Nakit Avans", ["nakit avans", "avans", "nakit çekim", "nakit çektim"]),
-        ("Alışveriş", ["alışveriş", "trendyol", "hepsiburada", "amazon", "n11", "mağaza"]),
+        ("Nakit Avans", ["nakit avans", "avans", "nakit çekim", "nakit çektim", "atm'den çektim"]),
+
+        ("Market", ["market", "bim", "a101", "şok market", "şok", "migros", "carrefour", "carrefoursa",
+                    "macrocenter", "metro market", "tarım kredi", "manav", "bakkal", "kasap",
+                    "fırın", "ekmek", "süt", "meyve", "sebze", "et aldım", "balıkçı", "kuruyemiş",
+                    "banabi", "istegelsin"]),
+
+        ("Akaryakıt", ["benzin", "motorin", "mazot", "akaryakıt", "yakıt", "opet", "shell", "petrol",
+                       "petrol ofisi", "total", "aytemiz", "lukoil", "lpg", "otogaz",
+                       "depo doldur", "yakıt aldım", "elektrikli şarj", "araç şarj"]),
+
+        ("Kafe & Restoran", ["kafe", "cafe", "kahve", "restoran", "lokanta", "yemek", "starbucks",
+                             "burger", "pizza", "döner", "dürüm", "kebap", "lahmacun", "pide",
+                             "mcdonald", "burger king", "kfc", "popeyes", "domino", "sbarro",
+                             "yemeksepeti", "trendyol yemek", "getir yemek", "migros yemek",
+                             "kahvaltı", "öğle yemeği", "akşam yemeği", "çay", "tatlı", "baklava",
+                             "dondurma", "pastane", "simit", "gazoz", "meyhane"]),
+
+        ("Ulaşım", ["otobüs", "metro", "taksi", "dolmuş", "minibüs", "marmaray", "vapur", "ulaşım",
+                    "akbil", "istanbulkart", "kentkart", "uber", "bitaksi", "martı",
+                    "scooter", "otopark", "park ücreti", "köprü", "otoyol", "hgs", "ogs",
+                    "trene", "trenle", "trenden", "tren bileti", "yht", "uçak", "havayolu",
+                    "thy", "pegasus", "ajet"]),
+
+        ("Giyim", ["giyim", "kıyafet", "ayakkabı", "çizme", "sneaker", "pantolon", "kot",
+                   "jean", "tişört", "sweat", "kazak", "hırka", "gömlek", "elbise", "etek",
+                   "mont", "kaban", "ceket", "atkı", "eldiven", "çorap", "iç çamaşırı",
+                   "zara", "koton", "lcw", "lc waikiki", "defacto", "mavi jeans", "bershka",
+                   "pull and bear", "stradivarius", "h&m", "mango", "hummel", "nike", "adidas",
+                   "puma", "new balance", "flo", "deichmann", "vakko", "beymen", "boyner",
+                   "terzi", "kuru temizleme"]),
+
+        ("Fatura", ["fatura", "elektrik", "doğalgaz", "gaz faturası", "su faturası", "internet",
+                    "telefon faturası", "cep telefonu faturası", "turkcell", "vodafone",
+                    "türk telekom", "superonline", "aidat", "site aidatı", "apartman",
+                    "kira ödemesi", "kira verdim", "vergi", "mtv", "emlak vergisi", "sigorta",
+                    "kasko", "trafik sigortası", "dask", "bağkur", "sgk"]),
+
+        ("Sağlık", ["eczane", "ilaç", "doktor", "hastane", "muayene", "diş", "dişçi", "sağlık",
+                    "vitamin", "tahlil", "röntgen", "mr ", "tomografi", "ameliyat", "fizik tedavi",
+                    "gözlük", "lens", "optik", "psikolog", "terapi", "aşı", "check up", "checkup"]),
+
+        ("Abonelik", ["abonelik", "üyelik", "netflix", "spotify", "youtube", "disney", "blutv",
+                      "exxen", "amazon prime", "apple music", "icloud", "google one", "dropbox",
+                      "chatgpt", "adobe", "office 365", "steam abonelik", "spor salonu",
+                      "gym üyelik", "dergi aboneliği"]),
+
+        ("Eğlence", ["sinema", "film bileti", "konser", "tiyatro", "festival", "maç bileti",
+                     "stadyum", "playstation", "xbox", "steam", "epic games", "lunapark",
+                     "eğlence", "bowling", "bilardo", "paintball", "müze", "sergi", "tatil",
+                     "otel", "konaklama", "airbnb", "booking", "hediye", "doğum günü"]),
+
+        ("Eğitim", ["eğitim", "okul", "kurs", "dershane", "etüt", "üniversite", "harç", "yurt",
+                    "kitap", "kırtasiye", "defter", "kalem", "fotokopi", "ders", "özel ders",
+                    "udemy", "online kurs", "sertifika", "sınav ücreti", "yds", "ales", "kpss",
+                    "anaokulu", "kreş", "servis ücreti"]),
+
+        ("Alışveriş", ["alışveriş", "trendyol", "hepsiburada", "amazon", "n11", "çiçeksepeti",
+                       "gittigidiyor", "morhipo", "mağaza", "avm", "ikea", "koçtaş", "bauhaus",
+                       "teknosa", "vatan bilgisayar", "media markt", "apple store", "telefon aldım",
+                       "bilgisayar", "kulaklık", "şarj aleti", "kablo", "beyaz eşya", "mobilya",
+                       "ev eşyası", "süpürge", "ütü", "buzdolabı", "çamaşır makinesi",
+                       "bulaşık makinesi", "televizyon", "klima", "mikrodalga",
+                       "deterjan", "temizlik malzemesi", "kozmetik", "gratis",
+                       "watsons", "rossmann", "sephora", "parfüm", "kuaför", "berber", "petshop",
+                       "mama", "kedi", "köpek", "çiçek", "oyuncak"]),
     ]
     for rule in rules where rule.keywords.contains(where: { t.contains($0) }) {
         return rule.category

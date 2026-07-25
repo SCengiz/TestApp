@@ -1,13 +1,16 @@
 import SwiftUI
+import SwiftData
 
 // Harcama kategorileri: ad + ikon + renk
 struct ExpenseCategory: Identifiable, Hashable {
     let name: String
     let icon: String
     let color: Color
+    var isCustom: Bool = false
     var id: String { name }
 
-    static let all: [ExpenseCategory] = [
+    // Uygulamayla gelen hazır kategoriler
+    static let builtIn: [ExpenseCategory] = [
         .init(name: "Market", icon: "cart.fill", color: .green),
         .init(name: "Kafe & Restoran", icon: "fork.knife", color: .orange),
         .init(name: "Ulaşım", icon: "bus.fill", color: .blue),
@@ -20,10 +23,45 @@ struct ExpenseCategory: Identifiable, Hashable {
         .init(name: "Abonelik", icon: "tv.fill", color: .cyan),
         .init(name: "Eğitim", icon: "graduationcap.fill", color: .brown),
         .init(name: "Nakit Avans", icon: "banknote.fill", color: .yellow),
-        .init(name: "Diğer", icon: "ellipsis.circle.fill", color: .gray),
     ]
 
-    // İngilizce modda ekranda gösterilen ad (kayıtlardaki ad Türkçe kalır)
+    // Hiçbirine uymayan harcamaların kategorisi (listede hep en sonda)
+    static let other = ExpenseCategory(name: "Diğer", icon: "ellipsis.circle.fill", color: .gray)
+
+    // Kullanıcının Ayarlar'dan eklediği kategoriler.
+    // Satır çizerken (named) her yerde @Query taşımamak için burada tutulur;
+    // veritabanı değişince refreshCustom ile tazelenir.
+    private(set) static var custom: [ExpenseCategory] = []
+
+    static func refreshCustom(_ context: ModelContext) {
+        let descriptor = FetchDescriptor<CustomCategory>(
+            sortBy: [SortDescriptor(\.createdAt)]
+        )
+        let saved = (try? context.fetch(descriptor)) ?? []
+        custom = saved.map(ExpenseCategory.init(model:))
+    }
+
+    init(model: CustomCategory) {
+        self.name = model.name
+        self.icon = model.icon
+        self.color = categoryColor(named: model.colorName)
+        self.isCustom = true
+    }
+
+    private init(name: String, icon: String, color: Color, isCustom: Bool = false) {
+        self.name = name
+        self.icon = icon
+        self.color = color
+        self.isCustom = isCustom
+    }
+
+    // Seçim listelerinde görünen sıra: hazırlar, kullanıcınınkiler, en sonda Diğer
+    static var all: [ExpenseCategory] {
+        builtIn + custom + [other]
+    }
+
+    // İngilizce modda ekranda gösterilen ad.
+    // Kayıtlardaki ad Türkçe kalır; kullanıcının kendi kategorileri çevrilmez.
     var displayName: String {
         guard isEnglishUI else { return name }
         switch name {
@@ -51,8 +89,39 @@ struct ExpenseCategory: Identifiable, Hashable {
     ]
 
     // İsimden kategori bul; bulunamazsa "Diğer"
+    // (silinmiş bir kullanıcı kategorisinin eski kayıtları da buraya düşer)
     static func named(_ name: String) -> ExpenseCategory {
         let resolved = legacyNames[name] ?? name
-        return all.first { $0.name == resolved } ?? all.last!
+        return all.first { $0.name == resolved } ?? other
     }
 }
+
+// Kullanıcı kategorisi eklerken seçilebilen renkler
+let categoryColorOptions: [(name: String, turkish: String, english: String, color: Color)] = [
+    ("mavi", "Mavi", "Blue", .blue),
+    ("yesil", "Yeşil", "Green", .green),
+    ("turuncu", "Turuncu", "Orange", .orange),
+    ("kirmizi", "Kırmızı", "Red", .red),
+    ("mor", "Mor", "Purple", .purple),
+    ("pembe", "Pembe", "Pink", .pink),
+    ("turkuaz", "Turkuaz", "Teal", .teal),
+    ("civit", "Çivit", "Indigo", .indigo),
+    ("nane", "Nane", "Mint", .mint),
+    ("kahve", "Kahve", "Brown", .brown),
+    ("sari", "Sarı", "Yellow", .yellow),
+    ("gri", "Gri", "Gray", .gray),
+]
+
+func categoryColor(named name: String) -> Color {
+    categoryColorOptions.first { $0.name == name }?.color ?? .blue
+}
+
+// Kullanıcı kategorisi eklerken seçilebilen simgeler
+let categoryIconOptions: [String] = [
+    "tag.fill", "pencil.and.ruler.fill", "book.fill", "briefcase.fill",
+    "house.fill", "car.fill", "airplane", "tram.fill",
+    "pawprint.fill", "gift.fill", "scissors", "wrench.and.screwdriver.fill",
+    "figure.run", "dumbbell.fill", "cup.and.saucer.fill", "birthday.cake.fill",
+    "phone.fill", "wifi", "drop.fill", "flame.fill",
+    "heart.fill", "star.fill", "leaf.fill", "hammer.fill",
+]

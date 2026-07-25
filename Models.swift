@@ -386,3 +386,21 @@ extension FixedPayment {
         return installmentNumber(inMonth: month, calendar: calendar) != nil
     }
 }
+
+// Kullanıcının Ayarlar'dan eklediği kendi harcama kategorisi.
+// Hazır kategoriler koda gömülüdür; bunlar kullanıcıya özeldir ve
+// diğer veriler gibi kullanıcının kendi deposunda saklanır.
+@Model
+final class CustomCategory {
+    var name: String = ""
+    var icon: String = "tag.fill"
+    var colorName: String = "mavi"
+    var createdAt: Date = Date.now
+
+    init(name: String, icon: String, colorName: String, createdAt: Date = .now) {
+        self.name = name
+        self.icon = icon
+        self.colorName = colorName
+        self.createdAt = createdAt
+    }
+}
