@@ -28,7 +28,7 @@ struct FixedPaymentsView: View {
 
     private var cardTitle: String {
         monthOffset == 0
-            ? tr("Ödemelerim", "My Payments")
+            ? tr("Bu Ay Toplam", "This Month Total")
             : selectedMonth.formatted(.dateTime.month(.wide).year().locale(appLocale))
     }
 

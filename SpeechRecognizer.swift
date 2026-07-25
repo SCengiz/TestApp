@@ -132,6 +132,67 @@ func guessCategory(from text: String) -> String? {
     return nil
 }
 
+// Türkçe ay adları (sesli girişteki "3 temmuz" gibi tarihler için)
+private let turkishMonths: [(names: [String], number: Int)] = [
+    (["ocak"], 1), (["şubat", "subat"], 2), (["mart"], 3), (["nisan"], 4),
+    (["mayıs", "mayis"], 5), (["haziran"], 6), (["temmuz"], 7),
+    (["ağustos", "agustos"], 8), (["eylül", "eylul"], 9), (["ekim"], 10),
+    (["kasım", "kasim"], 11), (["aralık", "aralik"], 12),
+]
+
+// "3 temmuz" / "3 temmuzda" / "3 temmuz 2026" → tarih.
+// Bulunca ifadeyi metinden siler (tutar ararken gün sayısına takılmasın diye).
+private func parseSpokenMonthDate(in text: inout String) -> Date? {
+    let monthPattern = turkishMonths.flatMap(\.names).joined(separator: "|")
+    let pattern = "(\\d{1,2})\\s*(" + monthPattern + ")\\w*(?:\\s+(\\d{4}))?"
+    guard let match = text.range(of: pattern, options: [.regularExpression, .caseInsensitive])
+    else { return nil }
+
+    let trLocale = Locale(identifier: "tr_TR")
+    let matched = String(text[match]).lowercased(with: trLocale)
+
+    guard let dayRange = matched.range(of: #"\d{1,2}"#, options: .regularExpression),
+          let day = Int(matched[dayRange]),
+          let month = turkishMonths.first(where: { entry in
+              entry.names.contains { matched.contains($0) }
+          })?.number
+    else { return nil }
+
+    let calendar = Calendar.current
+    var components = DateComponents()
+    components.day = day
+    components.month = month
+
+    // Yıl söylendiyse onu kullan
+    if let yearRange = matched.range(of: #"\d{4}"#, options: .regularExpression),
+       let spokenYear = Int(matched[yearRange]) {
+        components.year = spokenYear
+        guard let parsed = calendar.date(from: components) else { return nil }
+        text.removeSubrange(match)
+        return parsed
+    }
+
+    // Yıl söylenmediyse bu yıl; tarih ileride kalıyorsa geçen yıl kastedilmiştir
+    components.year = calendar.component(.year, from: .now)
+    guard var parsed = calendar.date(from: components) else { return nil }
+    if let limit = calendar.date(byAdding: .day, value: 30, to: .now), parsed > limit {
+        components.year = (components.year ?? 0) - 1
+        guard let previousYear = calendar.date(from: components) else { return nil }
+        parsed = previousYear
+    }
+    text.removeSubrange(match)
+    return parsed
+}
+
+// Her kelimeyi büyük harfle başlat ("market alışverişi" → "Market Alışverişi")
+private func capitalizedWords(_ text: String) -> String {
+    let trLocale = Locale(identifier: "tr_TR")
+    return text
+        .split(separator: " ")
+        .map { $0.prefix(1).uppercased(with: trLocale) + $0.dropFirst() }
+        .joined(separator: " ")
+}
+
 // "Dün Bim'den 100 TL'lik market alışverişi yaptım"
 // → açıklama + tutar (100) + kategori (Market) + tarih (dün)
 func parseSpokenExpense(_ spoken: String)
@@ -141,6 +202,21 @@ func parseSpokenExpense(_ spoken: String)
 
     // Kategoriyi orijinal cümleden tahmin et
     let category = guessCategory(from: text)
+
+    // Tarih: önce "3 temmuz" gibi açık tarihler, sonra "dün/bugün" gibi ifadeler.
+    // Tutardan ÖNCE ayıklanır; yoksa gün sayısı tutar sanılır.
+    var date: Date? = parseSpokenMonthDate(in: &text)
+
+    if date == nil {
+        let dayPhrases: [(phrase: String, offset: Int)] = [
+            ("evvelsi gün", -2), ("önceki gün", -2), ("dün", -1), ("bugün", 0),
+        ]
+        for item in dayPhrases where text.range(of: item.phrase, options: .caseInsensitive) != nil {
+            date = Calendar.current.date(byAdding: .day, value: item.offset, to: .now)
+            text = text.replacingOccurrences(of: item.phrase, with: "", options: .caseInsensitive)
+            break
+        }
+    }
 
     // Tutarı yakala
     var amount: Double?
@@ -156,17 +232,6 @@ func parseSpokenExpense(_ spoken: String)
         text.removeSubrange(match)
     }
 
-    // Tarih kelimeleri: "dün", "bugün", "evvelsi/önceki gün"
-    var date: Date?
-    let dayPhrases: [(phrase: String, offset: Int)] = [
-        ("evvelsi gün", -2), ("önceki gün", -2), ("dün", -1), ("bugün", 0),
-    ]
-    for item in dayPhrases where text.range(of: item.phrase, options: .caseInsensitive) != nil {
-        date = Calendar.current.date(byAdding: .day, value: item.offset, to: .now)
-        text = text.replacingOccurrences(of: item.phrase, with: "", options: .caseInsensitive)
-        break
-    }
-
     // Çok kelimeli para ifadelerini temizle
     text = text.replacingOccurrences(of: "türk lirası", with: "", options: .caseInsensitive)
 
@@ -179,7 +244,8 @@ func parseSpokenExpense(_ spoken: String)
         .filter { !junkWords.contains($0.lowercased(with: Locale(identifier: "tr_TR"))) }
 
     let cleaned = words.joined(separator: " ")
-    let title = cleaned.isEmpty ? nil : cleaned.prefix(1).uppercased() + cleaned.dropFirst()
+    // Elle yazarkenki gibi her kelime büyük harfle başlasın
+    let title = cleaned.isEmpty ? nil : capitalizedWords(cleaned)
     return (title, amount, category, date)
 }
 
