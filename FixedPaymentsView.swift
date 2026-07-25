@@ -6,29 +6,59 @@ struct FixedPaymentsView: View {
     @Query(sort: \FixedPayment.dueDay) private var payments: [FixedPayment]
     @State private var showingAddSheet = false
     @State private var editingPayment: FixedPayment?
+    @State private var monthOffset = 0 // -3 (3 ay geri) ... +3 (3 ay ileri)
 
-    // Bu ay geçerli ödemelerin toplamı (gelecek aya özel tek seferlikler dahil edilmez)
+    private var calendar: Calendar { .current }
+
+    // Görüntülenen ay
+    private var selectedMonth: Date {
+        let thisMonth = calendar.dateInterval(of: .month, for: .now)!.start
+        return calendar.date(byAdding: .month, value: monthOffset, to: thisMonth)!
+    }
+
+    // Seçili ayda geçerli ödemeler (biten taksitler ve başka aya özel
+    // tek seferlikler o ayda listelenmez)
+    private var monthPayments: [FixedPayment] {
+        payments.filter { $0.isActive(inMonth: selectedMonth) }
+    }
+
     private var monthlyTotal: Double {
-        payments
-            .filter { $0.isActive(inMonth: .now) }
-            .reduce(0) { $0 + $1.amount }
+        monthPayments.reduce(0) { $0 + $1.amount }
+    }
+
+    private var cardTitle: String {
+        monthOffset == 0
+            ? tr("Ödemelerim", "My Payments")
+            : selectedMonth.formatted(.dateTime.month(.wide).year().locale(appLocale))
     }
 
     var body: some View {
         List {
             Section {
                 StatCard(
-                    title: tr("Ödemelerim", "My Payments"),
+                    title: cardTitle,
                     amount: monthlyTotal,
                     icon: "building.columns.fill",
                     colors: [.blue, .cyan]
                 )
+                // Ay gezinme okları: 3 ay geri / 3 ay ileri
+                .overlay(alignment: .trailing) {
+                    HStack(spacing: 8) {
+                        monthArrow("chevron.left", enabled: monthOffset > -3) {
+                            monthOffset -= 1
+                        }
+                        monthArrow("chevron.right", enabled: monthOffset < 3) {
+                            monthOffset += 1
+                        }
+                    }
+                    .padding(.trailing, 14)
+                }
                 .listRowInsets(EdgeInsets())
                 .listRowBackground(Color.clear)
             }
 
             Section {
-                ForEach(payments) { payment in
+                ForEach(monthPayments) { payment in
                     Button {
                         editingPayment = payment
                     } label: {
@@ -56,7 +86,9 @@ struct FixedPaymentsView: View {
             } header: {
                 Text(tr("Sabit Ödemeler", "Fixed Payments"))
             } footer: {
-                Text(tr("Düzenlemek veya silmek için ödemeye dokun. Değişiklikler Ödeme Planı grafiğine anında yansır.", "Tap a payment to edit or delete. Changes reflect on the Payment Plan chart instantly."))
+                Text(monthOffset == 0
+                     ? tr("Düzenlemek veya silmek için ödemeye dokun. Karttaki oklarla geçmiş ve gelecek ayların planını görebilirsin.", "Tap a payment to edit or delete. Use the arrows on the card to see past and future months.")
+                     : tr("Bu ayda ödenen/ödenecek kalemler. Değişiklikler tüm aylara yansır.", "Payments due in this month. Changes apply to all months."))
             }
         }
         .navigationTitle(tr("Sabit Ödemeler", "Fixed Payments"))
@@ -74,19 +106,35 @@ struct FixedPaymentsView: View {
             AddFixedPaymentView(payment: payment)
         }
         .overlay {
-            if payments.isEmpty {
+            if monthPayments.isEmpty {
                 ContentUnavailableView(
-                    tr("Henüz sabit ödeme yok", "No fixed payments yet"),
+                    monthOffset == 0
+                        ? tr("Henüz sabit ödeme yok", "No fixed payments yet")
+                        : tr("Bu aya ödeme yok", "No payments this month"),
                     systemImage: "creditcard",
-                    description: Text(tr("Kredi kartı ekstresi, kredi taksidi gibi her ay tekrarlayan ödemeleri + ile ekle.", "Add recurring payments like card statements or loan installments with +."))
+                    description: Text(monthOffset == 0
+                                      ? tr("Kredi kartı ekstresi, kredi taksidi gibi her ay tekrarlayan ödemeleri + ile ekle.", "Add recurring payments like card statements or loan installments with +.")
+                                      : tr("Karttaki oklarla aylar arasında gezinebilirsin.", "Use the arrows on the card to browse months."))
                 )
             }
         }
     }
 
+    private func monthArrow(_ icon: String, enabled: Bool, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            Image(systemName: icon)
+                .font(.body.weight(.bold))
+                .foregroundStyle(.white.opacity(enabled ? 1 : 0.35))
+                .frame(width: 36, height: 36)
+                .background(Circle().fill(.white.opacity(0.18)))
+        }
+        .buttonStyle(.plain)
+        .disabled(!enabled)
+    }
+
     private func deletePayments(at offsets: IndexSet) {
         for index in offsets {
-            modelContext.delete(payments[index])
+            modelContext.delete(monthPayments[index])
         }
     }
 
@@ -98,7 +146,7 @@ struct FixedPaymentsView: View {
             return tr("Tek seferlik · \(month) · Ayın \(payment.dueDay). günü", "One-time · \(month) · day \(payment.dueDay)")
         }
         if let total = payment.totalInstallments,
-           let number = payment.installmentNumber(inMonth: .now) {
+           let number = payment.installmentNumber(inMonth: selectedMonth) {
             return tr("Taksit \(number)/\(total) · kalan \(total - number) ay · Her ayın \(payment.dueDay). günü", "Installment \(number)/\(total) · \(total - number) months left · day \(payment.dueDay)")
         }
         if let total = payment.totalInstallments {
