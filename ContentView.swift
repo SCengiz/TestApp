@@ -70,24 +70,33 @@ struct UserSessionView: View {
         self._container = State(initialValue: container)
     }
 
-    // Ortadaki "Sor" sekmesini saran hafif kapsül; ikon ve yazıyı birlikte çevreler
-    private var askTabHighlight: some View {
+    // Alt kalıbın içinden yükselen, "Sor" sekmesine özel yuvarlak düğme
+    private var askTabButton: some View {
         let active = selectedTab == 2
-        return Capsule(style: .continuous)
-            .fill(
-                LinearGradient(colors: aiBrandColors.map { $0.opacity(active ? 0.20 : 0.11) },
-                               startPoint: .topLeading, endPoint: .bottomTrailing)
-            )
-            .overlay(
-                Capsule(style: .continuous).strokeBorder(
-                    LinearGradient(colors: aiBrandColors.map { $0.opacity(active ? 0.55 : 0.28) },
-                                   startPoint: .topLeading, endPoint: .bottomTrailing),
-                    lineWidth: 1)
-            )
-            .shadow(color: aiBrandColors[1].opacity(active ? 0.28 : 0), radius: 8, y: 2)
-            .frame(width: 64, height: 44)
-            .allowsHitTesting(false)
-            .animation(.easeOut(duration: 0.2), value: selectedTab)
+        return VStack(spacing: -2) {
+            ZStack {
+                Circle()
+                    .fill(LinearGradient(colors: aiBrandColors,
+                                         startPoint: .topLeading, endPoint: .bottomTrailing))
+                    .frame(width: 34, height: 34)
+                    .shadow(color: aiBrandColors[1].opacity(active ? 0.55 : 0.35),
+                            radius: active ? 12 : 8, y: 4)
+                    .overlay(
+                        Circle().strokeBorder(.white.opacity(0.35), lineWidth: 1)
+                    )
+                Image(systemName: "sparkles")
+                    .font(.system(size: 15, weight: .semibold))
+                    .foregroundStyle(.white)
+            }
+            .scaleEffect(active ? 1.06 : 1)
+
+            Text(tr("Sor", "Ask"))
+                .font(.system(size: 10, weight: active ? .semibold : .medium))
+                .foregroundStyle(active ? aiBrandColors[1] : Color.secondary)
+        }
+        .offset(y: 2)
+        .allowsHitTesting(false)
+        .animation(.spring(response: 0.3, dampingFraction: 0.7), value: selectedTab)
     }
 
     var body: some View {
@@ -110,7 +119,8 @@ struct UserSessionView: View {
             AskAIView(loggedInUser: $loggedInUser)
                 .id(tabResetTokens[2])
                 .tabItem {
-                    Label(tr("Sor", "Ask"), systemImage: "sparkles")
+                    // Boş bırakılıyor: bu sekmenin görseli askTabButton ile çiziliyor
+                    Label { Text(" ") } icon: { Image(uiImage: UIImage()) }
                 }
                 .tag(2)
 
@@ -128,8 +138,8 @@ struct UserSessionView: View {
                 }
                 .tag(4)
         }
-        // Ortadaki "Sor" sekmesini hafifçe öne çıkaran yuvarlak
-        .overlay(alignment: .bottom) { askTabHighlight }
+        // Ortadaki "Sor" sekmesini öne çıkaran düğme
+        .overlay(alignment: .bottom) { askTabButton }
         .modelContainer(container)
         .onChange(of: selectedTab) { oldValue, _ in
             // Terk edilen sekme bir sonraki girişte kök sayfasıyla açılır
