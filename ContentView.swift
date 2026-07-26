@@ -70,20 +70,22 @@ struct UserSessionView: View {
         self._container = State(initialValue: container)
     }
 
+    // Ortadaki "Sor" sekmesini saran hafif kapsül; ikon ve yazıyı birlikte çevreler
     private var askTabHighlight: some View {
-        Circle()
+        let active = selectedTab == 2
+        return Capsule(style: .continuous)
             .fill(
-                LinearGradient(colors: aiBrandColors.map { $0.opacity(selectedTab == 2 ? 0.22 : 0.12) },
+                LinearGradient(colors: aiBrandColors.map { $0.opacity(active ? 0.20 : 0.11) },
                                startPoint: .topLeading, endPoint: .bottomTrailing)
             )
             .overlay(
-                Circle().strokeBorder(
-                    LinearGradient(colors: aiBrandColors.map { $0.opacity(selectedTab == 2 ? 0.55 : 0.25) },
+                Capsule(style: .continuous).strokeBorder(
+                    LinearGradient(colors: aiBrandColors.map { $0.opacity(active ? 0.55 : 0.28) },
                                    startPoint: .topLeading, endPoint: .bottomTrailing),
                     lineWidth: 1)
             )
-            .frame(width: 40, height: 40)
-            .offset(y: -10)
+            .shadow(color: aiBrandColors[1].opacity(active ? 0.28 : 0), radius: 8, y: 2)
+            .frame(width: 64, height: 44)
             .allowsHitTesting(false)
             .animation(.easeOut(duration: 0.2), value: selectedTab)
     }
