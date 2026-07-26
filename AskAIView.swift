@@ -80,6 +80,7 @@ struct AskAIView: View {
                 }
             }
             .navigationTitle(tr("Finans Asistanı", "Finance Assistant"))
+            .navigationBarTitleDisplayMode(hasKey ? .large : .inline)
             .toolbar {
                 ToolbarItem(placement: .topBarLeading) {
                     ProfileButton(loggedInUser: $loggedInUser)
@@ -289,59 +290,207 @@ struct AISetupView: View {
     @Binding var hasKey: Bool
     @State private var key = ""
     @State private var showingHelp = false
+    @State private var appeared = false
     @FocusState private var focused: Bool
 
+    private var brand: [Color] {
+        [Color(red: 0.42, green: 0.36, blue: 0.95),
+         Color(red: 0.62, green: 0.34, blue: 0.92),
+         Color(red: 0.30, green: 0.55, blue: 0.98)]
+    }
+
+    private var canSave: Bool {
+        !key.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+    }
+
     var body: some View {
-        VStack(spacing: 18) {
-            Spacer()
+        ZStack {
+            background
 
-            Image(systemName: "sparkles")
-                .font(.system(size: 44))
-                .foregroundStyle(.tint)
+            VStack(spacing: 0) {
+                Spacer(minLength: 0)
 
-            HStack(spacing: 8) {
-                Text(tr("Sormak için anahtarı gir", "Enter your key to ask"))
-                    .font(.title3.bold())
-                Button {
-                    showingHelp = true
-                } label: {
-                    Image(systemName: "questionmark.circle")
-                        .font(.title3)
-                }
-                .buttonStyle(.plain)
-                .foregroundStyle(.tint)
+                emblem
+                    .padding(.bottom, 26)
+
+                titleBlock
+                    .padding(.bottom, 30)
+
+                keyField
+                    .padding(.horizontal, 24)
+
+                saveButton
+                    .padding(.horizontal, 24)
+                    .padding(.top, 14)
+
+                Spacer(minLength: 0)
+                Spacer(minLength: 0)
             }
-
-            SecureField(tr("API anahtarı (AIza...)", "API key (AIza...)"), text: $key)
-                .textFieldStyle(.roundedBorder)
-                .autocorrectionDisabled()
-                .textInputAutocapitalization(.never)
-                .focused($focused)
-                .padding(.horizontal)
-
-            Button {
-                AIKeyStore.save(key)
-                key = ""
-                focused = false
-                hasKey = AIKeyStore.hasKey
-            } label: {
-                Text(tr("Kaydet ve Başla", "Save and Start"))
-                    .frame(maxWidth: .infinity)
-            }
-            .buttonStyle(.borderedProminent)
-            .disabled(key.trimmingCharacters(in: .whitespaces).isEmpty)
-            .padding(.horizontal)
-
-            Spacer()
-            Spacer()
         }
-        .padding()
-        .background(Color(.systemGroupedBackground))
+        .onAppear {
+            withAnimation(.easeOut(duration: 0.5)) { appeared = true }
+        }
         .sheet(isPresented: $showingHelp) {
             AISetupHelpView()
         }
     }
+
+    // Yumuşak renk bulutlarıyla derinlik
+    private var background: some View {
+        ZStack {
+            Color(.systemGroupedBackground)
+            Circle()
+                .fill(brand[0].opacity(0.28))
+                .frame(width: 300, height: 300)
+                .blur(radius: 90)
+                .offset(x: -110, y: -190)
+            Circle()
+                .fill(brand[2].opacity(0.22))
+                .frame(width: 320, height: 320)
+                .blur(radius: 100)
+                .offset(x: 130, y: 150)
+        }
+        .ignoresSafeArea()
+    }
+
+    private var emblem: some View {
+        ZStack {
+            Circle()
+                .fill(
+                    LinearGradient(colors: brand,
+                                   startPoint: .topLeading, endPoint: .bottomTrailing)
+                )
+                .frame(width: 92, height: 92)
+                .shadow(color: brand[1].opacity(0.45), radius: 22, y: 10)
+            Circle()
+                .fill(
+                    RadialGradient(colors: [.white.opacity(0.45), .clear],
+                                   center: UnitPoint(x: 0.3, y: 0.24),
+                                   startRadius: 0, endRadius: 58)
+                )
+                .frame(width: 92, height: 92)
+            Image(systemName: "sparkles")
+                .font(.system(size: 38, weight: .medium))
+                .foregroundStyle(.white)
+        }
+        .scaleEffect(appeared ? 1 : 0.85)
+        .opacity(appeared ? 1 : 0)
+    }
+
+    private var titleBlock: some View {
+        VStack(spacing: 10) {
+            HStack(spacing: 8) {
+                Text(tr("Sormak için anahtarı gir", "Enter your key to ask"))
+                    .font(.system(.title2, design: .rounded, weight: .bold))
+                Button {
+                    showingHelp = true
+                } label: {
+                    Image(systemName: "questionmark")
+                        .font(.system(size: 12, weight: .bold))
+                        .foregroundStyle(brand[1])
+                        .frame(width: 24, height: 24)
+                        .background(Circle().fill(brand[1].opacity(0.14)))
+                }
+                .buttonStyle(.plain)
+            }
+
+            Text(tr("Ücretsiz Google Gemini anahtarı · kredi kartı istemez",
+                    "Free Google Gemini key · no credit card"))
+                .font(.footnote)
+                .foregroundStyle(.secondary)
+        }
+        .multilineTextAlignment(.center)
+        .padding(.horizontal, 24)
+    }
+
+    // Kart görünümlü giriş alanı + panodan yapıştırma kısayolu
+    private var keyField: some View {
+        HStack(spacing: 12) {
+            Image(systemName: "key.fill")
+                .font(.system(size: 15))
+                .foregroundStyle(focused ? brand[1] : .secondary)
+                .frame(width: 20)
+
+            SecureField("", text: $key,
+                        prompt: Text(verbatim: "AIza…")
+                            .foregroundColor(.secondary.opacity(0.7)))
+                .autocorrectionDisabled()
+                .textInputAutocapitalization(.never)
+                .focused($focused)
+                .font(.system(.body, design: .monospaced))
+
+            if canSave {
+                Button {
+                    key = ""
+                } label: {
+                    Image(systemName: "xmark.circle.fill")
+                        .foregroundStyle(.tertiary)
+                }
+                .buttonStyle(.plain)
+            } else {
+                Button {
+                    if let pasted = UIPasteboard.general.string {
+                        key = pasted.trimmingCharacters(in: .whitespacesAndNewlines)
+                        focused = false
+                    }
+                } label: {
+                    Text(tr("Yapıştır", "Paste"))
+                        .font(.caption.weight(.semibold))
+                        .foregroundStyle(brand[1])
+                        .padding(.horizontal, 10)
+                        .padding(.vertical, 5)
+                        .background(Capsule().fill(brand[1].opacity(0.12)))
+                }
+                .buttonStyle(.plain)
+            }
+        }
+        .padding(.horizontal, 16)
+        .padding(.vertical, 15)
+        .background(
+            RoundedRectangle(cornerRadius: 18, style: .continuous)
+                .fill(Color(.secondarySystemGroupedBackground))
+                .shadow(color: .black.opacity(0.06), radius: 12, y: 4)
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: 18, style: .continuous)
+                .strokeBorder(focused ? brand[1].opacity(0.55) : Color.primary.opacity(0.06),
+                              lineWidth: focused ? 1.6 : 1)
+        )
+        .animation(.easeOut(duration: 0.18), value: focused)
+    }
+
+    private var saveButton: some View {
+        Button {
+            AIKeyStore.save(key)
+            key = ""
+            focused = false
+            hasKey = AIKeyStore.hasKey
+        } label: {
+            HStack(spacing: 8) {
+                Text(tr("Kaydet ve Başla", "Save and Start"))
+                    .font(.system(.body, design: .rounded, weight: .semibold))
+                Image(systemName: "arrow.right")
+                    .font(.system(size: 14, weight: .bold))
+            }
+            .foregroundStyle(.white)
+            .frame(maxWidth: .infinity)
+            .padding(.vertical, 16)
+            .background(
+                RoundedRectangle(cornerRadius: 18, style: .continuous)
+                    .fill(
+                        LinearGradient(colors: brand,
+                                       startPoint: .leading, endPoint: .trailing)
+                    )
+            )
+            .shadow(color: canSave ? brand[1].opacity(0.4) : .clear, radius: 14, y: 7)
+            .opacity(canSave ? 1 : 0.4)
+        }
+        .buttonStyle(.plain)
+        .disabled(!canSave)
+        .animation(.easeOut(duration: 0.2), value: canSave)
+    }
 }
+
 
 // "?" düğmesiyle açılan yardım: adımlar ve gizlilik notu
 struct AISetupHelpView: View {
