@@ -53,6 +53,34 @@ let aiQuestions: [AIQuestion] = [
           shortTR: "Yıl Sonu Tahmini", shortEN: "Year-End Outlook",
           fullTR: "Bu tempoyla gidersem yıl sonunda ne kadar biriktirmiş olurum?",
           fullEN: "At this pace, how much will I have saved by year end?"),
+    .init(id: 10, icon: "creditcard.fill", colors: [.blue, .indigo],
+          shortTR: "Kart Yüküm", shortEN: "Card Load",
+          fullTR: "Kredi kartı ödemelerim gelirimin yüzde kaçını alıyor? Bu oran sağlıklı mı?",
+          fullEN: "What share of my income goes to credit card payments? Is that healthy?"),
+    .init(id: 11, icon: "repeat", colors: [.mint, .teal],
+          shortTR: "Abonelik & Fatura", shortEN: "Bills & Subs",
+          fullTR: "Abonelik ve faturalarım aylık ne kadar tutuyor, yıllık maliyeti ne olur?",
+          fullEN: "How much do my subscriptions and bills cost monthly, and yearly?"),
+    .init(id: 12, icon: "shield.fill", colors: [.green, .teal],
+          shortTR: "Acil Durum Fonu", shortEN: "Emergency Fund",
+          fullTR: "Birikimim kaç aylık giderimi karşılar? Acil durum fonum yeterli mi?",
+          fullEN: "How many months of expenses do my savings cover? Is my emergency fund enough?"),
+    .init(id: 13, icon: "list.clipboard.fill", colors: [.orange, .pink],
+          shortTR: "Bütçe Önerisi", shortEN: "Budget Plan",
+          fullTR: "Gelirime göre kategori bazında aylık bir bütçe önerisi hazırla.",
+          fullEN: "Draft a monthly category budget based on my income."),
+    .init(id: 14, icon: "waveform.path.ecg", colors: [.red, .purple],
+          shortTR: "Son Aylar Trendi", shortEN: "Recent Trend",
+          fullTR: "Son aylardaki harcama trendim yükseliyor mu, düşüyor mu?",
+          fullEN: "Is my spending trending up or down over recent months?"),
+    .init(id: 15, icon: "arrow.up.right.circle.fill", colors: [.cyan, .blue],
+          shortTR: "Daha Çok Biriktir", shortEN: "Save More",
+          fullTR: "Aylık birikimimi artırmak istiyorum, hangi kalemlerden başlamalıyım?",
+          fullEN: "I want to save more each month; which items should I start with?"),
+    .init(id: 16, icon: "chart.bar.fill", colors: [.yellow, .orange],
+          shortTR: "Ortalamam Ne?", shortEN: "My Averages",
+          fullTR: "Kategori bazında aylık ortalama harcamam ne kadar? Bu ay hangilerinde ortalamanın üstündeyim?",
+          fullEN: "What is my monthly average per category? Which ones am I above average on this month?"),
 ]
 
 // MARK: - Ana sekme
@@ -107,7 +135,7 @@ struct AskAIView: View {
         }
     }
 
-    // MARK: 3x3 soru ızgarası
+    // MARK: 4x4 soru ızgarası
 
     private var questionGrid: some View {
         ScrollView {
@@ -122,17 +150,17 @@ struct AskAIView: View {
                     .multilineTextAlignment(.center)
                     .padding(.horizontal)
 
-                LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 12), count: 3),
-                          spacing: 12) {
+                LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 8), count: 4),
+                          spacing: 8) {
                     ForEach(aiQuestions) { question in
                         Button {
                             ask(question.full)
                         } label: {
-                            VStack(spacing: 8) {
+                            VStack(spacing: 6) {
                                 Image(systemName: question.icon)
-                                    .font(.title2)
+                                    .font(.system(size: 16, weight: .semibold))
                                     .foregroundStyle(.white)
-                                    .frame(width: 44, height: 44)
+                                    .frame(width: 34, height: 34)
                                     .background(
                                         Circle().fill(
                                             LinearGradient(colors: question.colors,
@@ -141,16 +169,17 @@ struct AskAIView: View {
                                         )
                                     )
                                 Text(question.short)
-                                    .font(.caption2.weight(.medium))
+                                    .font(.system(size: 10, weight: .medium))
                                     .foregroundStyle(.primary)
                                     .multilineTextAlignment(.center)
                                     .lineLimit(3)
-                                    .minimumScaleFactor(0.8)
+                                    .minimumScaleFactor(0.7)
                             }
+                            .padding(.horizontal, 4)
                             .frame(maxWidth: .infinity)
-                            .frame(height: 118)
+                            .frame(height: 104)
                             .background(
-                                RoundedRectangle(cornerRadius: 16, style: .continuous)
+                                RoundedRectangle(cornerRadius: 14, style: .continuous)
                                     .fill(Color(.secondarySystemGroupedBackground))
                             )
                         }

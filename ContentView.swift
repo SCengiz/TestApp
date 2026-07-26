@@ -1,6 +1,29 @@
 import SwiftUI
 import SwiftData
 
+
+// "Sor" sekmesinin degrade yuvarlak logosu; sekme ikonu olarak çizilir
+private let askTabIcon: UIImage = {
+    let size = CGSize(width: 34, height: 34)
+    let drawn = UIGraphicsImageRenderer(size: size).image { ctx in
+        UIBezierPath(ovalIn: CGRect(origin: .zero, size: size)).addClip()
+        let colors = aiBrandColors.map { UIColor($0).cgColor } as CFArray
+        if let gradient = CGGradient(colorsSpace: CGColorSpaceCreateDeviceRGB(),
+                                     colors: colors, locations: [0, 0.5, 1]) {
+            ctx.cgContext.drawLinearGradient(gradient, start: .zero,
+                                             end: CGPoint(x: size.width, y: size.height),
+                                             options: [])
+        }
+        let config = UIImage.SymbolConfiguration(pointSize: 17, weight: .semibold)
+        if let glyph = UIImage(systemName: "sparkles", withConfiguration: config)?
+            .withTintColor(.white, renderingMode: .alwaysOriginal) {
+            glyph.draw(at: CGPoint(x: (size.width - glyph.size.width) / 2,
+                                   y: (size.height - glyph.size.height) / 2))
+        }
+    }
+    return drawn.withRenderingMode(.alwaysOriginal)
+}()
+
 struct ContentView: View {
     // -skipLogin / -openTab N: geliştirme/test kestirmeleri (simülatör otomasyonu için)
     // Normal açılışta: "oturumum açık kalsın" denmişse o kullanıcıyla doğrudan girilir
@@ -70,27 +93,6 @@ struct UserSessionView: View {
         self._container = State(initialValue: container)
     }
 
-    // "Sor" sekmesinin logosu: seçim kapsülüyle tam eş merkezli degrade yuvarlak
-    private var askTabButton: some View {
-        let active = selectedTab == 2
-        return ZStack {
-            Circle()
-                .fill(LinearGradient(colors: aiBrandColors,
-                                     startPoint: .topLeading, endPoint: .bottomTrailing))
-                .overlay(Circle().strokeBorder(.white.opacity(0.35), lineWidth: 1))
-                .shadow(color: aiBrandColors[1].opacity(active ? 0.5 : 0.32),
-                        radius: active ? 10 : 7, y: 3)
-            Image(systemName: "sparkles")
-                .font(.system(size: 17, weight: .semibold))
-                .foregroundStyle(.white)
-        }
-        .frame(width: 32, height: 32)
-        .scaleEffect(active ? 1.08 : 1)
-        .offset(y: -2)
-        .allowsHitTesting(false)
-        .animation(.spring(response: 0.3, dampingFraction: 0.7), value: selectedTab)
-    }
-
     var body: some View {
         TabView(selection: $selectedTab) {
             SummaryView(loggedInUser: $loggedInUser)
@@ -111,8 +113,9 @@ struct UserSessionView: View {
             AskAIView(loggedInUser: $loggedInUser)
                 .id(tabResetTokens[2])
                 .tabItem {
-                    // Boş bırakılıyor: bu sekmenin görseli askTabButton ile çiziliyor
-                    Label { Text(" ") } icon: { Image(uiImage: UIImage()) }
+                    // Yazısız, degrade yuvarlak logo: iOS'un kendi ikonu olduğu için
+                    // seçim kapsülünün tam ortasına oturur
+                    Image(uiImage: askTabIcon)
                 }
                 .tag(2)
 
@@ -130,8 +133,6 @@ struct UserSessionView: View {
                 }
                 .tag(4)
         }
-        // Ortadaki "Sor" sekmesini öne çıkaran düğme
-        .overlay(alignment: .bottom) { askTabButton }
         .modelContainer(container)
         .onChange(of: selectedTab) { oldValue, _ in
             // Terk edilen sekme bir sonraki girişte kök sayfasıyla açılır
