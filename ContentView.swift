@@ -157,3 +157,5 @@ struct UserSessionView: View {
     ContentView()
         .modelContainer(for: [Expense.self, FixedPayment.self], inMemory: true)
 }
+
+

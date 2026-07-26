@@ -193,6 +193,20 @@ struct SettingsView: View {
                         "Manage the API key the finance assistant uses."))
             }
 
+            Section {
+                NavigationLink {
+                    BackupSettingsView(user: user)
+                } label: {
+                    Label(tr("Yedekleme", "Backup"),
+                          systemImage: "externaldrive.fill.badge.icloud")
+                }
+            } header: {
+                Text(tr("Verilerim", "My Data"))
+            } footer: {
+                Text(tr("Tüm verilerini bir dosyaya al, gerekirse o dosyadan geri yükle.",
+                        "Save all your data to a file and restore from it when needed."))
+            }
+
             Section(tr("Hesap", "Account")) {
                 NavigationLink {
                     ChangePasswordView(user: user)

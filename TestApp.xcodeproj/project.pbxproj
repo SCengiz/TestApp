@@ -7,6 +7,7 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		0ADA73184951E44FAB0A5DB3 /* Backup.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6D5041DDE6BD7EAC7C26C229 /* Backup.swift */; };
 		0C687A457A49CC64C9E3B0BF /* TestAppApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = D61781265B35C4CAD0DA85CE /* TestAppApp.swift */; };
 		0E1CDBADEDBE081A1F004BD0 /* Models.swift in Sources */ = {isa = PBXBuildFile; fileRef = F3096310996ECFB058032AD5 /* Models.swift */; };
 		2E3350480F361D05CA6E856C /* LoginView.swift in Sources */ = {isa = PBXBuildFile; fileRef = DE7338B38822AFA432C08A62 /* LoginView.swift */; };
@@ -36,7 +37,7 @@
 /* Begin PBXFileReference section */
 		0F4E5B1B6712D67C88CD92E3 /* SavingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SavingsView.swift; sourceTree = "<group>"; };
 		1E371107FAEC8CA981F4B6FF /* Category.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Category.swift; sourceTree = "<group>"; };
-		246DC4CD3FA60DFDA45B7132 /* TestApp.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = TestApp.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		246DC4CD3FA60DFDA45B7132 /* TestApp.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = TestApp.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		3133EF291841F9A25DCB7D64 /* Avatar.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Avatar.swift; sourceTree = "<group>"; };
 		3B7AFD546DB4252A00399C44 /* AIService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AIService.swift; sourceTree = "<group>"; };
 		4BABA0E1CEAC9E97DE76EDA0 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
@@ -49,6 +50,7 @@
 		67C2CAD3B46E0B90EF2CEE35 /* DebtsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DebtsView.swift; sourceTree = "<group>"; };
 		69A8452D08DB6606A807D839 /* ProfileSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProfileSheet.swift; sourceTree = "<group>"; };
 		6BE16F9922047491D3A4A9F9 /* Components.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Components.swift; sourceTree = "<group>"; };
+		6D5041DDE6BD7EAC7C26C229 /* Backup.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Backup.swift; sourceTree = "<group>"; };
 		6E35B6613434FD97A80E8B37 /* settings.local.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = settings.local.json; sourceTree = "<group>"; };
 		77FFE55294ABEDF6C882FDB8 /* PaymentCategory.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PaymentCategory.swift; sourceTree = "<group>"; };
 		9944303CB71F20D7D11EDE10 /* SampleData.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SampleData.swift; sourceTree = "<group>"; };
@@ -57,7 +59,7 @@
 		D61781265B35C4CAD0DA85CE /* TestAppApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TestAppApp.swift; sourceTree = "<group>"; };
 		DB65DDBC20139F8A5C0EF4D5 /* DailyExpensesView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DailyExpensesView.swift; sourceTree = "<group>"; };
 		DE7338B38822AFA432C08A62 /* LoginView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LoginView.swift; sourceTree = "<group>"; };
-		DF2449D0ABDBC325B719A839 /* .gitignore */ = {isa = PBXFileReference; lastKnownFileType = text; path = .gitignore; sourceTree = "<group>"; };
+		DF2449D0ABDBC325B719A839 /* .gitignore */ = {isa = PBXFileReference; path = .gitignore; sourceTree = "<group>"; };
 		E6309988C7C6C28DE750683D /* Reminders.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Reminders.swift; sourceTree = "<group>"; };
 		F3096310996ECFB058032AD5 /* Models.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Models.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
@@ -96,6 +98,7 @@
 				CAE4A7388520144CC1329173 /* AskAIView.swift */,
 				4BABA0E1CEAC9E97DE76EDA0 /* Assets.xcassets */,
 				3133EF291841F9A25DCB7D64 /* Avatar.swift */,
+				6D5041DDE6BD7EAC7C26C229 /* Backup.swift */,
 				1E371107FAEC8CA981F4B6FF /* Category.swift */,
 				6BE16F9922047491D3A4A9F9 /* Components.swift */,
 				524F14CEADEDE7C925E2C217 /* ContentView.swift */,
@@ -115,6 +118,7 @@
 				5B675C248AD7ACC93ACF26F6 /* SummaryView.swift */,
 				D61781265B35C4CAD0DA85CE /* TestAppApp.swift */,
 				62167907E8C4AA00D985284F /* WelcomeView.swift */,
+				7742FC498505E2314F693B4A /* .claude */,
 			);
 			name = TestApp;
 			path = .;
@@ -151,6 +155,7 @@
 				LastUpgradeCheck = 1430;
 				TargetAttributes = {
 					BED194980D56484BC288A866 = {
+						DevelopmentTeam = TTD73R4725;
 						ProvisioningStyle = Automatic;
 					};
 				};
@@ -194,6 +199,7 @@
 				E8F0C5CA8A335AD392147931 /* AIService.swift in Sources */,
 				3C190FFFFDEC2AD37AA1DD2E /* AskAIView.swift in Sources */,
 				E17E39D26A3E6863819117E6 /* Avatar.swift in Sources */,
+				0ADA73184951E44FAB0A5DB3 /* Backup.swift in Sources */,
 				C81CC17A3E1348D819255AAB /* Category.swift in Sources */,
 				437C089250855A48D0687E36 /* Components.swift in Sources */,
 				B981450187912D8A635719E7 /* ContentView.swift in Sources */,
@@ -227,7 +233,7 @@
 				CODE_SIGN_IDENTITY = "iPhone Developer";
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
-				DEVELOPMENT_TEAM = CQZBRVT8JN;
+				DEVELOPMENT_TEAM = TTD73R4725;
 				INFOPLIST_FILE = Info.plist;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
@@ -305,7 +311,7 @@
 				CODE_SIGN_IDENTITY = "iPhone Developer";
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
-				DEVELOPMENT_TEAM = CQZBRVT8JN;
+				DEVELOPMENT_TEAM = TTD73R4725;
 				INFOPLIST_FILE = Info.plist;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
