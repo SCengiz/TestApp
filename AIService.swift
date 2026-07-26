@@ -87,12 +87,27 @@ enum FinancialSummary {
             lines.append("\nAYLIK GELİR: girilmemiş")
         }
 
+        lines.append("""
+
+        GİDER TANIMI (BU KURALA MUTLAKA UY):
+          Bu kullanıcının gideri YALNIZCA "BU AY SABİT ÖDEMELER" listesidir.
+          Aşağıdaki "KART HARCAMA DÖKÜMÜ" bir gider kalemi DEĞİLDİR; kredi
+          kartıyla yapılan alışverişlerin kategori kategori tutulduğu bir
+          nottur ve parasal karşılığı zaten sabit ödemelerdeki kredi kartı
+          satırının içindedir.
+          Bu iki tutarı ASLA TOPLAMA. "Toplam giderim ne kadar", "ne kadar
+          harcadım", "maaşımdan ne kaldı" gibi sorularda yalnızca sabit
+          ödemeler toplamını kullan. Kart dökümünü sadece "param hangi
+          kategoriye gitti", "nerede kısabilirim" gibi dağılım sorularında
+          kullan.
+        """)
+
         // --- Bu ayın kart harcamaları, kategori kategori ---
         let monthExpenses = expenses.filter {
             calendar.isDate($0.date, equalTo: thisMonth, toGranularity: .month)
         }
         let monthTotal = monthExpenses.reduce(0) { $0 + $1.amount }
-        lines.append("\nBU AY KART HARCAMASI: \(tl(monthTotal))")
+        lines.append("\nBU AY KART HARCAMA DÖKÜMÜ (gider değil, kategori notu): \(tl(monthTotal))")
         let byCategory = Dictionary(grouping: monthExpenses, by: \.category)
             .map { (name: $0.key, total: $0.value.reduce(0) { $0 + $1.amount }) }
             .sorted { $0.total > $1.total }
@@ -111,7 +126,7 @@ enum FinancialSummary {
             let label = m.formatted(.dateTime.month(.abbreviated).locale(appLocale))
             trend.append("\(label) \(tl(total))")
         }
-        lines.append("\nSON 6 AY KART HARCAMASI: " + trend.joined(separator: " | "))
+        lines.append("\nSON 6 AY KART HARCAMA DÖKÜMÜ (gider değil): " + trend.joined(separator: " | "))
 
         // Geçen ayla kategori bazlı fark (yorum için en değerli girdi)
         if let lastMonth = calendar.date(byAdding: .month, value: -1, to: thisMonth) {
@@ -158,16 +173,17 @@ enum FinancialSummary {
 
         // --- Nakit akışı (hesabı burada yapıyoruz ki model uydurmasın) ---
         if totalIncome > 0 {
-            let remaining = totalIncome - paymentTotal - monthTotal
+            // Tek gider kalemi sabit ödemelerdir; kart dökümü buraya EKLENMEZ,
+            // çünkü kredi kartı ödemesi zaten sabit ödemelerin içindedir.
+            let remaining = totalIncome - paymentTotal
             let paymentShare = Int((paymentTotal / totalIncome * 100).rounded())
-            let expenseShare = Int((monthTotal / totalIncome * 100).rounded())
             lines.append("""
 
-            BU AYIN NAKİT AKIŞI:
+            BU AYIN NAKİT AKIŞI (hesap burada yapıldı, aynen kullan):
               Gelir \(tl(totalIncome))
               - Sabit ödemeler \(tl(paymentTotal)) (gelirin %\(paymentShare)'i)
-              - Kart harcaması \(tl(monthTotal)) (gelirin %\(expenseShare)'i)
               = Kalan \(tl(remaining))
+              Not: kart harcama dökümü bu hesaba dahil DEĞİLDİR ve edilmemelidir.
             """)
         }
 
@@ -283,6 +299,11 @@ enum AIService {
         5. Türkçe, kısa ve net yaz. Rakamları TL olarak yaz. Gereksiz uzatma; \
         en fazla birkaç kısa paragraf veya madde.
         6. Kullanıcıyla samimi ve destekleyici bir tonda konuş, yargılayıcı olma.
+        7. GİDER = SADECE SABİT ÖDEMELER. Özetteki "kart harcama dökümü" bir gider \
+        değil, kredi kartı harcamalarının kategori notudur; karşılığı zaten sabit \
+        ödemelerdeki kredi kartı satırıdır. Bu ikisini asla toplama, "toplam gider" \
+        diye ikisinin toplamını verme. Nakit akışı hesabı özette hazır verilmiştir, \
+        aynen kullan.
 
         KULLANICININ VERİLERİ:
         \(summary)
