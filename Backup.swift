@@ -258,22 +258,21 @@ enum BackupService {
         return file
     }
 
-    // Dosya adındaki tarih: gün-ay-yıl_saat-dakika.
-    // Sabit biçim kullanılıyor ki telefon dili değişince ad da değişmesin,
-    // iki nokta gibi dosya adında sorun çıkaran işaretler girmesin.
-    static func fileNameStamp(_ date: Date = .now) -> String {
-        let formatter = DateFormatter()
-        formatter.locale = Locale(identifier: "en_US_POSIX")
-        formatter.dateFormat = "dd-MM-yyyy_HH-mm"
-        return formatter.string(from: date)
-    }
-
-    // Yedeği geçici bir dosyaya yazıp paylaşılabilir adresini döndürür
+    // Dosya adında tarih YOK: kullanıcı Dosyalar'da tek bir yedek dosyası tutup
+    // her seferinde üzerine yazmak istiyor. Yedeğin ne zaman alındığı dosyanın
+    // içindeki createdAt alanında duruyor ve geri yüklerken onay ekranında gösteriliyor.
+    // Hesap adı ada giriyor ki farklı hesapların yedekleri birbirini ezmesin.
     static func exportToFile(_ context: ModelContext, user: String) throws -> URL {
         let file = makeBackup(context, user: user)
         let data = try coder.0.encode(file)
-        let name = "iyi-butce-\(user)-\(fileNameStamp()).json"
-        let url = FileManager.default.temporaryDirectory.appendingPathComponent(name)
+        let name = "iyi-butce-\(user).json"
+        let temporary = FileManager.default.temporaryDirectory
+        // Eski sürümlerden kalan tarihli yedekler geçici klasörde birikmesin
+        let leftovers = (try? FileManager.default.contentsOfDirectory(atPath: temporary.path)) ?? []
+        for old in leftovers where old.hasPrefix("iyi-butce") && old != name {
+            try? FileManager.default.removeItem(at: temporary.appendingPathComponent(old))
+        }
+        let url = temporary.appendingPathComponent(name)
         try data.write(to: url, options: .atomic)
         return url
     }
@@ -436,6 +435,7 @@ struct BackupSettingsView: View {
     @Environment(\.modelContext) private var modelContext
 
     @State private var exportURL: URL?
+    @State private var exportedAt = Date.now
     @State private var showingImporter = false
     @State private var pendingFile: BackupFile?
     @State private var message: String?
@@ -455,9 +455,13 @@ struct BackupSettingsView: View {
                         Label(tr("Yedeği Paylaş / Kaydet", "Share / Save Backup"),
                               systemImage: "folder.badge.plus")
                     }
-                    Text(exportURL.lastPathComponent)
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(exportURL.lastPathComponent)
+                        // Dosya adında tarih olmadığı için yedeğin anı burada yazıyor
+                        Text(tr("Alındı: ", "Taken: ") + readableDate(exportedAt))
+                    }
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
                 }
             } header: {
                 Text(tr("Yedek Al", "Back Up"))
@@ -465,8 +469,9 @@ struct BackupSettingsView: View {
                 Text(tr("""
                 Tüm harcamaların, sabit ödemelerin, gelirlerin, birikimlerin, borçların, \
                 kendi kategorilerin, ödedim işaretlerin ve avatarın tek bir dosyaya yazılır. \
-                Dosyayı Dosyalar'a kaydet ya da kendine gönder; uygulamayı silsen bile bu \
-                dosyadan geri dönebilirsin.
+                Dosya adı hep aynıdır; Dosyalar'a kaydederken "Değiştir" dersen tek bir \
+                yedeğin olur ve her seferinde tazelenir. Uygulamayı silsen bile bu dosyadan \
+                geri dönebilirsin.
                 """, """
                 All your expenses, fixed payments, income, savings, debts, custom categories, \
                 paid marks and avatar are written to a single file. Save it to Files or send it \
@@ -534,6 +539,12 @@ struct BackupSettingsView: View {
         }
     }
 
+    // Tarih cihazın değil, uygulamanın seçili diliyle yazılır
+    private func readableDate(_ date: Date) -> String {
+        date.formatted(.dateTime.day().month(.abbreviated).year()
+            .hour().minute().locale(appLocale))
+    }
+
     private var pendingBinding: Binding<Bool> {
         Binding(get: { pendingFile != nil }, set: { if !$0 { pendingFile = nil } })
     }
@@ -544,7 +555,7 @@ struct BackupSettingsView: View {
 
     private func confirmationText(for file: BackupFile) -> String {
         let info = BackupService.contents(of: file)
-        let date = info.createdAt.formatted(date: .abbreviated, time: .shortened)
+        let date = readableDate(info.createdAt)
         let counts = tr("""
         \(info.expenses) harcama, \(info.payments) sabit ödeme, \(info.incomes) gelir, \
         \(info.accounts) birikim hesabı, \(info.debts) borç, \(info.categories) kendi kategorin.
@@ -569,6 +580,7 @@ struct BackupSettingsView: View {
     private func exportBackup() {
         do {
             exportURL = try BackupService.exportToFile(modelContext, user: user)
+            exportedAt = .now
         } catch {
             isError = true
             message = error.localizedDescription
