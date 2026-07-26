@@ -282,6 +282,13 @@ struct AskAIView: View {
     }
 }
 
+// Asistan ekranlarının ortak renk kimliği
+let aiBrandColors: [Color] = [
+    Color(red: 0.42, green: 0.36, blue: 0.95),
+    Color(red: 0.62, green: 0.34, blue: 0.92),
+    Color(red: 0.30, green: 0.55, blue: 0.98),
+]
+
 // MARK: - Anahtar yoksa gösterilen kurulum ekranı
 //
 // Sade tutuldu: sadece anahtar alanı. Adımlar ve gizlilik notu, yanındaki
@@ -293,11 +300,7 @@ struct AISetupView: View {
     @State private var appeared = false
     @FocusState private var focused: Bool
 
-    private var brand: [Color] {
-        [Color(red: 0.42, green: 0.36, blue: 0.95),
-         Color(red: 0.62, green: 0.34, blue: 0.92),
-         Color(red: 0.30, green: 0.55, blue: 0.98)]
-    }
+    private var brand: [Color] { aiBrandColors }
 
     private var canSave: Bool {
         !key.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
@@ -492,68 +495,233 @@ struct AISetupView: View {
 }
 
 
-// "?" düğmesiyle açılan yardım: adımlar ve gizlilik notu
+// "?" düğmesiyle açılan yardım ekranı
 struct AISetupHelpView: View {
     @Environment(\.dismiss) private var dismiss
+    private var brand: [Color] { aiBrandColors }
 
     var body: some View {
         NavigationStack {
-            List {
-                Section {
-                    step(1, tr("aistudio.google.com adresine gir ve Google hesabınla oturum aç.",
-                               "Go to aistudio.google.com and sign in with your Google account."))
-                    step(2, tr("\"Get API key\" düğmesine bas ve anahtarı kopyala.",
-                               "Tap \"Get API key\" and copy the key."))
-                    step(3, tr("Anahtarı uygulamadaki alana yapıştır ve kaydet.",
-                               "Paste the key into the app and save."))
-                } header: {
-                    Text(tr("Anahtarı nasıl alırım?", "How do I get a key?"))
-                } footer: {
-                    Text(tr("Ücretsizdir, kredi kartı istemez. Günlük kullanım sınırı kişisel kullanım için fazlasıyla yeterlidir.",
-                            "It's free and needs no credit card. The daily limit is more than enough for personal use."))
+            ScrollView {
+                VStack(spacing: 22) {
+                    header
+                    stepsCard
+                    privacyCard
+                    scopeCard
                 }
-
-                Section {
-                    Text(tr("Anahtar telefonunun şifreli kasasında (Keychain) saklanır; koda gömülmez.",
-                            "The key is stored in your phone's Keychain, never in the code."))
-                    Text(tr("Asistana tek tek harcama kayıtların, mağaza adların veya tarihler gönderilmez; sadece kategori toplamları ve oranlar gibi özet bilgiler gider.",
-                            "Individual records, merchant names and dates are never sent — only summary figures."))
-                    Text(tr("Tüm hesaplamalar telefonunda yapılır; asistan sadece hazır sayıları yorumlar.",
-                            "All math is done on your phone; the assistant only interprets ready figures."))
-                    Text(tr("Ücretsiz katmanda Google, gönderilen verileri hizmetini geliştirmek için kullanabilir.",
-                            "On the free tier Google may use submitted data to improve its services."))
-                } header: {
-                    Text(tr("Gizlilik", "Privacy"))
-                }
-
-                Section {
-                    Text(tr("Asistan sadece bütçenle ilgili soruları cevaplar; konu dışı sorulara yanıt vermez ve yatırım tavsiyesi vermez.",
-                            "The assistant only answers budget questions; it declines off-topic questions and does not give investment advice."))
-                } header: {
-                    Text(tr("Neler sorabilirim?", "What can I ask?"))
-                }
+                .padding(20)
             }
-            .navigationTitle(tr("Yardım", "Help"))
+            .background(background)
+            .navigationTitle(tr("Nasıl Çalışır?", "How It Works"))
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .confirmationAction) {
-                    Button(tr("Kapat", "Close")) { dismiss() }
+                    Button {
+                        dismiss()
+                    } label: {
+                        Image(systemName: "xmark")
+                            .font(.system(size: 13, weight: .bold))
+                            .foregroundStyle(.secondary)
+                            .frame(width: 28, height: 28)
+                            .background(Circle().fill(Color.primary.opacity(0.07)))
+                    }
+                    .buttonStyle(.plain)
                 }
             }
         }
-        .presentationDetents([.medium, .large])
+        .presentationDetents([.large])
         .presentationDragIndicator(.visible)
     }
 
-    private func step(_ number: Int, _ text: String) -> some View {
-        HStack(alignment: .top, spacing: 10) {
-            Text("\(number)")
-                .font(.caption.bold())
+    private var background: some View {
+        ZStack {
+            Color(.systemGroupedBackground)
+            Circle()
+                .fill(brand[0].opacity(0.20))
+                .frame(width: 280, height: 280)
+                .blur(radius: 90)
+                .offset(x: -120, y: -240)
+        }
+        .ignoresSafeArea()
+    }
+
+    private var header: some View {
+        VStack(spacing: 12) {
+            ZStack {
+                RoundedRectangle(cornerRadius: 20, style: .continuous)
+                    .fill(LinearGradient(colors: brand,
+                                         startPoint: .topLeading, endPoint: .bottomTrailing))
+                    .frame(width: 64, height: 64)
+                    .shadow(color: brand[1].opacity(0.4), radius: 16, y: 8)
+                Image(systemName: "key.fill")
+                    .font(.system(size: 26, weight: .medium))
+                    .foregroundStyle(.white)
+            }
+            Text(tr("Ücretsiz anahtarını 2 dakikada al",
+                    "Get your free key in 2 minutes"))
+                .font(.system(.title3, design: .rounded, weight: .bold))
+                .multilineTextAlignment(.center)
+            Text(tr("Google hesabın yeterli. Kredi kartı istemez, günlük sınırı kişisel kullanım için fazlasıyla yeter.",
+                    "Your Google account is enough. No credit card; the daily limit is plenty for personal use."))
+                .font(.footnote)
+                .foregroundStyle(.secondary)
+                .multilineTextAlignment(.center)
+        }
+        .padding(.top, 6)
+    }
+
+    // Numaralı adımlar, aralarında bağlantı çizgisiyle
+    private var stepsCard: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            stepRow(1, tr("aistudio.google.com adresine gir", "Go to aistudio.google.com"),
+                    tr("Google hesabınla oturum aç.", "Sign in with your Google account."),
+                    isLast: false)
+            stepRow(2, tr("\"Get API key\" düğmesine bas", "Tap \"Get API key\""),
+                    tr("Açılan anahtarı kopyala.", "Copy the key it shows."),
+                    isLast: false)
+            stepRow(3, tr("Uygulamaya yapıştır", "Paste it into the app"),
+                    tr("\"Yapıştır\" düğmesi panondaki anahtarı tek dokunuşla koyar.",
+                       "The \"Paste\" button fills it from your clipboard."),
+                    isLast: true)
+
+            Link(destination: URL(string: "https://aistudio.google.com/apikey")!) {
+                HStack(spacing: 8) {
+                    Text(tr("AI Studio'yu Aç", "Open AI Studio"))
+                        .font(.system(.subheadline, design: .rounded, weight: .semibold))
+                    Image(systemName: "arrow.up.right")
+                        .font(.system(size: 12, weight: .bold))
+                }
                 .foregroundStyle(.white)
-                .frame(width: 22, height: 22)
-                .background(Circle().fill(Color.accentColor))
-            Text(text)
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 13)
+                .background(
+                    RoundedRectangle(cornerRadius: 14, style: .continuous)
+                        .fill(LinearGradient(colors: brand,
+                                             startPoint: .leading, endPoint: .trailing))
+                )
+            }
+            .padding(.top, 6)
+        }
+        .padding(18)
+        .background(cardBackground)
+    }
+
+    private func stepRow(_ number: Int, _ title: String, _ detail: String,
+                         isLast: Bool) -> some View {
+        HStack(alignment: .top, spacing: 14) {
+            VStack(spacing: 0) {
+                Text("\(number)")
+                    .font(.system(size: 13, weight: .bold, design: .rounded))
+                    .foregroundStyle(.white)
+                    .frame(width: 28, height: 28)
+                    .background(
+                        Circle().fill(LinearGradient(colors: brand,
+                                                     startPoint: .top, endPoint: .bottom))
+                    )
+                if !isLast {
+                    Rectangle()
+                        .fill(brand[1].opacity(0.22))
+                        .frame(width: 2)
+                        .frame(maxHeight: .infinity)
+                }
+            }
+            .frame(minHeight: isLast ? 28 : 62)
+
+            VStack(alignment: .leading, spacing: 3) {
+                Text(title)
+                    .font(.subheadline.weight(.semibold))
+                Text(detail)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+            .padding(.top, 3)
             Spacer(minLength: 0)
         }
+    }
+
+    private var privacyCard: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            cardTitle(tr("Verilerin ne oluyor?", "What happens to your data?"),
+                      icon: "lock.shield.fill")
+            infoRow("iphone", tr("Hesaplar telefonunda yapılır",
+                                 "Math happens on your phone"),
+                    tr("Toplamlar ve oranlar uygulamada hesaplanır; asistan sadece hazır sayıları yorumlar.",
+                       "Totals are computed in the app; the assistant only interprets them."))
+            infoRow("eye.slash.fill", tr("Kayıtların gönderilmez",
+                                         "Your records are not sent"),
+                    tr("Tek tek harcamalar, mağaza adları ve tarihler paylaşılmaz — yalnızca kategori toplamları gider.",
+                       "Individual purchases, merchant names and dates are never shared."))
+            infoRow("key.fill", tr("Anahtar Keychain'de", "Key stays in Keychain"),
+                    tr("Telefonunun şifreli kasasında saklanır, koda gömülmez.",
+                       "Stored in your phone's encrypted store, never in the code."))
+            infoRow("exclamationmark.circle.fill",
+                    tr("Ücretsiz katman notu", "Free tier note"),
+                    tr("Google, ücretsiz katmanda gönderilen verileri hizmetini geliştirmek için kullanabilir.",
+                       "On the free tier Google may use submitted data to improve its services."))
+        }
+        .padding(18)
+        .background(cardBackground)
+    }
+
+    private var scopeCard: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            cardTitle(tr("Neler sorabilirim?", "What can I ask?"), icon: "bubble.left.and.text.bubble.right.fill")
+            Text(tr("Asistan yalnızca senin bütçenle ilgili konuşur: harcamalar, gelir, sabit ödemeler, birikim, borç ve tasarruf planı.",
+                    "The assistant only discusses your budget: spending, income, payments, savings, debt and planning."))
+                .font(.footnote)
+                .foregroundStyle(.secondary)
+
+            HStack(spacing: 8) {
+                Image(systemName: "xmark.circle.fill")
+                    .foregroundStyle(.orange)
+                Text(tr("Konu dışı sorulara ve yatırım tavsiyesine yanıt vermez.",
+                        "It declines off-topic questions and investment advice."))
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+            .padding(12)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(
+                RoundedRectangle(cornerRadius: 12, style: .continuous)
+                    .fill(Color.orange.opacity(0.10))
+            )
+        }
+        .padding(18)
+        .background(cardBackground)
+    }
+
+    private func cardTitle(_ text: String, icon: String) -> some View {
+        HStack(spacing: 9) {
+            Image(systemName: icon)
+                .font(.system(size: 15))
+                .foregroundStyle(brand[1])
+            Text(text)
+                .font(.system(.headline, design: .rounded))
+            Spacer(minLength: 0)
+        }
+    }
+
+    private func infoRow(_ icon: String, _ title: String, _ detail: String) -> some View {
+        HStack(alignment: .top, spacing: 12) {
+            Image(systemName: icon)
+                .font(.system(size: 14))
+                .foregroundStyle(brand[1])
+                .frame(width: 30, height: 30)
+                .background(Circle().fill(brand[1].opacity(0.12)))
+            VStack(alignment: .leading, spacing: 3) {
+                Text(title)
+                    .font(.subheadline.weight(.medium))
+                Text(detail)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+            Spacer(minLength: 0)
+        }
+    }
+
+    private var cardBackground: some View {
+        RoundedRectangle(cornerRadius: 20, style: .continuous)
+            .fill(Color(.secondarySystemGroupedBackground))
+            .shadow(color: .black.opacity(0.05), radius: 12, y: 4)
     }
 }
