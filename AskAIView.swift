@@ -282,61 +282,118 @@ struct AskAIView: View {
 }
 
 // MARK: - Anahtar yoksa gösterilen kurulum ekranı
-
+//
+// Sade tutuldu: sadece anahtar alanı. Adımlar ve gizlilik notu, yanındaki
+// "?" düğmesine dokununca açılır.
 struct AISetupView: View {
     @Binding var hasKey: Bool
     @State private var key = ""
+    @State private var showingHelp = false
     @FocusState private var focused: Bool
 
     var body: some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: 18) {
-                VStack(alignment: .leading, spacing: 8) {
-                    Image(systemName: "sparkles")
-                        .font(.largeTitle)
-                        .foregroundStyle(.tint)
-                    Text(tr("Finans asistanını aç", "Turn on the finance assistant"))
-                        .font(.title2.bold())
-                    Text(tr("Bütçenle ilgili soruları cevaplaması için ücretsiz bir Google Gemini anahtarı gerekiyor. Kredi kartı istemez.",
-                            "A free Google Gemini key is needed. No credit card required."))
-                        .foregroundStyle(.secondary)
-                }
+        VStack(spacing: 18) {
+            Spacer()
 
-                VStack(alignment: .leading, spacing: 10) {
+            Image(systemName: "sparkles")
+                .font(.system(size: 44))
+                .foregroundStyle(.tint)
+
+            HStack(spacing: 8) {
+                Text(tr("Sormak için anahtarı gir", "Enter your key to ask"))
+                    .font(.title3.bold())
+                Button {
+                    showingHelp = true
+                } label: {
+                    Image(systemName: "questionmark.circle")
+                        .font(.title3)
+                }
+                .buttonStyle(.plain)
+                .foregroundStyle(.tint)
+            }
+
+            SecureField(tr("API anahtarı (AIza...)", "API key (AIza...)"), text: $key)
+                .textFieldStyle(.roundedBorder)
+                .autocorrectionDisabled()
+                .textInputAutocapitalization(.never)
+                .focused($focused)
+                .padding(.horizontal)
+
+            Button {
+                AIKeyStore.save(key)
+                key = ""
+                focused = false
+                hasKey = AIKeyStore.hasKey
+            } label: {
+                Text(tr("Kaydet ve Başla", "Save and Start"))
+                    .frame(maxWidth: .infinity)
+            }
+            .buttonStyle(.borderedProminent)
+            .disabled(key.trimmingCharacters(in: .whitespaces).isEmpty)
+            .padding(.horizontal)
+
+            Spacer()
+            Spacer()
+        }
+        .padding()
+        .background(Color(.systemGroupedBackground))
+        .sheet(isPresented: $showingHelp) {
+            AISetupHelpView()
+        }
+    }
+}
+
+// "?" düğmesiyle açılan yardım: adımlar ve gizlilik notu
+struct AISetupHelpView: View {
+    @Environment(\.dismiss) private var dismiss
+
+    var body: some View {
+        NavigationStack {
+            List {
+                Section {
                     step(1, tr("aistudio.google.com adresine gir ve Google hesabınla oturum aç.",
                                "Go to aistudio.google.com and sign in with your Google account."))
                     step(2, tr("\"Get API key\" düğmesine bas ve anahtarı kopyala.",
                                "Tap \"Get API key\" and copy the key."))
-                    step(3, tr("Anahtarı aşağıya yapıştır ve kaydet.",
-                               "Paste the key below and save."))
+                    step(3, tr("Anahtarı uygulamadaki alana yapıştır ve kaydet.",
+                               "Paste the key into the app and save."))
+                } header: {
+                    Text(tr("Anahtarı nasıl alırım?", "How do I get a key?"))
+                } footer: {
+                    Text(tr("Ücretsizdir, kredi kartı istemez. Günlük kullanım sınırı kişisel kullanım için fazlasıyla yeterlidir.",
+                            "It's free and needs no credit card. The daily limit is more than enough for personal use."))
                 }
 
-                SecureField(tr("API anahtarı (AIza...)", "API key (AIza...)"), text: $key)
-                    .textFieldStyle(.roundedBorder)
-                    .autocorrectionDisabled()
-                    .textInputAutocapitalization(.never)
-                    .focused($focused)
-
-                Button {
-                    AIKeyStore.save(key)
-                    key = ""
-                    focused = false
-                    hasKey = AIKeyStore.hasKey
-                } label: {
-                    Text(tr("Kaydet ve Başla", "Save and Start"))
-                        .frame(maxWidth: .infinity)
+                Section {
+                    Text(tr("Anahtar telefonunun şifreli kasasında (Keychain) saklanır; koda gömülmez.",
+                            "The key is stored in your phone's Keychain, never in the code."))
+                    Text(tr("Asistana tek tek harcama kayıtların, mağaza adların veya tarihler gönderilmez; sadece kategori toplamları ve oranlar gibi özet bilgiler gider.",
+                            "Individual records, merchant names and dates are never sent — only summary figures."))
+                    Text(tr("Tüm hesaplamalar telefonunda yapılır; asistan sadece hazır sayıları yorumlar.",
+                            "All math is done on your phone; the assistant only interprets ready figures."))
+                    Text(tr("Ücretsiz katmanda Google, gönderilen verileri hizmetini geliştirmek için kullanabilir.",
+                            "On the free tier Google may use submitted data to improve its services."))
+                } header: {
+                    Text(tr("Gizlilik", "Privacy"))
                 }
-                .buttonStyle(.borderedProminent)
-                .disabled(key.trimmingCharacters(in: .whitespaces).isEmpty)
 
-                Text(tr("Anahtar telefonunun şifreli kasasında (Keychain) saklanır. Asistana harcama kayıtların tek tek değil, kategori toplamları gibi özet bilgiler gönderilir. Ücretsiz katmanda Google, gönderilen verileri hizmetini geliştirmek için kullanabilir.",
-                        "The key is stored in your phone's Keychain. Only summary figures are sent, not individual records. On the free tier Google may use submitted data to improve its services."))
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
+                Section {
+                    Text(tr("Asistan sadece bütçenle ilgili soruları cevaplar; konu dışı sorulara yanıt vermez ve yatırım tavsiyesi vermez.",
+                            "The assistant only answers budget questions; it declines off-topic questions and does not give investment advice."))
+                } header: {
+                    Text(tr("Neler sorabilirim?", "What can I ask?"))
+                }
             }
-            .padding()
+            .navigationTitle(tr("Yardım", "Help"))
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .confirmationAction) {
+                    Button(tr("Kapat", "Close")) { dismiss() }
+                }
+            }
         }
-        .background(Color(.systemGroupedBackground))
+        .presentationDetents([.medium, .large])
+        .presentationDragIndicator(.visible)
     }
 
     private func step(_ number: Int, _ text: String) -> some View {
@@ -347,7 +404,6 @@ struct AISetupView: View {
                 .frame(width: 22, height: 22)
                 .background(Circle().fill(Color.accentColor))
             Text(text)
-                .font(.callout)
             Spacer(minLength: 0)
         }
     }
