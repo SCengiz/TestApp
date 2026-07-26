@@ -251,9 +251,16 @@ struct AIMessage: Identifiable, Equatable {
 }
 
 enum AIService {
-    // Ayarlar'dan değiştirilebilir; model adları zamanla değişebildiği için sabit değil
+    // Ayarlar'dan değiştirilebilir; Google model adlarını zaman zaman değiştiriyor
     static var modelName: String {
-        UserDefaults.standard.string(forKey: "aiModelName") ?? "gemini-2.0-flash"
+        UserDefaults.standard.string(forKey: "aiModelName") ?? "gemini-3-flash-preview"
+    }
+
+    // Gemini 3 ve sonrası yeni Interactions API'sini kullanıyor;
+    // eski modeller hâlâ generateContent (legacy) üzerinden çalışıyor.
+    static var usesInteractionsAPI: Bool {
+        let name = modelName.lowercased()
+        return name.contains("gemini-3") || name.contains("gemini-4")
     }
 
     // Modele verilen kurallar: kapsamı bütçeyle sınırlar, uydurmayı ve
@@ -284,7 +291,92 @@ enum AIService {
 
     static func send(messages: [AIMessage], summary: String) async throws -> String {
         guard let key = AIKeyStore.load() else { throw AIError.missingKey }
+        let request = usesInteractionsAPI
+            ? try interactionsRequest(messages: messages, summary: summary, key: key)
+            : try generateContentRequest(messages: messages, summary: summary, key: key)
 
+        let data: Data
+        let response: URLResponse
+        do {
+            (data, response) = try await URLSession.shared.data(for: request)
+        } catch {
+            throw AIError.network(error.localizedDescription)
+        }
+
+        let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any]
+
+        // Hata durumunda sunucunun mesajını olduğu gibi göster; böylece
+        // yanlış model adı / kota gibi sorunlar anlaşılır olur
+        if let http = response as? HTTPURLResponse, !(200...299).contains(http.statusCode) {
+            let message = ((json?["error"] as? [String: Any])?["message"] as? String)
+                ?? tr("Sunucu hatası (\(http.statusCode))", "Server error (\(http.statusCode))")
+            throw AIError.badResponse(message)
+        }
+
+        let text = usesInteractionsAPI
+            ? parseInteractionsAnswer(json)
+            : parseGenerateContentAnswer(json)
+
+        guard let text, !text.isEmpty else {
+            throw AIError.badResponse(tr("Cevap alınamadı. Model adını Ayarlar'dan kontrol et.",
+                                         "No answer received. Check the model name in Settings."))
+        }
+        return text.trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
+    // MARK: Interactions API (Gemini 3+)
+
+    private static func interactionsRequest(messages: [AIMessage], summary: String,
+                                            key: String) throws -> URLRequest {
+        guard let url = URL(string: "https://generativelanguage.googleapis.com/v1beta/interactions")
+        else { throw AIError.badResponse(tr("Geçersiz adres.", "Invalid endpoint.")) }
+
+        let input: [[String: Any]] = messages.map { message in
+            [
+                "type": message.role == .user ? "user_input" : "model_output",
+                "content": [["type": "text", "text": message.text]],
+            ]
+        }
+
+        // NOT: AI Studio'nun örnek kodundaki google_search aracı bilerek eklenmedi —
+        // asistanın internetten değil, yalnızca kullanıcının kendi verisinden
+        // cevap vermesi isteniyor. thinking_level de "low": sayılar zaten
+        // uygulamada hesaplandığı için derin düşünme gereksiz, cevap daha hızlı gelir.
+        let body: [String: Any] = [
+            "model": modelName,
+            "system_instruction": systemPrompt(summary: summary),
+            "input": input,
+            "generation_config": [
+                "max_output_tokens": 1200,
+                "thinking_level": "low",
+            ],
+        ]
+
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.setValue(key, forHTTPHeaderField: "x-goog-api-key")
+        request.httpBody = try JSONSerialization.data(withJSONObject: body)
+        request.timeoutInterval = 90
+        return request
+    }
+
+    // Cevap: steps[] içindeki model_output adımlarının metinleri
+    private static func parseInteractionsAnswer(_ json: [String: Any]?) -> String? {
+        guard let steps = json?["steps"] as? [[String: Any]] else { return nil }
+        let texts = steps
+            .filter { ($0["type"] as? String) == "model_output" }
+            .compactMap { $0["content"] as? [[String: Any]] }
+            .flatMap { $0 }
+            .filter { ($0["type"] as? String) == "text" }
+            .compactMap { $0["text"] as? String }
+        return texts.isEmpty ? nil : texts.joined(separator: "\n")
+    }
+
+    // MARK: generateContent (eski modeller)
+
+    private static func generateContentRequest(messages: [AIMessage], summary: String,
+                                               key: String) throws -> URLRequest {
         let endpoint = "https://generativelanguage.googleapis.com/v1beta/models/"
             + modelName + ":generateContent"
         guard var components = URLComponents(string: endpoint) else {
@@ -311,40 +403,18 @@ enum AIService {
         request.httpMethod = "POST"
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         request.httpBody = try JSONSerialization.data(withJSONObject: body)
-        request.timeoutInterval = 60
+        request.timeoutInterval = 90
+        return request
+    }
 
-        let data: Data
-        let response: URLResponse
-        do {
-            (data, response) = try await URLSession.shared.data(for: request)
-        } catch {
-            throw AIError.network(error.localizedDescription)
-        }
-
-        let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any]
-
-        // Hata durumunda sunucunun mesajını olduğu gibi göster; böylece
-        // yanlış model adı / kota gibi sorunlar anlaşılır olur
-        if let http = response as? HTTPURLResponse, !(200...299).contains(http.statusCode) {
-            let message = ((json?["error"] as? [String: Any])?["message"] as? String)
-                ?? tr("Sunucu hatası (\(http.statusCode))", "Server error (\(http.statusCode))")
-            throw AIError.badResponse(message)
-        }
-
+    private static func parseGenerateContentAnswer(_ json: [String: Any]?) -> String? {
         guard let candidates = json?["candidates"] as? [[String: Any]],
               let first = candidates.first,
               let content = first["content"] as? [String: Any],
               let parts = content["parts"] as? [[String: Any]]
-        else {
-            throw AIError.badResponse(tr("Cevap alınamadı. Model adını Ayarlar'dan kontrol et.",
-                                         "No answer received. Check the model name in Settings."))
-        }
-
+        else { return nil }
         let text = parts.compactMap { $0["text"] as? String }.joined()
-        guard !text.isEmpty else {
-            throw AIError.badResponse(tr("Model boş cevap döndü.", "The model returned an empty answer."))
-        }
-        return text.trimmingCharacters(in: .whitespacesAndNewlines)
+        return text.isEmpty ? nil : text
     }
 }
 
@@ -353,7 +423,7 @@ enum AIService {
 struct AISettingsView: View {
     @State private var key = ""
     @State private var hasKey = AIKeyStore.hasKey
-    @AppStorage("aiModelName") private var modelName = "gemini-2.0-flash"
+    @AppStorage("aiModelName") private var modelName = "gemini-3-flash-preview"
     @State private var saved = false
 
     var body: some View {
@@ -396,8 +466,8 @@ struct AISettingsView: View {
             } header: {
                 Text(tr("Model", "Model"))
             } footer: {
-                Text(tr("Google model adlarını zaman zaman değiştiriyor. Asistan \"model bulunamadı\" hatası verirse buradan güncelleyebilirsin (örn. gemini-2.0-flash, gemini-1.5-flash).",
-                        "Google changes model names occasionally. If you get a \"model not found\" error, update it here."))
+                Text(tr("Gemini 3 ve sonrası yeni Interactions API'siyle, eski modeller generateContent ile çalışır; uygulama model adına bakıp doğru olanı seçer. \"Model bulunamadı\" hatası alırsan buradan güncelleyebilirsin (örn. gemini-3-flash-preview, gemini-2.0-flash).",
+                        "Gemini 3+ uses the new Interactions API, older models use generateContent; the app picks the right one from the model name. Update here if you get a \"model not found\" error."))
             }
 
             Section {
