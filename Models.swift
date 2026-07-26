@@ -355,16 +355,19 @@ final class FixedPayment {
     var amount: Double
     var dueDay: Int // ayın kaçında ödeniyor (1-28)
 
+    var category: String = "Diğer" // Kredi Kartı, Kira, Kredi...
+
     // Taksitli ödemeler için (nil = süresiz, fatura/abonelik gibi)
     var totalInstallments: Int? = nil // toplam taksit sayısı (örn. 12)
     var firstPaymentDate: Date? = nil // ilk taksitin ödendiği ay
 
 
-    init(name: String, amount: Double, dueDay: Int,
+    init(name: String, amount: Double, dueDay: Int, category: String = "Diğer",
          totalInstallments: Int? = nil, firstPaymentDate: Date? = nil) {
         self.name = name
         self.amount = amount
         self.dueDay = dueDay
+        self.category = category
         self.totalInstallments = totalInstallments
         self.firstPaymentDate = firstPaymentDate
     }
@@ -379,6 +382,16 @@ extension FixedPayment {
         let diff = calendar.dateComponents([.month], from: firstMonth, to: thatMonth).month ?? 0
         let number = diff + 1
         return (1...total).contains(number) ? number : nil
+    }
+
+    // Verilen ayda gösterilecek tutar.
+    // Kredi kartı ekstresi / fatura gibi tutarı her ay değişen ödemelerde
+    // gelecek ayların tutarı henüz belli değildir; satır 0 TL gösterilir.
+    func amount(inMonth month: Date, calendar: Calendar = .current) -> Double {
+        guard PaymentCategory.named(category).amountVaries else { return amount }
+        let thisMonth = calendar.dateInterval(of: .month, for: .now)!.start
+        let thatMonth = calendar.dateInterval(of: .month, for: month)!.start
+        return thatMonth > thisMonth ? 0 : amount
     }
 
     // Bu ödeme verilen ayda geçerli mi? (süresizler her zaman geçerli)

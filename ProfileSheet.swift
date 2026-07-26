@@ -169,10 +169,17 @@ struct SettingsView: View {
                 NavigationLink {
                     CategoriesView()
                 } label: {
-                    Label(tr("Kategoriler", "Categories"), systemImage: "square.grid.2x2.fill")
+                    Label(tr("Harcama Kategorileri", "Expense Categories"),
+                          systemImage: "square.grid.2x2.fill")
+                }
+                NavigationLink {
+                    PaymentCategoriesView()
+                } label: {
+                    Label(tr("Ödeme Kategorileri", "Payment Categories"),
+                          systemImage: "creditcard.fill")
                 }
             } footer: {
-                Text(tr("Harcamalarına kendi kategorilerini ekleyebilirsin.", "You can add your own expense categories."))
+                Text(tr("Günlük harcamalarına ve sabit ödemelerine kendi kategorilerini ekleyebilirsin.", "You can add your own categories for daily spending and fixed payments."))
             }
 
             Section(tr("Hesap", "Account")) {

@@ -50,7 +50,8 @@ struct UserSessionView: View {
         let schema = Schema([Expense.self, FixedPayment.self, IncomeSource.self,
                              IncomeSnapshot.self, SavingsAccountModel.self,
                              Asset.self, AssetTransaction.self, SavingsSnapshot.self,
-                             Debt.self, CustomCategory.self, PaidPayment.self])
+                             Debt.self, CustomCategory.self, PaidPayment.self,
+                             CustomPaymentCategory.self])
         let supportDir = URL.applicationSupportDirectory
         try? FileManager.default.createDirectory(at: supportDir, withIntermediateDirectories: true)
         let storeURL = supportDir.appending(path: "butcem-\(user).store")
@@ -114,6 +115,7 @@ struct UserSessionView: View {
             }
             // Kullanıcının kendi kategorileri satırlarda ve seçim listelerinde görünsün
             ExpenseCategory.refreshCustom(container.mainContext)
+            PaymentCategory.refreshCustom(container.mainContext)
         }
     }
 }

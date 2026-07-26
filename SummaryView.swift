@@ -25,7 +25,7 @@ struct SummaryView: View {
     private func paymentBreakdown(for month: Date) -> [(name: String, amount: Double, color: Color)] {
         payments
             .filter { $0.isActive(inMonth: month, calendar: calendar) }
-            .map { ($0.name, $0.amount, paymentColors[$0.name] ?? .blue) }
+            .map { ($0.name, $0.amount(inMonth: month), paymentColors[$0.name] ?? .blue) }
     }
 
     // Bu ayın günlük harcama toplamı

@@ -20,6 +20,7 @@
 		887C0514D573F0A214246769 /* PriceService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5AFB6D42739CEA17F4D05B77 /* PriceService.swift */; };
 		A54535B8EE5F87D43A4D19C5 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 4BABA0E1CEAC9E97DE76EDA0 /* Assets.xcassets */; };
 		A937D245EF629962365E3F8C /* SampleData.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9944303CB71F20D7D11EDE10 /* SampleData.swift */; };
+		AF7E44F4A217A9E162243CF4 /* PaymentCategory.swift in Sources */ = {isa = PBXBuildFile; fileRef = 77FFE55294ABEDF6C882FDB8 /* PaymentCategory.swift */; };
 		B0C814613737E7354C65C011 /* Reminders.swift in Sources */ = {isa = PBXBuildFile; fileRef = E6309988C7C6C28DE750683D /* Reminders.swift */; };
 		B981450187912D8A635719E7 /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 524F14CEADEDE7C925E2C217 /* ContentView.swift */; };
 		BEBF6843C3470D18849127E6 /* DebtsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 67C2CAD3B46E0B90EF2CEE35 /* DebtsView.swift */; };
@@ -33,7 +34,7 @@
 /* Begin PBXFileReference section */
 		0F4E5B1B6712D67C88CD92E3 /* SavingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SavingsView.swift; sourceTree = "<group>"; };
 		1E371107FAEC8CA981F4B6FF /* Category.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Category.swift; sourceTree = "<group>"; };
-		246DC4CD3FA60DFDA45B7132 /* TestApp.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = TestApp.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		246DC4CD3FA60DFDA45B7132 /* TestApp.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = TestApp.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		3133EF291841F9A25DCB7D64 /* Avatar.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Avatar.swift; sourceTree = "<group>"; };
 		4BABA0E1CEAC9E97DE76EDA0 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		524F14CEADEDE7C925E2C217 /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
@@ -46,12 +47,13 @@
 		69A8452D08DB6606A807D839 /* ProfileSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProfileSheet.swift; sourceTree = "<group>"; };
 		6BE16F9922047491D3A4A9F9 /* Components.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Components.swift; sourceTree = "<group>"; };
 		6E35B6613434FD97A80E8B37 /* settings.local.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = settings.local.json; sourceTree = "<group>"; };
+		77FFE55294ABEDF6C882FDB8 /* PaymentCategory.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PaymentCategory.swift; sourceTree = "<group>"; };
 		9944303CB71F20D7D11EDE10 /* SampleData.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SampleData.swift; sourceTree = "<group>"; };
 		A52C676B710D9A33B0609597 /* FixedPaymentsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FixedPaymentsView.swift; sourceTree = "<group>"; };
 		D61781265B35C4CAD0DA85CE /* TestAppApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TestAppApp.swift; sourceTree = "<group>"; };
 		DB65DDBC20139F8A5C0EF4D5 /* DailyExpensesView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DailyExpensesView.swift; sourceTree = "<group>"; };
 		DE7338B38822AFA432C08A62 /* LoginView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LoginView.swift; sourceTree = "<group>"; };
-		DF2449D0ABDBC325B719A839 /* .gitignore */ = {isa = PBXFileReference; lastKnownFileType = text; path = .gitignore; sourceTree = "<group>"; };
+		DF2449D0ABDBC325B719A839 /* .gitignore */ = {isa = PBXFileReference; path = .gitignore; sourceTree = "<group>"; };
 		E6309988C7C6C28DE750683D /* Reminders.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Reminders.swift; sourceTree = "<group>"; };
 		F3096310996ECFB058032AD5 /* Models.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Models.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
@@ -97,6 +99,7 @@
 				5E838EE0F6B13B8968569B5C /* IncomeView.swift */,
 				DE7338B38822AFA432C08A62 /* LoginView.swift */,
 				F3096310996ECFB058032AD5 /* Models.swift */,
+				77FFE55294ABEDF6C882FDB8 /* PaymentCategory.swift */,
 				5AFB6D42739CEA17F4D05B77 /* PriceService.swift */,
 				69A8452D08DB6606A807D839 /* ProfileSheet.swift */,
 				E6309988C7C6C28DE750683D /* Reminders.swift */,
@@ -106,6 +109,7 @@
 				5B675C248AD7ACC93ACF26F6 /* SummaryView.swift */,
 				D61781265B35C4CAD0DA85CE /* TestAppApp.swift */,
 				62167907E8C4AA00D985284F /* WelcomeView.swift */,
+				7742FC498505E2314F693B4A /* .claude */,
 			);
 			name = TestApp;
 			path = .;
@@ -142,6 +146,7 @@
 				LastUpgradeCheck = 1430;
 				TargetAttributes = {
 					BED194980D56484BC288A866 = {
+						DevelopmentTeam = TTD73R4725;
 						ProvisioningStyle = Automatic;
 					};
 				};
@@ -192,6 +197,7 @@
 				EB60CF53F1FD7B4136A3C5C4 /* IncomeView.swift in Sources */,
 				2E3350480F361D05CA6E856C /* LoginView.swift in Sources */,
 				0E1CDBADEDBE081A1F004BD0 /* Models.swift in Sources */,
+				AF7E44F4A217A9E162243CF4 /* PaymentCategory.swift in Sources */,
 				887C0514D573F0A214246769 /* PriceService.swift in Sources */,
 				47350D9FAB5FE64FA14C5248 /* ProfileSheet.swift in Sources */,
 				B0C814613737E7354C65C011 /* Reminders.swift in Sources */,
@@ -215,7 +221,7 @@
 				CODE_SIGN_IDENTITY = "iPhone Developer";
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
-				DEVELOPMENT_TEAM = CQZBRVT8JN;
+				DEVELOPMENT_TEAM = TTD73R4725;
 				INFOPLIST_FILE = Info.plist;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
@@ -293,7 +299,7 @@
 				CODE_SIGN_IDENTITY = "iPhone Developer";
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
-				DEVELOPMENT_TEAM = CQZBRVT8JN;
+				DEVELOPMENT_TEAM = TTD73R4725;
 				INFOPLIST_FILE = Info.plist;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",

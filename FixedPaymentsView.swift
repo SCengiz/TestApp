@@ -23,7 +23,7 @@ struct FixedPaymentsView: View {
     }
 
     private var monthlyTotal: Double {
-        monthPayments.reduce(0) { $0 + $1.amount }
+        monthPayments.reduce(0) { $0 + $1.amount(inMonth: selectedMonth) }
     }
 
     private var cardTitle: String {
@@ -59,22 +59,24 @@ struct FixedPaymentsView: View {
 
             Section {
                 ForEach(monthPayments) { payment in
+                    let category = PaymentCategory.named(payment.category)
+                    let shownAmount = payment.amount(inMonth: selectedMonth)
                     Button {
                         editingPayment = payment
                     } label: {
                         HStack(spacing: 12) {
-                            RowIcon(systemName: "creditcard.fill", color: .blue)
+                            RowIcon(systemName: category.icon, color: category.color)
                             VStack(alignment: .leading, spacing: 2) {
                                 Text(payment.name)
                                     .foregroundStyle(.primary)
-                                Text(subtitle(for: payment))
+                                Text(subtitle(for: payment, category: category))
                                     .font(.caption)
                                     .foregroundStyle(.secondary)
                             }
                             Spacer()
-                            Text(payment.amount, format: .currency(code: "TRY"))
+                            Text(shownAmount, format: .currency(code: "TRY"))
                                 .font(.callout.weight(.semibold))
-                                .foregroundStyle(.primary)
+                                .foregroundStyle(shownAmount == 0 ? .secondary : .primary)
                             Image(systemName: "chevron.right")
                                 .font(.caption.weight(.semibold))
                                 .foregroundStyle(.tertiary)
@@ -146,8 +148,17 @@ struct FixedPaymentsView: View {
         refreshReminders()
     }
 
-    // "Taksit 5/12 · kalan 7 ay · Her ayın 15'i" gibi alt satır
-    private func subtitle(for payment: FixedPayment) -> String {
+    // "Kredi Kartı · Ekstre henüz kesilmedi" / "Taksit 5/12 · kalan 7 ay" gibi alt satır
+    private func subtitle(for payment: FixedPayment, category: PaymentCategory) -> String {
+        // Gelecek ayda tutarı belli olmayan ödemelerde sebebini yaz
+        if category.amountVaries, payment.amount(inMonth: selectedMonth) == 0 {
+            return category.displayName + " · "
+                + tr("tutar henüz belli değil", "amount not known yet")
+        }
+        return category.displayName + " · " + installmentInfo(for: payment)
+    }
+
+    private func installmentInfo(for payment: FixedPayment) -> String {
         // Tek seferlik ödeme: hangi aya ait olduğunu göster
         if payment.totalInstallments == 1, let first = payment.firstPaymentDate {
             let month = first.formatted(.dateTime.month(.wide).year().locale(appLocale))
@@ -189,6 +200,7 @@ struct AddFixedPaymentView: View {
     @State private var name = ""
     @State private var amount: Double?
     @State private var dueDay = 1
+    @State private var category = "Kredi Kartı"
     @State private var kind: PaymentKind = .recurring
     @State private var totalInstallments = 12
     @State private var currentInstallment = 1
@@ -224,10 +236,26 @@ struct AddFixedPaymentView: View {
                     TextField(tr("Aylık tutar (TL)", "Monthly amount (TL)"), value: $amount, format: .number)
                         .keyboardType(.decimalPad)
 
+                    Picker(tr("Kategori", "Category"), selection: $category) {
+                        ForEach(PaymentCategory.all) { cat in
+                            Label(cat.displayName, systemImage: cat.icon).tag(cat.name)
+                        }
+                    }
+
                     Picker(tr("Ödeme günü", "Payment day"), selection: $dueDay) {
                         ForEach(1...28, id: \.self) { day in
                             Text(tr("Her ayın \(day). günü", "Day \(day) of each month")).tag(day)
                         }
+                    }
+                }
+
+                if PaymentCategory.named(category).amountVaries {
+                    Section {
+                        Label(tr("Bu kategoride tutar her ay değişir; gelecek ayların planında 0 TL görünür, ekstre kesilince tutarı güncellersin.",
+                                 "Amounts in this category change monthly; future months show ₺0 until you update them."),
+                              systemImage: "info.circle")
+                            .font(.footnote)
+                            .foregroundStyle(.secondary)
                     }
                 }
 
@@ -303,6 +331,7 @@ struct AddFixedPaymentView: View {
                     name = payment.name
                     amount = payment.amount
                     dueDay = payment.dueDay
+                    category = payment.category
                     if let total = payment.totalInstallments, let first = payment.firstPaymentDate {
                         if total == 1 {
                             kind = .oneTime
@@ -345,10 +374,12 @@ struct AddFixedPaymentView: View {
             payment.name = name
             payment.amount = amount
             payment.dueDay = dueDay
+            payment.category = category
             payment.totalInstallments = total
             payment.firstPaymentDate = firstPayment
         } else {
             modelContext.insert(FixedPayment(name: name, amount: amount, dueDay: dueDay,
+                                             category: category,
                                              totalInstallments: total,
                                              firstPaymentDate: firstPayment))
         }
