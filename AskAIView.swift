@@ -66,7 +66,10 @@ struct AskAIView: View {
     @State private var isThinking = false
     @State private var errorMessage: String?
     @State private var hasKey = AIKeyStore.hasKey
+    @State private var dotPhase = 0
     @FocusState private var inputFocused: Bool
+
+    private var brand: [Color] { aiBrandColors }
 
     var body: some View {
         NavigationStack {
@@ -98,7 +101,9 @@ struct AskAIView: View {
                     }
                 }
             }
-            .onAppear { hasKey = AIKeyStore.hasKey }
+            .onAppear {
+                hasKey = AIKeyStore.hasKey
+            }
         }
     }
 
@@ -170,75 +175,209 @@ struct AskAIView: View {
     // MARK: Sohbet
 
     private var chatView: some View {
-        VStack(spacing: 0) {
-            ScrollViewReader { proxy in
-                ScrollView {
-                    VStack(spacing: 12) {
-                        ForEach(messages) { message in
-                            bubble(for: message)
-                                .id(message.id)
-                        }
-                        if isThinking {
-                            HStack(spacing: 8) {
-                                ProgressView().controlSize(.small)
-                                Text(tr("Düşünüyor...", "Thinking..."))
-                                    .font(.footnote)
-                                    .foregroundStyle(.secondary)
+        ZStack {
+            chatBackground
+
+            VStack(spacing: 0) {
+                ScrollViewReader { proxy in
+                    ScrollView {
+                        VStack(spacing: 14) {
+                            ForEach(messages) { message in
+                                bubble(for: message)
+                                    .id(message.id)
                             }
-                            .frame(maxWidth: .infinity, alignment: .leading)
-                            .id("thinking")
+                            if isThinking {
+                                thinkingBubble.id("thinking")
+                            }
+                            if let errorMessage {
+                                errorBubble(errorMessage)
+                            }
                         }
-                        if let errorMessage {
-                            Text(errorMessage)
-                                .font(.footnote)
-                                .foregroundStyle(.red)
-                                .frame(maxWidth: .infinity, alignment: .leading)
-                        }
+                        .padding(.horizontal, 16)
+                        .padding(.vertical, 18)
                     }
-                    .padding()
+                    .scrollDismissesKeyboard(.interactively)
+                    .onChange(of: messages.count) { scrollToEnd(proxy) }
+                    .onChange(of: isThinking) { scrollToEnd(proxy) }
                 }
-                .onChange(of: messages.count) { scrollToEnd(proxy) }
-                .onChange(of: isThinking) { scrollToEnd(proxy) }
+
+                inputBar
             }
-
-            Divider()
-
-            HStack(spacing: 10) {
-                TextField(tr("Bütçenle ilgili bir şey sor...", "Ask about your budget..."),
-                          text: $followUp, axis: .vertical)
-                    .lineLimit(1...4)
-                    .textFieldStyle(.plain)
-                    .focused($inputFocused)
-                    .onSubmit(sendFollowUp)
-
-                Button(action: sendFollowUp) {
-                    Image(systemName: "arrow.up.circle.fill")
-                        .font(.title2)
-                }
-                .disabled(followUp.trimmingCharacters(in: .whitespaces).isEmpty || isThinking)
-            }
-            .padding(.horizontal)
-            .padding(.vertical, 10)
-            .background(Color(.secondarySystemGroupedBackground))
         }
     }
 
-    private func bubble(for message: AIMessage) -> some View {
-        HStack {
-            if message.role == .user { Spacer(minLength: 40) }
-            Text(message.text)
-                .padding(.horizontal, 14)
-                .padding(.vertical, 10)
-                .background(
-                    RoundedRectangle(cornerRadius: 16, style: .continuous)
-                        .fill(message.role == .user
-                              ? AnyShapeStyle(Color.accentColor)
-                              : AnyShapeStyle(Color(.secondarySystemGroupedBackground)))
-                )
-                .foregroundStyle(message.role == .user ? .white : .primary)
-                .textSelection(.enabled)
-            if message.role == .assistant { Spacer(minLength: 40) }
+    private var chatBackground: some View {
+        ZStack {
+            Color(.systemGroupedBackground)
+            Circle()
+                .fill(brand[0].opacity(0.14))
+                .frame(width: 300, height: 300)
+                .blur(radius: 100)
+                .offset(x: -130, y: -260)
         }
+        .ignoresSafeArea()
+    }
+
+    // Gemini kalın yazı ve madde işareti döndürebiliyor; okunur biçimde gösterilir
+    private func styled(_ text: String) -> AttributedString {
+        (try? AttributedString(
+            markdown: text,
+            options: .init(interpretedSyntax: .inlineOnlyPreservingWhitespace)
+        )) ?? AttributedString(text)
+    }
+
+    private func bubble(for message: AIMessage) -> some View {
+        HStack(alignment: .bottom, spacing: 8) {
+            if message.role == .user {
+                Spacer(minLength: 50)
+                Text(message.text)
+                    .foregroundStyle(.white)
+                    .padding(.horizontal, 16)
+                    .padding(.vertical, 12)
+                    .background(
+                        UnevenRoundedRectangle(topLeadingRadius: 20, bottomLeadingRadius: 20,
+                                               bottomTrailingRadius: 6, topTrailingRadius: 20,
+                                               style: .continuous)
+                            .fill(LinearGradient(colors: brand,
+                                                 startPoint: .topLeading,
+                                                 endPoint: .bottomTrailing))
+                    )
+                    .shadow(color: brand[1].opacity(0.28), radius: 10, y: 4)
+                    .textSelection(.enabled)
+            } else {
+                assistantAvatar
+                Text(styled(message.text))
+                    .foregroundStyle(.primary)
+                    .padding(.horizontal, 16)
+                    .padding(.vertical, 12)
+                    .background(
+                        UnevenRoundedRectangle(topLeadingRadius: 20, bottomLeadingRadius: 6,
+                                               bottomTrailingRadius: 20, topTrailingRadius: 20,
+                                               style: .continuous)
+                            .fill(Color(.secondarySystemGroupedBackground))
+                            .shadow(color: .black.opacity(0.06), radius: 10, y: 3)
+                    )
+                    .textSelection(.enabled)
+                Spacer(minLength: 30)
+            }
+        }
+        .transition(.move(edge: message.role == .user ? .trailing : .leading)
+            .combined(with: .opacity))
+    }
+
+    private var assistantAvatar: some View {
+        ZStack {
+            Circle()
+                .fill(LinearGradient(colors: brand,
+                                     startPoint: .topLeading, endPoint: .bottomTrailing))
+                .frame(width: 28, height: 28)
+            Image(systemName: "sparkles")
+                .font(.system(size: 13, weight: .medium))
+                .foregroundStyle(.white)
+        }
+    }
+
+    // Yanıt beklenirken sıçrayan üç nokta
+    private var thinkingBubble: some View {
+        HStack(alignment: .bottom, spacing: 8) {
+            assistantAvatar
+            HStack(spacing: 5) {
+                ForEach(0..<3, id: \.self) { index in
+                    Circle()
+                        .fill(brand[1].opacity(0.55))
+                        .frame(width: 7, height: 7)
+                        .scaleEffect(dotPhase == index ? 1.35 : 0.75)
+                        .opacity(dotPhase == index ? 1 : 0.5)
+                }
+            }
+            .padding(.horizontal, 18)
+            .padding(.vertical, 15)
+            .background(
+                UnevenRoundedRectangle(topLeadingRadius: 20, bottomLeadingRadius: 6,
+                                       bottomTrailingRadius: 20, topTrailingRadius: 20,
+                                       style: .continuous)
+                    .fill(Color(.secondarySystemGroupedBackground))
+                    .shadow(color: .black.opacity(0.06), radius: 10, y: 3)
+            )
+            Spacer(minLength: 30)
+        }
+        .onAppear {
+            withAnimation(.easeInOut(duration: 0.45).repeatForever(autoreverses: true)) {
+                dotPhase = 1
+            }
+            Timer.scheduledTimer(withTimeInterval: 0.35, repeats: true) { timer in
+                if !isThinking { timer.invalidate(); return }
+                withAnimation(.easeInOut(duration: 0.3)) { dotPhase = (dotPhase + 1) % 3 }
+            }
+        }
+    }
+
+    private func errorBubble(_ message: String) -> some View {
+        HStack(alignment: .top, spacing: 10) {
+            Image(systemName: "exclamationmark.triangle.fill")
+                .foregroundStyle(.orange)
+            Text(message)
+                .font(.footnote)
+                .foregroundStyle(.primary)
+            Spacer(minLength: 0)
+        }
+        .padding(14)
+        .background(
+            RoundedRectangle(cornerRadius: 16, style: .continuous)
+                .fill(Color.orange.opacity(0.12))
+        )
+    }
+
+    private var inputBar: some View {
+        HStack(alignment: .bottom, spacing: 10) {
+            HStack(alignment: .bottom, spacing: 8) {
+                TextField(tr("Bütçenle ilgili bir şey sor…", "Ask about your budget…"),
+                          text: $followUp, axis: .vertical)
+                    .lineLimit(1...5)
+                    .textFieldStyle(.plain)
+                    .focused($inputFocused)
+                    .disabled(isThinking)
+            }
+            .padding(.horizontal, 16)
+            .padding(.vertical, 12)
+            .background(
+                RoundedRectangle(cornerRadius: 22, style: .continuous)
+                    .fill(Color(.secondarySystemGroupedBackground))
+                    .shadow(color: .black.opacity(0.05), radius: 8, y: 2)
+            )
+            .overlay(
+                RoundedRectangle(cornerRadius: 22, style: .continuous)
+                    .strokeBorder(inputFocused ? brand[1].opacity(0.5) : Color.primary.opacity(0.06),
+                                  lineWidth: inputFocused ? 1.5 : 1)
+            )
+            .animation(.easeOut(duration: 0.18), value: inputFocused)
+
+            Button(action: sendFollowUp) {
+                Image(systemName: "arrow.up")
+                    .font(.system(size: 17, weight: .bold))
+                    .foregroundStyle(.white)
+                    .frame(width: 44, height: 44)
+                    .background(
+                        Circle().fill(
+                            LinearGradient(colors: brand,
+                                           startPoint: .topLeading, endPoint: .bottomTrailing)
+                        )
+                    )
+                    .shadow(color: canSend ? brand[1].opacity(0.4) : .clear, radius: 10, y: 4)
+                    .opacity(canSend ? 1 : 0.35)
+                    .scaleEffect(canSend ? 1 : 0.92)
+            }
+            .buttonStyle(.plain)
+            .disabled(!canSend)
+            .animation(.easeOut(duration: 0.2), value: canSend)
+        }
+        .padding(.horizontal, 14)
+        .padding(.vertical, 12)
+        .background(.bar)
+    }
+
+    private var canSend: Bool {
+        !followUp.trimmingCharacters(in: .whitespaces).isEmpty && !isThinking
     }
 
     private func scrollToEnd(_ proxy: ScrollViewProxy) {

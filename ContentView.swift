@@ -70,6 +70,24 @@ struct UserSessionView: View {
         self._container = State(initialValue: container)
     }
 
+    private var askTabHighlight: some View {
+        Circle()
+            .fill(
+                LinearGradient(colors: aiBrandColors.map { $0.opacity(selectedTab == 2 ? 0.22 : 0.12) },
+                               startPoint: .topLeading, endPoint: .bottomTrailing)
+            )
+            .overlay(
+                Circle().strokeBorder(
+                    LinearGradient(colors: aiBrandColors.map { $0.opacity(selectedTab == 2 ? 0.55 : 0.25) },
+                                   startPoint: .topLeading, endPoint: .bottomTrailing),
+                    lineWidth: 1)
+            )
+            .frame(width: 40, height: 40)
+            .offset(y: -10)
+            .allowsHitTesting(false)
+            .animation(.easeOut(duration: 0.2), value: selectedTab)
+    }
+
     var body: some View {
         TabView(selection: $selectedTab) {
             SummaryView(loggedInUser: $loggedInUser)
@@ -108,6 +126,8 @@ struct UserSessionView: View {
                 }
                 .tag(4)
         }
+        // Ortadaki "Sor" sekmesini hafifçe öne çıkaran yuvarlak
+        .overlay(alignment: .bottom) { askTabHighlight }
         .modelContainer(container)
         .onChange(of: selectedTab) { oldValue, _ in
             // Terk edilen sekme bir sonraki girişte kök sayfasıyla açılır
