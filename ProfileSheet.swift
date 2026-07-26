@@ -182,6 +182,17 @@ struct SettingsView: View {
                 Text(tr("Günlük harcamalarına ve sabit ödemelerine kendi kategorilerini ekleyebilirsin.", "You can add your own categories for daily spending and fixed payments."))
             }
 
+            Section {
+                NavigationLink {
+                    AISettingsView()
+                } label: {
+                    Label(tr("Yapay Zeka", "AI"), systemImage: "sparkles")
+                }
+            } footer: {
+                Text(tr("Finans asistanının kullandığı API anahtarını buradan yönetirsin.",
+                        "Manage the API key the finance assistant uses."))
+            }
+
             Section(tr("Hesap", "Account")) {
                 NavigationLink {
                     ChangePasswordView(user: user)
