@@ -150,6 +150,7 @@ struct UserSessionView: View {
             ExpenseCategory.refreshCustom(container.mainContext)
             PaymentCategory.refreshCustom(container.mainContext)
         }
+        }
     }
 }
 

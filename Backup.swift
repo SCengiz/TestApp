@@ -258,13 +258,21 @@ enum BackupService {
         return file
     }
 
+    // Dosya adındaki tarih: gün-ay-yıl_saat-dakika.
+    // Sabit biçim kullanılıyor ki telefon dili değişince ad da değişmesin,
+    // iki nokta gibi dosya adında sorun çıkaran işaretler girmesin.
+    static func fileNameStamp(_ date: Date = .now) -> String {
+        let formatter = DateFormatter()
+        formatter.locale = Locale(identifier: "en_US_POSIX")
+        formatter.dateFormat = "dd-MM-yyyy_HH-mm"
+        return formatter.string(from: date)
+    }
+
     // Yedeği geçici bir dosyaya yazıp paylaşılabilir adresini döndürür
     static func exportToFile(_ context: ModelContext, user: String) throws -> URL {
         let file = makeBackup(context, user: user)
         let data = try coder.0.encode(file)
-        let stamp = Date.now.formatted(.iso8601.year().month().day()
-            .dateSeparator(.dash))
-        let name = "iyi-butce-\(user)-\(stamp).json"
+        let name = "iyi-butce-\(user)-\(fileNameStamp()).json"
         let url = FileManager.default.temporaryDirectory.appendingPathComponent(name)
         try data.write(to: url, options: .atomic)
         return url
