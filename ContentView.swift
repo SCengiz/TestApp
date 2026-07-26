@@ -70,31 +70,23 @@ struct UserSessionView: View {
         self._container = State(initialValue: container)
     }
 
-    // Alt kalıbın içinden yükselen, "Sor" sekmesine özel yuvarlak düğme
+    // "Sor" sekmesinin logosu: seçim kapsülüyle tam eş merkezli degrade yuvarlak
     private var askTabButton: some View {
         let active = selectedTab == 2
-        return VStack(spacing: -2) {
-            ZStack {
-                Circle()
-                    .fill(LinearGradient(colors: aiBrandColors,
-                                         startPoint: .topLeading, endPoint: .bottomTrailing))
-                    .frame(width: 34, height: 34)
-                    .shadow(color: aiBrandColors[1].opacity(active ? 0.55 : 0.35),
-                            radius: active ? 12 : 8, y: 4)
-                    .overlay(
-                        Circle().strokeBorder(.white.opacity(0.35), lineWidth: 1)
-                    )
-                Image(systemName: "sparkles")
-                    .font(.system(size: 15, weight: .semibold))
-                    .foregroundStyle(.white)
-            }
-            .scaleEffect(active ? 1.06 : 1)
-
-            Text(tr("Sor", "Ask"))
-                .font(.system(size: 10, weight: active ? .semibold : .medium))
-                .foregroundStyle(active ? aiBrandColors[1] : Color.secondary)
+        return ZStack {
+            Circle()
+                .fill(LinearGradient(colors: aiBrandColors,
+                                     startPoint: .topLeading, endPoint: .bottomTrailing))
+                .overlay(Circle().strokeBorder(.white.opacity(0.35), lineWidth: 1))
+                .shadow(color: aiBrandColors[1].opacity(active ? 0.5 : 0.32),
+                        radius: active ? 10 : 7, y: 3)
+            Image(systemName: "sparkles")
+                .font(.system(size: 17, weight: .semibold))
+                .foregroundStyle(.white)
         }
-        .offset(y: 2)
+        .frame(width: 32, height: 32)
+        .scaleEffect(active ? 1.08 : 1)
+        .offset(y: -2)
         .allowsHitTesting(false)
         .animation(.spring(response: 0.3, dampingFraction: 0.7), value: selectedTab)
     }
