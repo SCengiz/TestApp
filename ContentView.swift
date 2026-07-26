@@ -51,7 +51,7 @@ struct UserSessionView: View {
                              IncomeSnapshot.self, SavingsAccountModel.self,
                              Asset.self, AssetTransaction.self, SavingsSnapshot.self,
                              Debt.self, CustomCategory.self, PaidPayment.self,
-                             CustomPaymentCategory.self])
+                             CustomPaymentCategory.self, PaymentMonthAmount.self])
         let supportDir = URL.applicationSupportDirectory
         try? FileManager.default.createDirectory(at: supportDir, withIntermediateDirectories: true)
         let storeURL = supportDir.appending(path: "butcem-\(user).store")

@@ -29,6 +29,7 @@ enum PaymentReminders {
 
     static func plannedReminders(payments: [FixedPayment],
                                  paidRecords: [PaidPayment],
+                                 monthlyAmounts: [PaymentMonthAmount] = [],
                                  now: Date = .now,
                                  calendar: Calendar = .current) -> [PlannedReminder] {
         var planned: [PlannedReminder] = []
@@ -46,8 +47,13 @@ enum PaymentReminders {
                 else { continue }
 
                 let key = monthKey(month, calendar: calendar)
-                let amount = payment.amount.formatted(.currency(code: "TRY"))
-                let body = "\(payment.name) · \(amount)"
+                // O ayın tutarı biliniyorsa bildirimde yazılır; kredi kartı gibi
+                // tutarı sonradan belli olan ödemelerde sadece ad gösterilir
+                let monthAmount = payment.amount(inMonth: month, monthlyAmounts: monthlyAmounts,
+                                                 calendar: calendar)
+                let body = monthAmount > 0
+                    ? "\(payment.name) · \(monthAmount.formatted(.currency(code: "TRY")))"
+                    : payment.name
 
                 // Ödeme gününden 1 gün önce
                 if let dayBefore = calendar.date(byAdding: .day, value: -1, to: due),
@@ -85,11 +91,13 @@ enum PaymentReminders {
 
     // Tüm hatırlatmaları baştan kurar (ödeme eklenince/silinince/ödendi işaretlenince çağrılır)
     static func reschedule(payments: [FixedPayment], paidRecords: [PaidPayment],
+                           monthlyAmounts: [PaymentMonthAmount] = [],
                            calendar: Calendar = .current) {
         let center = UNUserNotificationCenter.current()
         center.removeAllPendingNotificationRequests()
 
         for item in plannedReminders(payments: payments, paidRecords: paidRecords,
+                                     monthlyAmounts: monthlyAmounts,
                                      calendar: calendar) {
             let content = UNMutableNotificationContent()
             content.title = item.title
@@ -113,8 +121,10 @@ enum PaymentReminders {
     // Zil rozetinde gösterilecek sayı: bildirimi gitmiş ama hâlâ ödenmemiş olanlar
     // (ödeme günü yarın, bugün veya geçmiş)
     static func pendingCount(_ payments: [FixedPayment], paidRecords: [PaidPayment],
+                             monthlyAmounts: [PaymentMonthAmount] = [],
                              calendar: Calendar = .current) -> Int {
-        currentMonthReminders(payments, paidRecords: paidRecords, calendar: calendar)
+        currentMonthReminders(payments, paidRecords: paidRecords,
+                              monthlyAmounts: monthlyAmounts, calendar: calendar)
             .filter { !$0.isPaid && $0.hasArrived }
             .count
     }
@@ -122,6 +132,7 @@ enum PaymentReminders {
     // Bu ayın ödemeleri, durumlarıyla birlikte (ödeme gününe göre sıralı)
     static func currentMonthReminders(_ payments: [FixedPayment],
                                       paidRecords: [PaidPayment],
+                                      monthlyAmounts: [PaymentMonthAmount] = [],
                                       calendar: Calendar = .current) -> [PaymentReminder] {
         let today = calendar.startOfDay(for: .now)
         let thisMonth = calendar.dateInterval(of: .month, for: .now)!.start
@@ -135,6 +146,8 @@ enum PaymentReminders {
                                                        to: calendar.startOfDay(for: due)).day ?? 0
                 return PaymentReminder(
                     payment: payment,
+                    amount: payment.amount(inMonth: thisMonth, monthlyAmounts: monthlyAmounts,
+                                           calendar: calendar),
                     dueDate: due,
                     daysLeft: daysLeft,
                     isPaid: isPaid(payment, inMonth: thisMonth, paidRecords: paidRecords,
@@ -156,6 +169,7 @@ struct PlannedReminder: Identifiable {
 // Bildirim kutusundaki tek bir satır
 struct PaymentReminder: Identifiable {
     let payment: FixedPayment
+    let amount: Double // bu ayın tutarı (bilinmiyorsa 0)
     let dueDate: Date
     let daysLeft: Int // 0 = bugün, 1 = yarın, negatif = gecikmiş
     let isPaid: Bool
@@ -186,10 +200,12 @@ struct PaymentReminder: Identifiable {
 struct RemindersButton: View {
     let payments: [FixedPayment]
     let paidRecords: [PaidPayment]
+    var monthlyAmounts: [PaymentMonthAmount] = []
     @State private var showingSheet = false
 
     private var pendingCount: Int {
-        PaymentReminders.pendingCount(payments, paidRecords: paidRecords)
+        PaymentReminders.pendingCount(payments, paidRecords: paidRecords,
+                                      monthlyAmounts: monthlyAmounts)
     }
 
     var body: some View {
@@ -222,9 +238,11 @@ struct RemindersSheet: View {
     @Environment(\.dismiss) private var dismiss
     @Query(sort: \FixedPayment.dueDay) private var payments: [FixedPayment]
     @Query private var paidRecords: [PaidPayment]
+    @Query private var monthlyAmounts: [PaymentMonthAmount]
 
     private var reminders: [PaymentReminder] {
-        PaymentReminders.currentMonthReminders(payments, paidRecords: paidRecords)
+        PaymentReminders.currentMonthReminders(payments, paidRecords: paidRecords,
+                                               monthlyAmounts: monthlyAmounts)
     }
 
     private var arrived: [PaymentReminder] {
@@ -319,7 +337,7 @@ struct RemindersSheet: View {
 
             Spacer()
 
-            Text(reminder.payment.amount, format: .currency(code: "TRY"))
+            Text(reminder.amount, format: .currency(code: "TRY"))
                 .font(.callout.weight(.semibold))
                 .foregroundStyle(reminder.isPaid ? .secondary : .primary)
         }

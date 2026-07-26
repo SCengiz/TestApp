@@ -4,6 +4,7 @@ import SwiftData
 struct FixedPaymentsView: View {
     @Environment(\.modelContext) private var modelContext
     @Query(sort: \FixedPayment.dueDay) private var payments: [FixedPayment]
+    @Query private var monthlyAmounts: [PaymentMonthAmount]
     @State private var showingAddSheet = false
     @State private var editingPayment: FixedPayment?
     @State private var monthOffset = 0 // -3 (3 ay geri) ... +3 (3 ay ileri)
@@ -23,7 +24,7 @@ struct FixedPaymentsView: View {
     }
 
     private var monthlyTotal: Double {
-        monthPayments.reduce(0) { $0 + $1.amount(inMonth: selectedMonth) }
+        monthPayments.reduce(0) { $0 + $1.amount(inMonth: selectedMonth, monthlyAmounts: monthlyAmounts) }
     }
 
     private var cardTitle: String {
@@ -60,7 +61,7 @@ struct FixedPaymentsView: View {
             Section {
                 ForEach(monthPayments) { payment in
                     let category = PaymentCategory.named(payment.category)
-                    let shownAmount = payment.amount(inMonth: selectedMonth)
+                    let shownAmount = payment.amount(inMonth: selectedMonth, monthlyAmounts: monthlyAmounts)
                     Button {
                         editingPayment = payment
                     } label: {
@@ -102,10 +103,10 @@ struct FixedPaymentsView: View {
             }
         }
         .sheet(isPresented: $showingAddSheet) {
-            AddFixedPaymentView(payment: nil)
+            AddFixedPaymentView(payment: nil, month: selectedMonth)
         }
         .sheet(item: $editingPayment) { payment in
-            AddFixedPaymentView(payment: payment)
+            AddFixedPaymentView(payment: payment, month: selectedMonth)
         }
         .overlay {
             if monthPayments.isEmpty {
@@ -125,7 +126,8 @@ struct FixedPaymentsView: View {
     private func refreshReminders() {
         let all = (try? modelContext.fetch(FetchDescriptor<FixedPayment>())) ?? []
         let paid = (try? modelContext.fetch(FetchDescriptor<PaidPayment>())) ?? []
-        PaymentReminders.reschedule(payments: all, paidRecords: paid)
+        let amounts = (try? modelContext.fetch(FetchDescriptor<PaymentMonthAmount>())) ?? []
+        PaymentReminders.reschedule(payments: all, paidRecords: paid, monthlyAmounts: amounts)
     }
 
     private func monthArrow(_ icon: String, enabled: Bool, action: @escaping () -> Void) -> some View {
@@ -151,9 +153,12 @@ struct FixedPaymentsView: View {
     // "Kredi Kartı · Ekstre henüz kesilmedi" / "Taksit 5/12 · kalan 7 ay" gibi alt satır
     private func subtitle(for payment: FixedPayment, category: PaymentCategory) -> String {
         // Gelecek ayda tutarı belli olmayan ödemelerde sebebini yaz
-        if category.amountVaries, payment.amount(inMonth: selectedMonth) == 0 {
-            return category.displayName + " · "
-                + tr("tutar henüz belli değil", "amount not known yet")
+        if category.amountVaries, payment.amount(inMonth: selectedMonth, monthlyAmounts: monthlyAmounts) == 0 {
+            let thisMonth = calendar.dateInterval(of: .month, for: .now)!.start
+            let isFuture = selectedMonth > thisMonth
+            return category.displayName + " · " + (isFuture
+                ? tr("tutar henüz belli değil", "amount not known yet")
+                : tr("tutar girilmedi", "amount not entered"))
         }
         return category.displayName + " · " + installmentInfo(for: payment)
     }
@@ -179,8 +184,10 @@ struct FixedPaymentsView: View {
 struct AddFixedPaymentView: View {
     @Environment(\.modelContext) private var modelContext
     @Environment(\.dismiss) private var dismiss
+    @Query private var monthlyAmounts: [PaymentMonthAmount]
 
     let payment: FixedPayment?
+    var month: Date = .now // hangi ayın tutarı düzenleniyor (tutarı değişen kategoriler için)
 
     // Ödeme türü: her ay tekrar eden, taksitli veya sadece tek bir aya özel
     enum PaymentKind: String, CaseIterable {
@@ -233,7 +240,7 @@ struct AddFixedPaymentView: View {
                     TextField(tr("Adı (örn. Kredi kartı ekstresi)", "Name (e.g. Card statement)"), text: $name)
                         .textInputAutocapitalization(.words)
 
-                    TextField(tr("Aylık tutar (TL)", "Monthly amount (TL)"), value: $amount, format: .number)
+                    TextField(amountFieldLabel, value: $amount, format: .number)
                         .keyboardType(.decimalPad)
 
                     Picker(tr("Kategori", "Category"), selection: $category) {
@@ -329,9 +336,17 @@ struct AddFixedPaymentView: View {
             .onAppear {
                 if let payment {
                     name = payment.name
-                    amount = payment.amount
                     dueDay = payment.dueDay
                     category = payment.category
+                    // Tutarı değişen kategorilerde o aya kayıtlı tutar gelir;
+                    // kayıt yoksa alan boş kalır (o ayın tutarı henüz girilmemiş)
+                    if PaymentCategory.named(payment.category).amountVaries {
+                        amount = recordedAmount(for: payment.name)
+                            ?? (calendar.isDate(month, equalTo: calendar.dateInterval(of: .month, for: .now)!.start,
+                                                toGranularity: .month) ? payment.amount : nil)
+                    } else {
+                        amount = payment.amount
+                    }
                     if let total = payment.totalInstallments, let first = payment.firstPaymentDate {
                         if total == 1 {
                             kind = .oneTime
@@ -346,6 +361,44 @@ struct AddFixedPaymentView: View {
                     }
                 }
             }
+        }
+    }
+
+    private var calendar: Calendar { .current }
+
+    private var selectedCategoryVaries: Bool {
+        PaymentCategory.named(category).amountVaries
+    }
+
+    // Tutarı her ay değişen kategorilerde hangi ayın tutarı girildiği açıkça yazılır
+    private var amountFieldLabel: String {
+        if selectedCategoryVaries {
+            let monthName = month.formatted(.dateTime.month(.wide).year().locale(appLocale))
+            return tr("\(monthName) tutarı (TL)", "\(monthName) amount (TL)")
+        }
+        return tr("Aylık tutar (TL)", "Monthly amount (TL)")
+    }
+
+    // O aya kayıtlı tutar (varsa)
+    private func recordedAmount(for name: String) -> Double? {
+        monthlyAmounts.first {
+            $0.paymentName == name
+                && calendar.isDate($0.monthStart, equalTo: month, toGranularity: .month)
+        }?.amount
+    }
+
+    // Tutarı değişen ödemelerde girilen tutarı o aya kaydet
+    private func storeMonthlyAmount(_ value: Double, for name: String) {
+        let monthStart = calendar.dateInterval(of: .month, for: month)!.start
+        if let existing = monthlyAmounts.first(where: {
+            $0.paymentName == name
+                && calendar.isDate($0.monthStart, equalTo: monthStart, toGranularity: .month)
+        }) {
+            existing.amount = value
+        } else {
+            modelContext.insert(PaymentMonthAmount(paymentName: name,
+                                                   monthStart: monthStart,
+                                                   amount: value))
         }
     }
 
@@ -370,18 +423,36 @@ struct AddFixedPaymentView: View {
             firstPayment = oneTimeMonth
         }
 
+        let thisMonth = calendar.dateInterval(of: .month, for: .now)!.start
+        let editingCurrentMonth = calendar.isDate(month, equalTo: thisMonth, toGranularity: .month)
+
         if let payment {
+            let oldName = payment.name
             payment.name = name
-            payment.amount = amount
             payment.dueDay = dueDay
             payment.category = category
             payment.totalInstallments = total
             payment.firstPaymentDate = firstPayment
+            // Ad değişirse aya özel tutar kayıtları da yeni adı izlesin
+            if oldName != name {
+                for record in monthlyAmounts where record.paymentName == oldName {
+                    record.paymentName = name
+                }
+            }
+            // Tutarı değişen kategorilerde "amount" sadece bu ayın son bilinen tutarıdır
+            if !selectedCategoryVaries || editingCurrentMonth {
+                payment.amount = amount
+            }
         } else {
             modelContext.insert(FixedPayment(name: name, amount: amount, dueDay: dueDay,
                                              category: category,
                                              totalInstallments: total,
                                              firstPaymentDate: firstPayment))
+        }
+
+        // Tutarı her ay değişen ödemelerde girilen tutar o aya yazılır
+        if selectedCategoryVaries {
+            storeMonthlyAmount(amount, for: name)
         }
         try? modelContext.save()
         refreshReminders()
@@ -401,7 +472,8 @@ struct AddFixedPaymentView: View {
     private func refreshReminders() {
         let all = (try? modelContext.fetch(FetchDescriptor<FixedPayment>())) ?? []
         let paid = (try? modelContext.fetch(FetchDescriptor<PaidPayment>())) ?? []
-        PaymentReminders.reschedule(payments: all, paidRecords: paid)
+        let amounts = (try? modelContext.fetch(FetchDescriptor<PaymentMonthAmount>())) ?? []
+        PaymentReminders.reschedule(payments: all, paidRecords: paid, monthlyAmounts: amounts)
     }
 }
 

@@ -6,6 +6,7 @@ struct SummaryView: View {
     @Binding var loggedInUser: String?
     @Query(sort: \Expense.date, order: .reverse) private var expenses: [Expense]
     @Query private var payments: [FixedPayment]
+    @Query private var monthlyAmounts: [PaymentMonthAmount]
     @Query private var paidRecords: [PaidPayment]
     @State private var selectedMonth: Date? // grafikte dokunulan ay
     @State private var detailMonth: MonthSelection? // dökümü açılan ay
@@ -25,7 +26,7 @@ struct SummaryView: View {
     private func paymentBreakdown(for month: Date) -> [(name: String, amount: Double, color: Color)] {
         payments
             .filter { $0.isActive(inMonth: month, calendar: calendar) }
-            .map { ($0.name, $0.amount(inMonth: month), paymentColors[$0.name] ?? .blue) }
+            .map { ($0.name, $0.amount(inMonth: month, monthlyAmounts: monthlyAmounts), paymentColors[$0.name] ?? .blue) }
     }
 
     // Bu ayın günlük harcama toplamı
@@ -287,13 +288,15 @@ struct SummaryView: View {
                     ProfileButton(loggedInUser: $loggedInUser)
                 }
                 ToolbarItem(placement: .topBarTrailing) {
-                    RemindersButton(payments: payments, paidRecords: paidRecords)
+                    RemindersButton(payments: payments, paidRecords: paidRecords,
+                                    monthlyAmounts: monthlyAmounts)
                 }
             }
             .onAppear {
                 // Ödeme hatırlatmaları: izin iste ve planı tazele
                 PaymentReminders.requestAuthorization()
-                PaymentReminders.reschedule(payments: payments, paidRecords: paidRecords)
+                PaymentReminders.reschedule(payments: payments, paidRecords: paidRecords,
+                                            monthlyAmounts: monthlyAmounts)
             }
         }
     }

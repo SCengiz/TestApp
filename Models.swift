@@ -387,11 +387,23 @@ extension FixedPayment {
     // Verilen ayda gösterilecek tutar.
     // Kredi kartı ekstresi / fatura gibi tutarı her ay değişen ödemelerde
     // gelecek ayların tutarı henüz belli değildir; satır 0 TL gösterilir.
-    func amount(inMonth month: Date, calendar: Calendar = .current) -> Double {
+    func amount(inMonth month: Date, monthlyAmounts: [PaymentMonthAmount] = [],
+                calendar: Calendar = .current) -> Double {
+        // Sabit tutarlı ödemeler (kira, kredi taksidi) her ay aynıdır
         guard PaymentCategory.named(category).amountVaries else { return amount }
+
+        // Tutarı değişen ödemelerde o aya girilmiş tutar varsa o kullanılır
+        if let record = monthlyAmounts.first(where: {
+            $0.paymentName == name
+                && calendar.isDate($0.monthStart, equalTo: month, toGranularity: .month)
+        }) {
+            return record.amount
+        }
+
+        // Kaydı yoksa: sadece içinde bulunduğumuz ay en son girilen tutarı gösterir;
+        // geçmiş ve gelecek aylar 0 (o ayın tutarı bilinmiyor)
         let thisMonth = calendar.dateInterval(of: .month, for: .now)!.start
-        let thatMonth = calendar.dateInterval(of: .month, for: month)!.start
-        return thatMonth > thisMonth ? 0 : amount
+        return calendar.isDate(month, equalTo: thisMonth, toGranularity: .month) ? amount : 0
     }
 
     // Bu ödeme verilen ayda geçerli mi? (süresizler her zaman geçerli)
@@ -441,5 +453,21 @@ final class PaidPayment {
         self.paymentName = paymentName
         self.monthStart = monthStart
         self.paidAt = paidAt
+    }
+}
+
+// Tutarı her ay değişen ödemelerin (kredi kartı ekstresi, fatura) aya özel tutarı.
+// Ayrı tabloda tutulur: her ayın kendi ekstresi vardır, tek bir "tutar" alanı
+// bütün aylara yayılamaz.
+@Model
+final class PaymentMonthAmount {
+    var paymentName: String = ""
+    var monthStart: Date = Date.now
+    var amount: Double = 0
+
+    init(paymentName: String, monthStart: Date, amount: Double) {
+        self.paymentName = paymentName
+        self.monthStart = monthStart
+        self.amount = amount
     }
 }
