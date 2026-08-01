@@ -36,11 +36,14 @@ struct SummaryView: View {
             .reduce(0) { $0 + $1.amount }
     }
 
-    // Bu ay geçerli olan sabit ödemelerin toplamı
+    // Bu ay geçerli olan sabit ödemelerin toplamı.
+    // Ham "amount" alanı DEĞİL, o ayın tutarı kullanılır: kredi kartı gibi tutarı
+    // her ay değişen ödemelerde ekstre girilmemişse o ay 0 sayılır.
     private var fixedTotal: Double {
         payments
             .filter { $0.isActive(inMonth: .now, calendar: calendar) }
-            .reduce(0) { $0 + $1.amount }
+            .reduce(0) { $0 + $1.amount(inMonth: .now, monthlyAmounts: monthlyAmounts,
+                                        calendar: calendar) }
     }
 
     // Aylık durum: 3 ay geri + bu ay + 3 ay ileri, sadece sabit giderler
@@ -52,7 +55,8 @@ struct SummaryView: View {
             let month = calendar.date(byAdding: .month, value: offset, to: thisMonth)!
             let fixed = payments
                 .filter { $0.isActive(inMonth: month, calendar: calendar) }
-                .reduce(0) { $0 + $1.amount }
+                .reduce(0) { $0 + $1.amount(inMonth: month, monthlyAmounts: monthlyAmounts,
+                                            calendar: calendar) }
             return (month, fixed, offset > 0)
         }
     }
