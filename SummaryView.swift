@@ -29,10 +29,10 @@ struct SummaryView: View {
             .map { ($0.name, $0.amount(inMonth: month, monthlyAmounts: monthlyAmounts), paymentColors[$0.name] ?? .blue) }
     }
 
-    // Bu ayın günlük harcama toplamı
+    // Seçili ayın günlük harcama toplamı
     private var thisMonthTotal: Double {
         expenses
-            .filter { calendar.isDate($0.date, equalTo: .now, toGranularity: .month) }
+            .filter { calendar.isDate($0.date, equalTo: categoryMonth, toGranularity: .month) }
             .reduce(0) { $0 + $1.amount }
     }
 
@@ -41,8 +41,8 @@ struct SummaryView: View {
     // her ay değişen ödemelerde ekstre girilmemişse o ay 0 sayılır.
     private var fixedTotal: Double {
         payments
-            .filter { $0.isActive(inMonth: .now, calendar: calendar) }
-            .reduce(0) { $0 + $1.amount(inMonth: .now, monthlyAmounts: monthlyAmounts,
+            .filter { $0.isActive(inMonth: categoryMonth, calendar: calendar) }
+            .reduce(0) { $0 + $1.amount(inMonth: categoryMonth, monthlyAmounts: monthlyAmounts,
                                         calendar: calendar) }
     }
 
@@ -85,15 +85,59 @@ struct SummaryView: View {
             .sorted { $0.total > $1.total }
     }
 
+    // Sayfanın tepesindeki ay seçici: hem iki kutuyu hem de dağılımı yönetir
+    private var monthPicker: some View {
+        HStack(spacing: 12) {
+            Button {
+                withAnimation { categoryMonthOffset -= 1 }
+            } label: {
+                Image(systemName: "chevron.left")
+                    .font(.body.weight(.bold))
+                    .foregroundStyle(categoryMonthOffset > -3 ? Color.accentColor : .gray.opacity(0.35))
+                    .frame(width: 34, height: 34)
+                    .background(Circle().fill(Color(.secondarySystemGroupedBackground)))
+            }
+            .buttonStyle(.plain)
+            .disabled(categoryMonthOffset <= -3)
+
+            VStack(spacing: 1) {
+                Text(categoryMonth, format: .dateTime.month(.wide).year().locale(appLocale))
+                    .font(.headline)
+                if categoryMonthOffset != 0 {
+                    Text(categoryMonthOffset > 0
+                         ? tr("planlanan", "planned")
+                         : tr("geçmiş ay", "past month"))
+                        .font(.caption2)
+                        .foregroundStyle(.secondary)
+                }
+            }
+            .frame(maxWidth: .infinity)
+
+            Button {
+                withAnimation { categoryMonthOffset += 1 }
+            } label: {
+                Image(systemName: "chevron.right")
+                    .font(.body.weight(.bold))
+                    .foregroundStyle(categoryMonthOffset < 3 ? Color.accentColor : .gray.opacity(0.35))
+                    .frame(width: 34, height: 34)
+                    .background(Circle().fill(Color(.secondarySystemGroupedBackground)))
+            }
+            .buttonStyle(.plain)
+            .disabled(categoryMonthOffset >= 3)
+        }
+    }
+
     var body: some View {
         NavigationStack {
             ScrollView {
                 VStack(spacing: 16) {
 
+                    monthPicker
+
                     // Kutulara dokununca ilgili sayfa açılır
                     HStack(spacing: 12) {
                         NavigationLink {
-                            DailyExpensesView()
+                            DailyExpensesView(startMonthOffset: categoryMonthOffset)
                         } label: {
                             StatCard(
                                 title: tr("Harcamalarım", "My Spending"),
@@ -104,7 +148,7 @@ struct SummaryView: View {
                         }
 
                         NavigationLink {
-                            FixedPaymentsView()
+                            FixedPaymentsView(startMonthOffset: categoryMonthOffset)
                         } label: {
                             StatCard(
                                 title: tr("Ödemelerim", "My Payments"),
@@ -117,37 +161,11 @@ struct SummaryView: View {
                     .buttonStyle(.plain)
                     .fixedSize(horizontal: false, vertical: true)
 
-                    // Kategori dağılımı: halka grafik + liste (oklarla ay gezilir)
+                    // Kategori dağılımı: halka grafik + liste (ay tepeden seçilir)
                     VStack(alignment: .leading, spacing: 14) {
-                        HStack(spacing: 10) {
-                            Label(tr("Harcama Dağılımı", "Spending Breakdown"), systemImage: "chart.pie.fill")
-                                .font(.headline)
-                            Spacer()
-                            Button {
-                                withAnimation { categoryMonthOffset -= 1 }
-                            } label: {
-                                Image(systemName: "chevron.left")
-                                    .font(.body.weight(.bold))
-                                    .foregroundStyle(categoryMonthOffset > -3 ? Color.accentColor : .gray.opacity(0.4))
-                            }
-                            .buttonStyle(.plain)
-                            .disabled(categoryMonthOffset <= -3)
-
-                            Text(categoryMonth, format: .dateTime.month(.abbreviated).year())
-                                .font(.subheadline.weight(.semibold))
-                                .foregroundStyle(categoryMonthOffset == 0 ? .primary : .secondary)
-                                .frame(minWidth: 76)
-
-                            Button {
-                                withAnimation { categoryMonthOffset += 1 }
-                            } label: {
-                                Image(systemName: "chevron.right")
-                                    .font(.body.weight(.bold))
-                                    .foregroundStyle(categoryMonthOffset < 3 ? Color.accentColor : .gray.opacity(0.4))
-                            }
-                            .buttonStyle(.plain)
-                            .disabled(categoryMonthOffset >= 3)
-                        }
+                        Label(tr("Harcama Dağılımı", "Spending Breakdown"),
+                              systemImage: "chart.pie.fill")
+                            .font(.headline)
 
                         if categoryTotals.isEmpty {
                             Text(categoryMonthOffset > 0

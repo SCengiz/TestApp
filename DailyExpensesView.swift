@@ -6,7 +6,13 @@ struct DailyExpensesView: View {
     @Query(sort: \Expense.date, order: .reverse) private var expenses: [Expense]
     @State private var showingAddSheet = false
     @State private var editingExpense: Expense? // dokunulan harcama düzenlenir
-    @State private var monthOffset = 0 // -3 (3 ay geri) ... +3 (3 ay ileri)
+    // Özet ekranındaki ay seçiliyken açılınca aynı ayla başlar
+    @State private var monthOffset: Int
+
+    init(startMonthOffset: Int = 0) {
+        _monthOffset = State(initialValue: startMonthOffset)
+    }
+
 
     private var calendar: Calendar { .current }
 
