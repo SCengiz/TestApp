@@ -1012,8 +1012,13 @@ func pastSavingsBreakdown(accounts: [SavingsAccountModel],
                           month: Date,
                           calendar: Calendar = .current)
 -> [(name: String, amount: Double, color: Color)] {
+    // Kaydı olmayan ay: yine de SIFIR yükseklikte tek bir parça döndürülür.
+    // Boş dizi döndürülürse o ay için hiç çubuk çizilmiyor ve Swift Charts
+    // ekseni yalnızca dolu aylara daraltıyor; 7 aylık alan kayboluyordu.
     guard recordedTotal > 0,
-          let monthEnd = calendar.dateInterval(of: .month, for: month)?.end else { return [] }
+          let monthEnd = calendar.dateInterval(of: .month, for: month)?.end else {
+        return [(tr("O ayın kayıtlı birikimi", "Recorded savings for that month"), 0, .purple)]
+    }
 
     // O ayın sonuna kadar hesaba giren para (alışlar +, satışlar -)
     let weights: [(name: String, weight: Double, color: Color)] = accounts.map { account in
