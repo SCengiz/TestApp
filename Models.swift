@@ -509,19 +509,21 @@ func migrateFloatingPaymentAmounts(_ context: ModelContext,
     if didInsert { try? context.save() }
 }
 
-// TEK SEFERLİK GÖÇ.
+// TAKSİT TARİHİ KURALI — her açılışta uygulanır.
 //
-// Eskiden taksitli bir alışverişin bütün taksitleri alışveriş günüyle aynı güne
-// yazılıyordu (19 Temmuz alışverişin taksitleri 19 Ağustos, 19 Eylül...). Böylece
-// gelecek ayların taksitleri o ayın ortasına düşüp yeni girilen harcamaların
-// arasına karışıyordu.
+// Kural: bir taksit grubunun İLK taksiti alışveriş tarihinde durur; sonraki
+// taksitlerin hepsi kendi ayının 1'ine yazılır. Böylece gelecek taksitler ay
+// listesinin en altında kalır, o ay yeni girilen harcamaların arasına karışmaz.
 //
-// İlk taksit alışveriş tarihinde kalır; sonraki taksitler kendi ayının 1'ine
-// çekilir. Taksitin hangi aya ait olduğu DEĞİŞMEZ, sadece ay içindeki günü
-// değişir; bu yüzden aylık toplamlar aynı kalır.
+// Tek seferlik bir göç olarak değil, her açılışta çalışan bir düzeltme olarak
+// yazıldı: eski sürümlerle girilmiş ya da arada elle oynanmış kayıtlar da
+// kendiliğinden yerine oturur.
+//
+// Taksitin hangi AYA ait olduğu DEĞİŞMEZ, yalnızca ay içindeki günü değişir;
+// bu yüzden aylık toplamlar, grafikler ve kategori dağılımları etkilenmez.
 @MainActor
-func migrateInstallmentDatesToMonthStart(_ context: ModelContext,
-                                         calendar: Calendar = .current) {
+func normalizeInstallmentDates(_ context: ModelContext,
+                               calendar: Calendar = .current) {
     let expenses = (try? context.fetch(FetchDescriptor<Expense>())) ?? []
     let groups = Dictionary(grouping: expenses.compactMap { expense -> (UUID, Expense)? in
         guard let id = expense.installmentGroupID else { return nil }
