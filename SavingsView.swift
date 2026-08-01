@@ -98,16 +98,28 @@ struct SavingsView: View {
         accounts.contains { $0.netInvestedNonZero }
     }
 
-    // Bir ayın dökümü: geçmişte kayıtlı toplam, bu ay hesap hesap
+    // Bir ayın dökümü: bu ay canlı değerlerle, geçmiş aylar kayıtlı toplamla.
+    //
+    // Geçmiş aylar için hesap hesap değer saklanmıyor, yalnızca tek bir toplam
+    // (SavingsSnapshot) var. Çubuk yine de tek renge inmesin diye, o ayın sonuna
+    // kadar her hesaba yatırılan tutar oranında bölünüyor. ÇUBUĞUN BOYU DEĞİŞMEZ:
+    // parçaların toplamı her zaman o ayın kayıtlı toplamına eşittir; değişen tek
+    // şey rengin nasıl paylaşıldığı.
     private func breakdown(for month: Date) -> [(name: String, amount: Double, color: Color)] {
         let thisMonth = calendar.dateInterval(of: .month, for: .now)!.start
         if month < thisMonth {
-            return [(tr("O ayın kayıtlı birikimi", "Recorded savings for that month"), historicalTotal(for: month), .purple)]
+            return pastBreakdown(for: month)
         }
         return accounts.map { account in
             let kind = SavingsAccount(rawValue: account.kind) ?? .cash
             return (localizedDataName(account.name), account.totalValue, kind.color)
         }
+    }
+
+    private func pastBreakdown(for month: Date) -> [(name: String, amount: Double, color: Color)] {
+        pastSavingsBreakdown(accounts: accounts,
+                             recordedTotal: historicalTotal(for: month),
+                             month: month, calendar: calendar)
     }
 
     // Son 6 ay + bu ay
@@ -985,4 +997,42 @@ struct TransactionFormView: View {
 #Preview {
     SavingsView(loggedInUser: .constant("soray"))
         .modelContainer(for: [Asset.self, AssetTransaction.self, SavingsSnapshot.self], inMemory: true)
+}
+
+// Geçmiş bir ayın hesap hesap dökümü.
+//
+// Geçmiş aylar için hesap bazında değer saklanmıyor, yalnızca tek bir toplam
+// (SavingsSnapshot) var. Çubuk tek renge inmesin diye toplam, o ayın sonuna
+// kadar her hesaba giren para oranında bölünür.
+//
+// ÇUBUĞUN BOYU DEĞİŞMEZ: parçaların toplamı her zaman kayıtlı toplama eşittir.
+// Değişen tek şey rengin nasıl paylaşıldığıdır; paylaşım bir tahmindir.
+func pastSavingsBreakdown(accounts: [SavingsAccountModel],
+                          recordedTotal: Double,
+                          month: Date,
+                          calendar: Calendar = .current)
+-> [(name: String, amount: Double, color: Color)] {
+    guard recordedTotal > 0,
+          let monthEnd = calendar.dateInterval(of: .month, for: month)?.end else { return [] }
+
+    // O ayın sonuna kadar hesaba giren para (alışlar +, satışlar -)
+    let weights: [(name: String, weight: Double, color: Color)] = accounts.map { account in
+        let kind = SavingsAccount(rawValue: account.kind) ?? .cash
+        let invested = account.assets.reduce(0.0) { sum, asset in
+            sum + asset.transactions
+                .filter { $0.date < monthEnd }
+                .reduce(0.0) { $0 + $1.quantity * ($1.pricePerUnit ?? asset.unitPrice) }
+        }
+        return (localizedDataName(account.name), max(invested, 0), kind.color)
+    }
+
+    let totalWeight = weights.reduce(0) { $0 + $1.weight }
+    // O ay hiç yatırım yoksa eski davranış: tek çubuk
+    guard totalWeight > 0 else {
+        return [(tr("O ayın kayıtlı birikimi", "Recorded savings for that month"),
+                 recordedTotal, .purple)]
+    }
+    return weights
+        .filter { $0.weight > 0 }
+        .map { ($0.name, recordedTotal * $0.weight / totalWeight, $0.color) }
 }
