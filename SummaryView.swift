@@ -100,18 +100,9 @@ struct SummaryView: View {
             .buttonStyle(.plain)
             .disabled(categoryMonthOffset <= -3)
 
-            VStack(spacing: 1) {
-                Text(categoryMonth, format: .dateTime.month(.wide).year().locale(appLocale))
-                    .font(.headline)
-                if categoryMonthOffset != 0 {
-                    Text(categoryMonthOffset > 0
-                         ? tr("planlanan", "planned")
-                         : tr("geçmiş ay", "past month"))
-                        .font(.caption2)
-                        .foregroundStyle(.secondary)
-                }
-            }
-            .frame(maxWidth: .infinity)
+            Text(categoryMonth, format: .dateTime.month(.wide).year().locale(appLocale))
+                .font(.headline)
+                .frame(maxWidth: .infinity)
 
             Button {
                 withAnimation { categoryMonthOffset += 1 }
