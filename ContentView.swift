@@ -149,6 +149,12 @@ struct UserSessionView: View {
             // Kullanıcının kendi kategorileri satırlarda ve seçim listelerinde görünsün
             ExpenseCategory.refreshCustom(container.mainContext)
             PaymentCategory.refreshCustom(container.mainContext)
+            // Aya bağlı olmayan eski ödeme tutarları bir kez kendi ayına taşınır
+            let migrationKey = "movedFloatingAmounts_\(user)"
+            if !UserDefaults.standard.bool(forKey: migrationKey) {
+                migrateFloatingPaymentAmounts(container.mainContext)
+                UserDefaults.standard.set(true, forKey: migrationKey)
+            }
         }
     }
 }
@@ -157,5 +163,4 @@ struct UserSessionView: View {
     ContentView()
         .modelContainer(for: [Expense.self, FixedPayment.self], inMemory: true)
 }
-
 

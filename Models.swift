@@ -400,10 +400,13 @@ extension FixedPayment {
             return record.amount
         }
 
-        // Kaydı yoksa: sadece içinde bulunduğumuz ay en son girilen tutarı gösterir;
-        // geçmiş ve gelecek aylar 0 (o ayın tutarı bilinmiyor)
-        let thisMonth = calendar.dateInterval(of: .month, for: .now)!.start
-        return calendar.isDate(month, equalTo: thisMonth, toGranularity: .month) ? amount : 0
+        // Kaydı yoksa 0: o ayın tutarı bilinmiyor demektir.
+        //
+        // Buraya "içinde bulunduğumuz ay `amount` alanını göstersin" diye bir kural
+        // KONMAZ. Öyle yapılınca tutar takvimle birlikte kayıyordu: temmuzda girilen
+        // ekstre ağustos gelince ağustosun tutarı gibi görünüyor, temmuz sıfırlanıyordu.
+        // Her ayın tutarı yalnızca o aya yazılmış kayıttan gelir.
+        return 0
     }
 
     // Bu ödeme verilen ayda geçerli mi? (süresizler her zaman geçerli)
@@ -470,4 +473,38 @@ final class PaymentMonthAmount {
         self.monthStart = monthStart
         self.amount = amount
     }
+}
+
+// TEK SEFERLİK GÖÇ.
+//
+// Eski kuralda, tutarı her ay değişen ödemelerin (kredi kartı, fatura) tutarı
+// hiçbir aya bağlı değildi: "içinde bulunulan ay" hangisiyse orada görünürdü.
+// Ay değişince tutar da onunla birlikte kayıyordu — temmuzda girilen ekstre
+// ağustos gelince ağustosun tutarı gibi görünüyor, temmuz sıfırlanıyordu.
+//
+// Artık her ayın tutarı yalnızca o aya yazılmış kayıttan geliyor. Aya özel hiç
+// kaydı olmayan eski ödemelerin tutarı, eski kuralın en son doğru gösterdiği
+// aya — yani bir önceki aya — yazılır ki veri kaybolmasın.
+@MainActor
+func migrateFloatingPaymentAmounts(_ context: ModelContext,
+                                   calendar: Calendar = .current,
+                                   now: Date = .now) {
+    let payments = (try? context.fetch(FetchDescriptor<FixedPayment>())) ?? []
+    let records = (try? context.fetch(FetchDescriptor<PaymentMonthAmount>())) ?? []
+    let thisMonth = calendar.dateInterval(of: .month, for: now)!.start
+    guard let previousMonth = calendar.date(byAdding: .month, value: -1, to: thisMonth) else {
+        return
+    }
+
+    var didInsert = false
+    for payment in payments where PaymentCategory.named(payment.category).amountVaries {
+        guard payment.amount > 0 else { continue }
+        // Aya özel kaydı olan ödemeler zaten doğru; onlara dokunulmaz
+        guard !records.contains(where: { $0.paymentName == payment.name }) else { continue }
+        context.insert(PaymentMonthAmount(paymentName: payment.name,
+                                          monthStart: previousMonth,
+                                          amount: payment.amount))
+        didInsert = true
+    }
+    if didInsert { try? context.save() }
 }
