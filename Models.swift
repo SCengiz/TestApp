@@ -508,3 +508,38 @@ func migrateFloatingPaymentAmounts(_ context: ModelContext,
     }
     if didInsert { try? context.save() }
 }
+
+// TEK SEFERLİK GÖÇ.
+//
+// Eskiden taksitli bir alışverişin bütün taksitleri alışveriş günüyle aynı güne
+// yazılıyordu (19 Temmuz alışverişin taksitleri 19 Ağustos, 19 Eylül...). Böylece
+// gelecek ayların taksitleri o ayın ortasına düşüp yeni girilen harcamaların
+// arasına karışıyordu.
+//
+// İlk taksit alışveriş tarihinde kalır; sonraki taksitler kendi ayının 1'ine
+// çekilir. Taksitin hangi aya ait olduğu DEĞİŞMEZ, sadece ay içindeki günü
+// değişir; bu yüzden aylık toplamlar aynı kalır.
+@MainActor
+func migrateInstallmentDatesToMonthStart(_ context: ModelContext,
+                                         calendar: Calendar = .current) {
+    let expenses = (try? context.fetch(FetchDescriptor<Expense>())) ?? []
+    let groups = Dictionary(grouping: expenses.compactMap { expense -> (UUID, Expense)? in
+        guard let id = expense.installmentGroupID else { return nil }
+        return (id, expense)
+    }, by: { $0.0 }).mapValues { $0.map(\.1) }
+
+    var didChange = false
+    for (_, items) in groups {
+        // Grubun ilk taksiti (en küçük sıra numarası) alışveriş tarihini korur
+        guard let first = items.min(by: {
+            ($0.installmentNumber ?? 0) < ($1.installmentNumber ?? 0)
+        }) else { continue }
+        for item in items where item !== first {
+            guard let monthStart = calendar.dateInterval(of: .month, for: item.date)?.start,
+                  item.date != monthStart else { continue }
+            item.date = monthStart
+            didChange = true
+        }
+    }
+    if didChange { try? context.save() }
+}

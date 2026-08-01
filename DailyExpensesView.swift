@@ -327,12 +327,23 @@ struct AddExpenseView: View {
         }
 
         if isInstallment {
-            // Bu taksit + kalan taksitler sonraki aylara otomatik yazılır
+            // Bu taksit + kalan taksitler sonraki aylara otomatik yazılır.
+            // İlk taksit alışverişi yaptığın gün durur; sonraki taksitler ayın 1'ine
+            // yazılır, böylece listede o ayın yeni harcamalarının altında kalırlar.
+            let calendar = Calendar.current
             let groupID = UUID()
             for number in currentInstallment...installmentCount {
-                guard let installmentDate = Calendar.current.date(
-                    byAdding: .month, value: number - currentInstallment, to: date
-                ) else { continue }
+                let installmentDate: Date
+                if number == currentInstallment {
+                    installmentDate = date
+                } else {
+                    guard let shifted = calendar.date(byAdding: .month,
+                                                      value: number - currentInstallment,
+                                                      to: date),
+                          let monthStart = calendar.dateInterval(of: .month, for: shifted)?.start
+                    else { continue }
+                    installmentDate = monthStart
+                }
                 modelContext.insert(Expense(title: title, amount: amount,
                                             date: installmentDate, category: category,
                                             installmentCount: installmentCount,

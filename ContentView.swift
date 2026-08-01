@@ -155,6 +155,12 @@ struct UserSessionView: View {
                 migrateFloatingPaymentAmounts(container.mainContext)
                 UserDefaults.standard.set(true, forKey: migrationKey)
             }
+            // Gelecek ayların taksitleri ayın 1'ine çekilir (bir kez)
+            let installmentKey = "movedInstallmentDates_\(user)"
+            if !UserDefaults.standard.bool(forKey: installmentKey) {
+                migrateInstallmentDatesToMonthStart(container.mainContext)
+                UserDefaults.standard.set(true, forKey: installmentKey)
+            }
         }
     }
 }
