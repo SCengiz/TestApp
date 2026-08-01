@@ -340,7 +340,8 @@ struct AddExpenseView: View {
             let groupID = UUID()
             for number in currentInstallment...installmentCount {
                 let installmentDate: Date
-                if number == currentInstallment {
+                if number == 1 {
+                    // Yalnızca 1. taksit alışveriş gününde durur
                     installmentDate = date
                 } else {
                     guard let shifted = calendar.date(byAdding: .month,

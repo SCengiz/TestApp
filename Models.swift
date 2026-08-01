@@ -511,13 +511,14 @@ func migrateFloatingPaymentAmounts(_ context: ModelContext,
 
 // TAKSİT TARİHİ KURALI — her açılışta uygulanır.
 //
-// Kural: bir taksit grubunun İLK taksiti alışveriş tarihinde durur; sonraki
-// taksitlerin hepsi kendi ayının 1'ine yazılır. Böylece gelecek taksitler ay
-// listesinin en altında kalır, o ay yeni girilen harcamaların arasına karışmaz.
+// Kural: yalnızca 1. taksit alışveriş tarihinde durur; 2. taksitten sonrakilerin
+// hepsi kendi ayının 1'ine yazılır. Böylece gelecek taksitler ay listesinin en
+// altında kalır, o ay yeni girilen harcamaların arasına karışmaz.
 //
-// Tek seferlik bir göç olarak değil, her açılışta çalışan bir düzeltme olarak
-// yazıldı: eski sürümlerle girilmiş ya da arada elle oynanmış kayıtlar da
-// kendiliğinden yerine oturur.
+// Gruplama YAPILMAZ, sadece taksit numarasına bakılır. Önceki sürümde grup
+// kimliğine (sonradan bazı kayıtlarda boş) ve ada göre gruplanıyor, grubun en
+// küçük numaralı taksidi korunuyordu; "şu an 4. taksitteyim" denerek girilmiş
+// bir alışverişte 4/6 grubun en küçüğü olduğu için yerinden oynamıyordu.
 //
 // Taksitin hangi AYA ait olduğu DEĞİŞMEZ, yalnızca ay içindeki günü değişir;
 // bu yüzden aylık toplamlar, grafikler ve kategori dağılımları etkilenmez.
@@ -525,28 +526,14 @@ func migrateFloatingPaymentAmounts(_ context: ModelContext,
 func normalizeInstallmentDates(_ context: ModelContext,
                                calendar: Calendar = .current) {
     let expenses = (try? context.fetch(FetchDescriptor<Expense>())) ?? []
-
-    // Gruplama kimliğe göre yapılır; AMA installmentGroupID sonradan eklendiği için
-    // eski kayıtlarda boş olabiliyor. Kimliği olmayanlar ad + taksit sayısıyla
-    // eşleştirilir, yoksa hiç düzeltilmeden kalıyorlardı.
-    let installments = expenses.filter { $0.installmentNumber != nil }
-    let groups = Dictionary(grouping: installments) { expense -> String in
-        if let id = expense.installmentGroupID { return id.uuidString }
-        return "\(expense.title)|\(expense.installmentCount ?? 0)"
-    }
-
     var didChange = false
-    for (_, items) in groups {
-        // Grubun ilk taksiti (en küçük sıra numarası) alışveriş tarihini korur
-        guard let first = items.min(by: {
-            ($0.installmentNumber ?? 0) < ($1.installmentNumber ?? 0)
-        }) else { continue }
-        for item in items where item !== first {
-            guard let monthStart = calendar.dateInterval(of: .month, for: item.date)?.start,
-                  item.date != monthStart else { continue }
-            item.date = monthStart
-            didChange = true
-        }
+    for expense in expenses {
+        guard let number = expense.installmentNumber, number > 1,
+              let monthStart = calendar.dateInterval(of: .month, for: expense.date)?.start,
+              expense.date != monthStart
+        else { continue }
+        expense.date = monthStart
+        didChange = true
     }
     if didChange { try? context.save() }
 }
