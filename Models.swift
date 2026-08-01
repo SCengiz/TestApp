@@ -525,10 +525,15 @@ func migrateFloatingPaymentAmounts(_ context: ModelContext,
 func normalizeInstallmentDates(_ context: ModelContext,
                                calendar: Calendar = .current) {
     let expenses = (try? context.fetch(FetchDescriptor<Expense>())) ?? []
-    let groups = Dictionary(grouping: expenses.compactMap { expense -> (UUID, Expense)? in
-        guard let id = expense.installmentGroupID else { return nil }
-        return (id, expense)
-    }, by: { $0.0 }).mapValues { $0.map(\.1) }
+
+    // Gruplama kimliğe göre yapılır; AMA installmentGroupID sonradan eklendiği için
+    // eski kayıtlarda boş olabiliyor. Kimliği olmayanlar ad + taksit sayısıyla
+    // eşleştirilir, yoksa hiç düzeltilmeden kalıyorlardı.
+    let installments = expenses.filter { $0.installmentNumber != nil }
+    let groups = Dictionary(grouping: installments) { expense -> String in
+        if let id = expense.installmentGroupID { return id.uuidString }
+        return "\(expense.title)|\(expense.installmentCount ?? 0)"
+    }
 
     var didChange = false
     for (_, items) in groups {
