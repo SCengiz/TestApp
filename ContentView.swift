@@ -135,8 +135,10 @@ struct UserSessionView: View {
         }
         .modelContainer(container)
         .onChange(of: selectedTab) { oldValue, _ in
-            // Terk edilen sekme bir sonraki girişte kök sayfasıyla açılır
-            if (0..<tabResetTokens.count).contains(oldValue) {
+            // Terk edilen sekme bir sonraki girişte kök sayfasıyla açılır.
+            // "Sor" sekmesi (2) HARİÇ: sohbet ve bekleyen cevap korunmalı,
+            // yoksa soruyu sorup sekme değiştirince cevap kayboluyor.
+            if (0..<tabResetTokens.count).contains(oldValue), oldValue != 2 {
                 tabResetTokens[oldValue] = UUID()
             }
         }
