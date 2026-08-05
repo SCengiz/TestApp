@@ -39,10 +39,43 @@ enum PriceService {
         return nil
     }
 
+    // Sunucu zaman zaman JSON'u eksik kapatarak gönderiyor (sondaki } düşüyor)
+    // ve o zaman altın/döviz fiyatlarının hiçbiri okunamıyordu. Veri tamsa
+    // doğrudan, değilse eksik kapanış parantezleri tamamlanarak çözümlenir.
+    static func decodeJSONObject(_ data: Data) -> [String: Any]? {
+        if let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any] {
+            return json
+        }
+        guard let text = String(data: data, encoding: .utf8) else { return nil }
+
+        // Metin içindeki tırnak dışı parantezleri say
+        var openCurly = 0, openSquare = 0
+        var inString = false, escaped = false
+        for character in text {
+            if escaped { escaped = false; continue }
+            switch character {
+            case "\\" where inString: escaped = true
+            case "\"": inString.toggle()
+            case "{" where !inString: openCurly += 1
+            case "}" where !inString: openCurly -= 1
+            case "[" where !inString: openSquare += 1
+            case "]" where !inString: openSquare -= 1
+            default: break
+            }
+        }
+        guard !inString, openCurly > 0 || openSquare > 0 else { return nil }
+
+        let repaired = text
+            + String(repeating: "]", count: max(openSquare, 0))
+            + String(repeating: "}", count: max(openCurly, 0))
+        guard let repairedData = repaired.data(using: .utf8) else { return nil }
+        return try? JSONSerialization.jsonObject(with: repairedData) as? [String: Any]
+    }
+
     static func fetchMarketPrices() async throws -> MarketPrices {
         let url = URL(string: "https://finans.truncgil.com/today.json")!
         let (data, _) = try await session.data(from: url)
-        guard let json = try JSONSerialization.jsonObject(with: data) as? [String: Any] else {
+        guard let json = decodeJSONObject(data) else {
             throw URLError(.cannotParseResponse)
         }
 
