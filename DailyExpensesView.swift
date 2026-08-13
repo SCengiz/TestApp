@@ -22,15 +22,16 @@ struct DailyExpensesView: View {
         return calendar.date(byAdding: .month, value: monthOffset, to: thisMonth)!
     }
 
-    // Seçili ayın harcamaları (kronolojik: en yeni en üstte)
+    // Seçili ayın harcamaları. @Query zaten tarihe göre tersten sıralı geliyor,
+    // filtre bu sırayı bozmuyor; ayrıca sıralamaya gerek yok.
     private var monthExpenses: [Expense] {
-        expenses
-            .filter { calendar.isDate($0.date, equalTo: selectedMonth, toGranularity: .month) }
-            .sorted { $0.date > $1.date }
+        expenses.filter {
+            calendar.isDate($0.date, equalTo: selectedMonth, toGranularity: .month)
+        }
     }
 
     private var monthTotal: Double {
-        monthExpenses.reduce(0) { $0 + $1.amount }
+        groupedByDay.reduce(0) { $0 + dayTotal($1.items) }
     }
 
     private var cardTitle: String {
@@ -39,13 +40,18 @@ struct DailyExpensesView: View {
             : selectedMonth.formatted(.dateTime.month(.wide).year().locale(appLocale))
     }
 
-    // Harcamaları günlere göre grupla (günler ve gün içi kayıtlar kronolojik)
+    // Harcamaları günlere göre grupla (günler ve gün içi kayıtlar kronolojik).
+    //
+    // Gövde her çizildiğinde bu hesap yeniden yapılıyor; toplam ve "boş mu"
+    // kontrolü de buradan türetiliyor ki aynı filtre + gruplama üç kez
+    // çalışmasın. Üç kez çalışması listeyi kaydırırken takılmaya yol açıyordu.
     private var groupedByDay: [(day: Date, items: [Expense])] {
         let groups = Dictionary(grouping: monthExpenses) {
             calendar.startOfDay(for: $0.date)
         }
+        // Gruplar zaten sıralı listeden geldiği için gün içi sıralama gereksiz
         return groups
-            .map { (day: $0.key, items: $0.value.sorted { $0.date > $1.date }) }
+            .map { (day: $0.key, items: $0.value) }
             .sorted { $0.day > $1.day }
     }
 
@@ -128,7 +134,7 @@ struct DailyExpensesView: View {
             AddExpenseView(expense: expense)
         }
         .overlay {
-            if monthExpenses.isEmpty {
+            if groupedByDay.isEmpty {
                 ContentUnavailableView(
                     monthOffset > 0 ? tr("Bu aya planlanmış harcama yok", "No planned spending this month") : tr("Bu ayda harcama yok", "No spending this month"),
                     systemImage: "cart",

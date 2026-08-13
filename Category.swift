@@ -39,6 +39,20 @@ struct ExpenseCategory: Identifiable, Hashable {
         )
         let saved = (try? context.fetch(descriptor)) ?? []
         custom = saved.map(ExpenseCategory.init(model:))
+        rebuildLookup()
+    }
+
+    // Ad -> kategori tablosu. named() liste kaydırılırken her satır için
+    // çağrılıyor; her seferinde "builtIn + custom + [other]" dizisini kurup
+    // içinde aramak kaydırmayı hissedilir şekilde yavaşlatıyordu.
+    private static var lookup: [String: ExpenseCategory] = [:]
+
+    private static func rebuildLookup() {
+        var table: [String: ExpenseCategory] = [:]
+        for category in builtIn + custom + [other] {
+            table[category.name] = category
+        }
+        lookup = table
     }
 
     init(model: CustomCategory) {
@@ -92,7 +106,8 @@ struct ExpenseCategory: Identifiable, Hashable {
     // (silinmiş bir kullanıcı kategorisinin eski kayıtları da buraya düşer)
     static func named(_ name: String) -> ExpenseCategory {
         let resolved = legacyNames[name] ?? name
-        return all.first { $0.name == resolved } ?? other
+        if lookup.isEmpty { rebuildLookup() }
+        return lookup[resolved] ?? other
     }
 }
 
