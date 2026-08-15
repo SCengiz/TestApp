@@ -62,8 +62,6 @@ struct UserSessionView: View {
     @Binding var loggedInUser: String?
     @Binding var selectedTab: Int
     @State private var container: ModelContainer
-    // Sekmeden ayrılınca o sekme kök sayfasına döner (kimlik değişince baştan kurulur)
-    @State private var tabResetTokens: [UUID] = [UUID(), UUID(), UUID(), UUID(), UUID()]
 
     init(user: String, loggedInUser: Binding<String?>, selectedTab: Binding<Int>) {
         self.user = user
@@ -93,17 +91,22 @@ struct UserSessionView: View {
         self._container = State(initialValue: container)
     }
 
+    // Sekmeler AÇIK KALIR.
+    //
+    // Önceden her sekmeye .id(...) verilip sekmeden çıkınca kimlik yenileniyordu;
+    // amaç sekmeye dönünce kök sayfayla açılmasıydı. Bedeli ağırdı: ekran her
+    // dönüşte tamamen yok edilip yeniden kuruluyor, bütün @Query sorguları
+    // baştan çalışıyordu. Veri biriktikçe bu, sekme değiştirirken hissedilir
+    // donmalara yol açtı.
     var body: some View {
         TabView(selection: $selectedTab) {
             SummaryView(loggedInUser: $loggedInUser)
-                .id(tabResetTokens[0])
                 .tabItem {
                     Label(tr("Giderler", "Expenses"), systemImage: "chart.pie.fill")
                 }
                 .tag(0)
 
             IncomeView(loggedInUser: $loggedInUser)
-                .id(tabResetTokens[1])
                 .tabItem {
                     Label(tr("Gelirler", "Income"), systemImage: "banknote.fill")
                 }
@@ -111,7 +114,6 @@ struct UserSessionView: View {
 
             // Tam ortadaki sekme: hazır sorularla açılan finans asistanı
             AskAIView(loggedInUser: $loggedInUser)
-                .id(tabResetTokens[2])
                 .tabItem {
                     // Yazısız, degrade yuvarlak logo: iOS'un kendi ikonu olduğu için
                     // seçim kapsülünün tam ortasına oturur
@@ -120,28 +122,18 @@ struct UserSessionView: View {
                 .tag(2)
 
             SavingsView(loggedInUser: $loggedInUser)
-                .id(tabResetTokens[3])
                 .tabItem {
                     Label(tr("Birikimler", "Savings"), systemImage: "chart.line.uptrend.xyaxis")
                 }
                 .tag(3)
 
             DebtsView(loggedInUser: $loggedInUser)
-                .id(tabResetTokens[4])
                 .tabItem {
                     Label(tr("Borçlar", "Debts"), systemImage: "person.2.fill")
                 }
                 .tag(4)
         }
         .modelContainer(container)
-        .onChange(of: selectedTab) { oldValue, _ in
-            // Terk edilen sekme bir sonraki girişte kök sayfasıyla açılır.
-            // "Sor" sekmesi (2) HARİÇ: sohbet ve bekleyen cevap korunmalı,
-            // yoksa soruyu sorup sekme değiştirince cevap kayboluyor.
-            if (0..<tabResetTokens.count).contains(oldValue), oldValue != 2 {
-                tabResetTokens[oldValue] = UUID()
-            }
-        }
         .onAppear {
             // Örnek veriler SADECE test kullanıcısına yüklenir;
             // soray (gerçek kullanım) tertemiz başlar
