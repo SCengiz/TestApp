@@ -10,6 +10,7 @@ struct IncomeView: View {
     @State private var showingAddSheet = false
     @State private var editingIncome: IncomeSource?
     @State private var selectedMonth: Date? // grafikte dokunulan ay
+    @State private var chartTap: Date? // grafiğe dokunulan ay
     @State private var detailMonth: MonthSelection? // dökümü açılan ay
     @AppStorage("hideIncomeAmounts") private var amountsHidden = false // gizlilik modu
 
@@ -143,22 +144,13 @@ struct IncomeView: View {
                                 .foregroundStyle(.secondary.opacity(0.5))
                                 .lineStyle(StrokeStyle(lineWidth: 1, dash: [4, 4]))
                         }
-                        .chartOverlay { proxy in
-                            GeometryReader { geo in
-                                Rectangle()
-                                    .fill(Color.clear)
-                                    .contentShape(Rectangle())
-                                    .onTapGesture { location in
-                                        // Tek dokunuşla o ayın dökümünü aç
-                                        guard let plotFrame = proxy.plotFrame else { return }
-                                        let x = location.x - geo[plotFrame].origin.x
-                                        if let date: Date = proxy.value(atX: x) {
-                                            if !amountsHidden {
-                                                detailMonth = MonthSelection(date: date)
-                                            }
-                                        }
-                                    }
-                            }
+                        // GeometryReader KULLANILMIYOR: kaydırırken konumu her karede
+                        // yeniden hesaplayıp gözle görülür takılma yapıyordu.
+                        .chartXSelection(value: $chartTap)
+                        .onChange(of: chartTap) { _, tapped in
+                            guard let tapped, !amountsHidden else { chartTap = nil; return }
+                            detailMonth = MonthSelection(date: tapped)
+                            chartTap = nil
                         }
                         .chartYAxis(amountsHidden ? .hidden : .automatic)
                         .chartXAxis {

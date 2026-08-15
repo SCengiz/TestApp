@@ -8,6 +8,7 @@ struct SummaryView: View {
     @Query private var monthlyAmounts: [PaymentMonthAmount]
     @Query private var paidRecords: [PaidPayment]
     @State private var selectedMonth: Date? // grafikte dokunulan ay
+    @State private var chartTap: Date? // grafiğe dokunulan ay
     @State private var detailMonth: MonthSelection? // dökümü açılan ay
     @State private var selectedCategory: ExpenseCategory? // detayı açılan kategori
     @State private var categoryMonthOffset = 0 // Harcama Dağılımı: -3...+3 ay
@@ -150,20 +151,14 @@ struct SummaryView: View {
                                 .foregroundStyle(.secondary.opacity(0.5))
                                 .lineStyle(StrokeStyle(lineWidth: 1, dash: [4, 4]))
                         }
-                        .chartOverlay { proxy in
-                            GeometryReader { geo in
-                                Rectangle()
-                                    .fill(Color.clear)
-                                    .contentShape(Rectangle())
-                                    .onTapGesture { location in
-                                        // Tek dokunuşla o ayın dökümünü aç
-                                        guard let plotFrame = proxy.plotFrame else { return }
-                                        let x = location.x - geo[plotFrame].origin.x
-                                        if let date: Date = proxy.value(atX: x) {
-                                            detailMonth = MonthSelection(date: date)
-                                        }
-                                    }
-                            }
+                        // GeometryReader KULLANILMIYOR: kaydırırken konumu her karede
+                        // yeniden hesaplayıp gözle görülür takılma yapıyordu.
+                        // Dokunma, Swift Charts'ın kendi seçim API'siyle alınıyor.
+                        .chartXSelection(value: $chartTap)
+                        .onChange(of: chartTap) { _, tapped in
+                            guard let tapped else { return }
+                            detailMonth = MonthSelection(date: tapped)
+                            chartTap = nil
                         }
                         .chartXAxis {
                             AxisMarks(values: .stride(by: .month)) {

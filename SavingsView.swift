@@ -69,6 +69,7 @@ struct SavingsView: View {
     @Query private var assets: [Asset]
     @Query(sort: \SavingsSnapshot.monthStart) private var snapshots: [SavingsSnapshot]
     @State private var selectedMonth: Date?
+    @State private var chartTap: Date? // grafiğe dokunulan ay
     @State private var detailMonth: MonthSelection?
     @State private var showingAccountForm = false
     @State private var priceError: String?
@@ -225,20 +226,14 @@ struct SavingsView: View {
                                 }
                             }
                         }
-                        .chartOverlay { proxy in
-                            GeometryReader { geo in
-                                Rectangle()
-                                    .fill(Color.clear)
-                                    .contentShape(Rectangle())
-                                    .onTapGesture { location in
-                                        // Tek dokunuşla o ayın dökümünü aç
-                                        guard let plotFrame = proxy.plotFrame else { return }
-                                        let x = location.x - geo[plotFrame].origin.x
-                                        if let date: Date = proxy.value(atX: x) {
-                                            detailMonth = MonthSelection(date: date)
-                                        }
-                                    }
-                            }
+                        // GeometryReader KULLANILMIYOR: kaydırırken konumu her karede
+                        // yeniden hesaplayıp gözle görülür takılma yapıyordu.
+                        // Dokunma, Swift Charts'ın kendi seçim API'siyle alınıyor.
+                        .chartXSelection(value: $chartTap)
+                        .onChange(of: chartTap) { _, tapped in
+                            guard let tapped else { return }
+                            detailMonth = MonthSelection(date: tapped)
+                            chartTap = nil
                         }
                         .chartXAxis {
                             AxisMarks(values: .stride(by: .month)) {
