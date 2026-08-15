@@ -249,10 +249,7 @@ func refreshAllAssetPrices(_ context: ModelContext) async -> String? {
         if let market = try? await PriceService.fetchMarketPrices() {
             for asset in goldAssets {
                 let price = asset.code == "GRAM_GUMUS" ? market.silverGram : market.goldGram
-                if let price {
-                    asset.unitPrice = price
-                    asset.priceUpdatedAt = .now
-                }
+                if let price { asset.applyPrice(price) }
             }
         } else {
             priceError = tr("Emtia fiyatları alınamadı; son bilinen fiyatlar kullanılıyor.", "Could not fetch commodity prices; using last known prices.")
@@ -266,8 +263,7 @@ func refreshAllAssetPrices(_ context: ModelContext) async -> String? {
         for asset in fundAssets {
             guard let code = asset.code else { continue }
             if let price = await PriceService.fetchAnyFundPrice(code: code, teraHomePage: teraHome) {
-                asset.unitPrice = price
-                asset.priceUpdatedAt = .now
+                asset.applyPrice(price)
             } else if priceError == nil {
                 priceError = tr("\(code.uppercased()) fiyatı otomatik alınamadı; elle girilen fiyat kullanılıyor.", "\(code.uppercased()) price could not be fetched automatically; using the manually entered price.")
             }
@@ -279,16 +275,30 @@ func refreshAllAssetPrices(_ context: ModelContext) async -> String? {
     for asset in stockAssets {
         guard let code = asset.code else { continue }
         if let price = try? await PriceService.fetchBistStockPrice(code: code) {
-            asset.unitPrice = price
-            asset.priceUpdatedAt = .now
+            asset.applyPrice(price)
         } else if priceError == nil {
             priceError = tr("\(code.uppercased()) hisse fiyatı alınamadı; son bilinen fiyat kullanılıyor.", "\(code.uppercased()) stock price could not be fetched; using last known price.")
         }
     }
 
-    try? context.save()
+    if context.hasChanges { try? context.save() }
     syncSavingsSnapshot(context)
     return priceError
+}
+
+extension Asset {
+    // Fiyat DEĞİŞMEDİYSE hiçbir şey yazılmaz.
+    //
+    // Eskiden her tazelemede unitPrice ve priceUpdatedAt koşulsuz yazılıyordu.
+    // Her yazma bütün ekranlardaki sorguları geçersiz kılıyor; Birikimler ya da
+    // Borçlar bir kez açıldıktan sonra 30 sn'lik tazeleme döngüsü diğer
+    // ekranları saniyede onlarca kez yeniden çizdiriyordu (ölçüm: Giderler
+    // görünür değilken 8 saniyede 185 çizim).
+    func applyPrice(_ price: Double) {
+        guard price > 0, abs(unitPrice - price) > 0.0001 else { return }
+        unitPrice = price
+        priceUpdatedAt = .now
+    }
 }
 
 // Bu ayın birikim fotoğrafını güncel toplamla eşitle
@@ -302,6 +312,9 @@ func syncSavingsSnapshot(_ context: ModelContext) {
     if let current = snapshots.first(where: {
         calendar.isDate($0.monthStart, equalTo: monthStart, toGranularity: .month)
     }) {
+        // Aynı toplamı yeniden yazmak da her ekranı yeniden çizdiriyordu
+        // Faiz sürekli işlediği için kuruş altı oynamalar kayda değmez
+        guard abs(current.total - total) > 0.5 else { return }
         current.total = total
     } else {
         context.insert(SavingsSnapshot(monthStart: monthStart, total: total))

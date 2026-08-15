@@ -235,13 +235,16 @@ struct DebtsView: View {
             case "ceyrek": rate = market.ceyrekSell
             default:       rate = nil
             }
-            if let rate {
+            // Kur DEĞİŞMEDİYSE yazma: her yazma bütün ekranları yeniden çizdiriyor
+            if let rate, abs(debt.lastKnownRate - rate) > 0.0001 {
                 debt.lastKnownRate = rate
                 // İlk kur girilmemişse bugünü baz al (artış 0'dan başlar)
                 if debt.initialRate == nil { debt.initialRate = rate }
+            } else if let rate, debt.initialRate == nil {
+                debt.initialRate = rate
             }
         }
-        try? modelContext.save()
+        if modelContext.hasChanges { try? modelContext.save() }
         lastUpdate = .now
     }
 }

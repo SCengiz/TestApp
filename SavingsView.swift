@@ -286,7 +286,18 @@ struct SavingsView: View {
                 guard isVisible else { return }
                 Task { await refreshPrices() }
             }
-            .onChange(of: total) {
+            // .onChange(of: total) KULLANILMIYOR!
+            //
+            // Vadeli hesabın faizi Date.now ile hesaplandığı için toplam her
+            // okunuşta mikroskobik olarak değişiyor. "Toplam değişince kaydet"
+            // demek sonsuz döngü demekti: kaydet -> sorgular geçersiz -> ekran
+            // yeniden çizilir -> toplam yine farklı -> kaydet... Ölçümde saniyede
+            // ~43 kayıt yapılıyordu ve her kayıt BÜTÜN sekmeleri yeniden
+            // çizdirdiği için uygulama komple donuyordu.
+            //
+            // Fotoğraf artık belirli anlarda alınıyor: sayfaya girişte, fiyat
+            // tazelemesinden sonra ve varlık eklenip silindiğinde.
+            .onChange(of: accounts.count) {
                 syncSavingsSnapshot(modelContext)
             }
         }
