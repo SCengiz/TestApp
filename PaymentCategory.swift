@@ -38,6 +38,7 @@ struct PaymentCategory: Identifiable, Hashable {
         )
         let saved = (try? context.fetch(descriptor)) ?? []
         custom = saved.map(PaymentCategory.init(model:))
+        rebuildLookup()
     }
 
     init(model: CustomPaymentCategory) {
@@ -78,8 +79,24 @@ struct PaymentCategory: Identifiable, Hashable {
     }
 
     // İsimden kategori bul; bulunamazsa "Diğer"
+    // Ad -> kategori tablosu. named(), FixedPayment.amount(inMonth:) içinden
+    // çağrılıyor; o da özet kartında, 7 aylık ödeme planı grafiğinde ve ödeme
+    // satırlarında tekrar tekrar çalışıyor. Her çağrıda "builtIn + custom +
+    // [other]" dizisini kurup içinde aramak arayüzü belirgin şekilde
+    // yavaşlatıyordu.
+    private static var lookup: [String: PaymentCategory] = [:]
+
+    private static func rebuildLookup() {
+        var table: [String: PaymentCategory] = [:]
+        for category in builtIn + custom + [other] {
+            table[category.name] = category
+        }
+        lookup = table
+    }
+
     static func named(_ name: String) -> PaymentCategory {
-        all.first { $0.name == name } ?? other
+        if lookup.isEmpty { rebuildLookup() }
+        return lookup[name] ?? other
     }
 }
 

@@ -24,9 +24,14 @@ struct SummaryView: View {
 
     // Bir ayın ödeme kalemleri (ad, tutar, renk)
     private func paymentBreakdown(for month: Date) -> [(name: String, amount: Double, color: Color)] {
-        payments
+        // Renk tablosu hesaplanan bir özellik: doğrudan map içinde kullanılırsa
+        // her ödeme için baştan kuruluyordu. Ödeme planı grafiği bu işlevi 7 ay
+        // için çağırdığından maliyet ödeme sayısının karesiyle büyüyordu.
+        let colors = paymentColors
+        return payments
             .filter { $0.isActive(inMonth: month, calendar: calendar) }
-            .map { ($0.name, $0.amount(inMonth: month, monthlyAmounts: monthlyAmounts), paymentColors[$0.name] ?? .blue) }
+            .map { ($0.name, $0.amount(inMonth: month, monthlyAmounts: monthlyAmounts),
+                    colors[$0.name] ?? .blue) }
     }
 
     // Seçili ayın günlük harcama toplamı
