@@ -4,7 +4,6 @@ import Charts
 
 struct SummaryView: View {
     @Binding var loggedInUser: String?
-    @Query(sort: \Expense.date, order: .reverse) private var expenses: [Expense]
     @Query private var payments: [FixedPayment]
     @Query private var monthlyAmounts: [PaymentMonthAmount]
     @Query private var paidRecords: [PaidPayment]
@@ -35,12 +34,6 @@ struct SummaryView: View {
     }
 
     // Seçili ayın günlük harcama toplamı
-    private var thisMonthTotal: Double {
-        expenses
-            .filter { calendar.isDate($0.date, equalTo: categoryMonth, toGranularity: .month) }
-            .reduce(0) { $0 + $1.amount }
-    }
-
     // Bu ay geçerli olan sabit ödemelerin toplamı.
     // Ham "amount" alanı DEĞİL, o ayın tutarı kullanılır: kredi kartı gibi tutarı
     // her ay değişen ödemelerde ekstre girilmemişse o ay 0 sayılır.
@@ -70,24 +63,6 @@ struct SummaryView: View {
     private var categoryMonth: Date {
         let thisMonth = calendar.dateInterval(of: .month, for: .now)!.start
         return calendar.date(byAdding: .month, value: categoryMonthOffset, to: thisMonth)!
-    }
-
-    private var categoryMonthTotal: Double {
-        expenses
-            .filter { calendar.isDate($0.date, equalTo: categoryMonth, toGranularity: .month) }
-            .reduce(0) { $0 + $1.amount }
-    }
-
-    // Seçili ayın kategori kategori toplamları (büyükten küçüğe)
-    private var categoryTotals: [(category: ExpenseCategory, total: Double)] {
-        let monthExpenses = expenses.filter {
-            calendar.isDate($0.date, equalTo: categoryMonth, toGranularity: .month)
-        }
-        let groups = Dictionary(grouping: monthExpenses) { $0.category }
-        return groups
-            .map { (ExpenseCategory.named($0.key), $0.value.reduce(0) { $0 + $1.amount }) }
-            .filter { $0.1 > 0 } // o ay harcaması olmayan kategori listede görünmez
-            .sorted { $0.total > $1.total }
     }
 
     // Sayfanın tepesindeki ay seçici: hem iki kutuyu hem de dağılımı yönetir
@@ -127,21 +102,11 @@ struct SummaryView: View {
         NavigationStack {
             ScrollView {
                 VStack(spacing: 16) {
-
                     monthPicker
 
                     // Kutulara dokununca ilgili sayfa açılır
                     HStack(spacing: 12) {
-                        NavigationLink {
-                            DailyExpensesView(startMonthOffset: categoryMonthOffset)
-                        } label: {
-                            StatCard(
-                                title: tr("Harcamalarım", "My Spending"),
-                                amount: thisMonthTotal,
-                                icon: "creditcard.fill",
-                                colors: [.pink, .red]
-                            )
-                        }
+                        MonthSpendingCard(month: categoryMonth, monthOffset: categoryMonthOffset)
 
                         NavigationLink {
                             FixedPaymentsView(startMonthOffset: categoryMonthOffset)
@@ -157,70 +122,9 @@ struct SummaryView: View {
                     .buttonStyle(.plain)
                     .fixedSize(horizontal: false, vertical: true)
 
-                    // Kategori dağılımı: halka grafik + liste (ay tepeden seçilir)
-                    VStack(alignment: .leading, spacing: 14) {
-                        Label(tr("Harcama Dağılımı", "Spending Breakdown"),
-                              systemImage: "chart.pie.fill")
-                            .font(.headline)
-
-                        if categoryTotals.isEmpty {
-                            Text(categoryMonthOffset > 0
-                                 ? tr("Bu aya planlanmış harcama yok (taksitli alışverişler burada görünür).", "No planned spending for this month (installments show up here).")
-                                 : tr("Bu ayda harcama yok.", "No spending this month."))
-                                .foregroundStyle(.secondary)
-                        } else {
-                            Chart(categoryTotals, id: \.category) { item in
-                                SectorMark(
-                                    angle: .value("Tutar", item.total),
-                                    innerRadius: .ratio(0.62),
-                                    angularInset: 2
-                                )
-                                .foregroundStyle(item.category.color.gradient)
-                                .cornerRadius(4)
-                            }
-                            .frame(height: 210)
-                            .chartBackground { _ in
-                                VStack(spacing: 2) {
-                                    Text(tr("Toplam", "Total"))
-                                        .font(.caption)
-                                        .foregroundStyle(.secondary)
-                                    Text(categoryMonthTotal, format: .currency(code: "TRY"))
-                                        .font(.headline)
-                                }
-                            }
-
-                            ForEach(categoryTotals, id: \.category) { item in
-                                Button {
-                                    selectedCategory = item.category
-                                } label: {
-                                    HStack(spacing: 12) {
-                                        RowIcon(systemName: item.category.icon, color: item.category.color)
-                                        Text(item.category.displayName)
-                                        Spacer()
-                                        VStack(alignment: .trailing, spacing: 2) {
-                                            Text(item.total, format: .currency(code: "TRY"))
-                                                .font(.callout.weight(.semibold))
-                                            Text(categoryMonthTotal > 0
-                                                 ? "%\(Int((item.total / categoryMonthTotal * 100).rounded()))"
-                                                 : "%0")
-                                                .font(.caption)
-                                                .foregroundStyle(.secondary)
-                                        }
-                                        Image(systemName: "chevron.right")
-                                            .font(.caption.weight(.semibold))
-                                            .foregroundStyle(.tertiary)
-                                    }
-                                }
-                                .buttonStyle(.plain)
-                            }
-                        }
-                    }
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .padding()
-                    .background(
-                        RoundedRectangle(cornerRadius: 20, style: .continuous)
-                            .fill(Color(.secondarySystemGroupedBackground))
-                    )
+                    CategoryBreakdownCard(month: categoryMonth,
+                                          monthOffset: categoryMonthOffset,
+                                          onSelect: { selectedCategory = $0 })
 
                     // Aylık durum: 6 ay geri + bu ay + 6 ay ileri, sabit giderler (gelecek = plan)
                     VStack(alignment: .leading, spacing: 14) {
@@ -284,10 +188,7 @@ struct SummaryView: View {
             .navigationTitle(tr("Giderler", "Expenses"))
             // Kategoriye dokununca alttan açılan yarım ekran detay paneli
             .sheet(item: $selectedCategory) { category in
-                CategoryDetailSheet(
-                    category: category,
-                    expenses: monthExpenses(for: category)
-                )
+                CategoryDetailSheet(category: category, month: categoryMonth)
                 .presentationDetents([.medium, .large])
                 .presentationDragIndicator(.visible)
             }
@@ -319,29 +220,27 @@ struct SummaryView: View {
         }
     }
 
-    // Belirli bir tarihin ait olduğu gün/ay/yıl içindeki harcama toplamı
-    private func totalIn(_ date: Date, unit: Calendar.Component) -> Double {
-        expenses
-            .filter { calendar.isDate($0.date, equalTo: date, toGranularity: unit) }
-            .reduce(0) { $0 + $1.amount }
-    }
 
-    // Seçili ayda, seçilen kategorideki harcamalar (yeniden eskiye)
-    private func monthExpenses(for category: ExpenseCategory) -> [Expense] {
-        expenses
-            .filter {
-                $0.category == category.name &&
-                calendar.isDate($0.date, equalTo: categoryMonth, toGranularity: .month)
-            }
-            .sorted { $0.date > $1.date }
-    }
 
 }
 
 // Kategoriye dokununca açılan yarım ekran detay paneli
 struct CategoryDetailSheet: View {
     let category: ExpenseCategory
-    let expenses: [Expense]
+    // Yalnızca o ayın kayıtları sorgulanır
+    @Query(sort: \Expense.date, order: .reverse) private var expenses: [Expense]
+
+    init(category: ExpenseCategory, month: Date) {
+        self.category = category
+        let calendar = Calendar.current
+        let interval = calendar.dateInterval(of: .month, for: month)
+            ?? DateInterval(start: month, duration: 0)
+        let start = interval.start, end = interval.end
+        let name = category.name
+        _expenses = Query(filter: #Predicate<Expense> {
+            $0.date >= start && $0.date < end && $0.category == name
+        }, sort: \Expense.date, order: .reverse)
+    }
 
     private var total: Double {
         expenses.reduce(0) { $0 + $1.amount }
@@ -396,4 +295,139 @@ struct CategoryDetailSheet: View {
 #Preview {
     SummaryView(loggedInUser: .constant("soray"))
         .modelContainer(for: [Expense.self, FixedPayment.self], inMemory: true)
+}
+
+// MARK: - Aya bağlı alt görünümler
+//
+// Bu ikisi kendi @Query'lerini YALNIZCA gösterilen ay için kuruyor.
+// Önceden ana ekran bütün harcamaları belleğe alıp her çizimde hepsinin
+// üzerinden geçiyordu; 2700 kayıtlık ölçümde gövde 29 ms sürüyordu
+// (akıcılık için 16 ms gerekiyor) ve arayüz gözle görülür şekilde kasıyordu.
+
+struct MonthSpendingCard: View {
+    let monthOffset: Int
+    @Query private var monthExpenses: [Expense]
+
+    init(month: Date, monthOffset: Int) {
+        self.monthOffset = monthOffset
+        let calendar = Calendar.current
+        let interval = calendar.dateInterval(of: .month, for: month)
+            ?? DateInterval(start: month, duration: 0)
+        let start = interval.start, end = interval.end
+        _monthExpenses = Query(filter: #Predicate<Expense> {
+            $0.date >= start && $0.date < end
+        })
+    }
+
+    var body: some View {
+        NavigationLink {
+            DailyExpensesView(startMonthOffset: monthOffset)
+        } label: {
+            StatCard(title: tr("Harcamalarım", "My Spending"),
+                     amount: monthExpenses.reduce(0) { $0 + $1.amount },
+                     icon: "creditcard.fill",
+                     colors: [.pink, .red])
+        }
+    }
+}
+
+struct CategoryBreakdownCard: View {
+    let monthOffset: Int
+    var onSelect: (ExpenseCategory) -> Void
+    @Query private var monthExpenses: [Expense]
+
+    init(month: Date, monthOffset: Int, onSelect: @escaping (ExpenseCategory) -> Void) {
+        self.monthOffset = monthOffset
+        self.onSelect = onSelect
+        let calendar = Calendar.current
+        let interval = calendar.dateInterval(of: .month, for: month)
+            ?? DateInterval(start: month, duration: 0)
+        let start = interval.start, end = interval.end
+        _monthExpenses = Query(filter: #Predicate<Expense> {
+            $0.date >= start && $0.date < end
+        })
+    }
+
+    struct Row: Identifiable {
+        let category: ExpenseCategory
+        let total: Double
+        let share: Int
+        var id: String { category.name }
+    }
+
+    // Halka, liste ve ay toplamı aynı listeden beslenir
+    private var rows: [Row] {
+        let groups = Dictionary(grouping: monthExpenses) { $0.category }
+        let totals = groups
+            .map { (ExpenseCategory.named($0.key), $0.value.reduce(0) { $0 + $1.amount }) }
+            .filter { $0.1 > 0 }
+            .sorted { $0.1 > $1.1 }
+        let sum = totals.reduce(0) { $0 + $1.1 }
+        return totals.map {
+            Row(category: $0.0, total: $0.1,
+                share: sum > 0 ? Int(($0.1 / sum * 100).rounded()) : 0)
+        }
+    }
+
+    var body: some View {
+        let items = rows
+        let monthTotal = items.reduce(0) { $0 + $1.total }
+        VStack(alignment: .leading, spacing: 14) {
+            Label(tr("Harcama Dağılımı", "Spending Breakdown"), systemImage: "chart.pie.fill")
+                .font(.headline)
+
+            if items.isEmpty {
+                Text(monthOffset > 0
+                     ? tr("Bu aya planlanmış harcama yok (taksitli alışverişler burada görünür).",
+                          "No planned spending for this month (installments show up here).")
+                     : tr("Bu ayda harcama yok.", "No spending this month."))
+                    .foregroundStyle(.secondary)
+            } else {
+                Chart(items) { item in
+                    SectorMark(angle: .value("Tutar", item.total),
+                               innerRadius: .ratio(0.62),
+                               angularInset: 2)
+                        .foregroundStyle(item.category.color.gradient)
+                        .cornerRadius(4)
+                }
+                .frame(height: 210)
+                .chartBackground { _ in
+                    VStack(spacing: 2) {
+                        Text(tr("Toplam", "Total"))
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                        Text(monthTotal, format: .currency(code: "TRY"))
+                            .font(.headline)
+                    }
+                }
+
+                ForEach(items) { item in
+                    Button { onSelect(item.category) } label: {
+                        HStack(spacing: 12) {
+                            RowIcon(systemName: item.category.icon, color: item.category.color)
+                            Text(item.category.displayName)
+                            Spacer()
+                            VStack(alignment: .trailing, spacing: 2) {
+                                Text(item.total, format: .currency(code: "TRY"))
+                                    .font(.callout.weight(.semibold))
+                                Text("%\(item.share)")
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                            }
+                            Image(systemName: "chevron.right")
+                                .font(.caption.weight(.semibold))
+                                .foregroundStyle(.tertiary)
+                        }
+                    }
+                    .buttonStyle(.plain)
+                }
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding()
+        .background(
+            RoundedRectangle(cornerRadius: 20, style: .continuous)
+                .fill(Color(.secondarySystemGroupedBackground))
+        )
+    }
 }
