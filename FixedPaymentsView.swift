@@ -216,8 +216,44 @@ struct AddFixedPaymentView: View {
     @State private var category = "Kredi Kartı"
     @State private var kind: PaymentKind = .recurring
     @State private var totalInstallments = 12
-    @State private var currentInstallment = 1
+    // İlk taksitin düştüğü ay. Önceden "şu an kaçıncı taksitteyim" soruluyordu ve
+    // başlangıç geriye doğru hesaplanıyordu; bu yüzden GELECEKTE başlayan bir
+    // krediyi girmek mümkün değildi, ilk taksit hep içinde bulunulan aya düşüyordu.
+    @State private var firstInstallmentMonth: Date = Calendar.current.dateInterval(of: .month, for: .now)!.start
     @State private var oneTimeMonth: Date = Calendar.current.dateInterval(of: .month, for: .now)!.start
+
+    // Taksitli ödemede ilk taksit ayı: 48 ay geri, 24 ay ileri
+    private var installmentMonthOptions: [Date] {
+        let calendar = Calendar.current
+        let thisMonth = calendar.dateInterval(of: .month, for: .now)!.start
+        var options = (-48...24).compactMap {
+            calendar.date(byAdding: .month, value: $0, to: thisMonth)
+        }
+        if !options.contains(firstInstallmentMonth) {
+            options.append(firstInstallmentMonth)
+            options.sort()
+        }
+        return options
+    }
+
+    // Seçilen başlangıca göre durum: başlamadıysa ne zaman başlayacağı,
+    // başladıysa kaçıncı taksitte olunduğu
+    private var installmentStatusText: String {
+        let calendar = Calendar.current
+        let thisMonth = calendar.dateInterval(of: .month, for: .now)!.start
+        let diff = calendar.dateComponents([.month], from: firstInstallmentMonth, to: thisMonth).month ?? 0
+        let number = diff + 1
+        let monthName = firstInstallmentMonth.formatted(.dateTime.month(.wide).year().locale(appLocale))
+        if number < 1 {
+            return tr("\(monthName)'da başlayacak · bu ayın planında görünmez",
+                      "Starts in \(monthName) · not shown in this month's plan")
+        }
+        if number > totalInstallments {
+            return tr("Bu taksitler bitmiş görünüyor", "These installments appear to be finished")
+        }
+        return tr("Şu an \(number). taksit · \(totalInstallments - number) ay kaldı",
+                  "Installment #\(number) now · \(totalInstallments - number) months left")
+    }
 
     // Tek seferlik ödeme için seçilebilecek aylar (bu ay + 12 ay ileri)
     private var monthOptions: [Date] {
@@ -286,12 +322,13 @@ struct AddFixedPaymentView: View {
                                 Text(tr("\(n) taksit", "\(n) installments")).tag(n)
                             }
                         }
-                        Picker(tr("Şu an kaçıncı taksit", "Which installment now"), selection: $currentInstallment) {
-                            ForEach(1...totalInstallments, id: \.self) { n in
-                                Text(tr("\(n). taksit", "installment #\(n)")).tag(n)
+                        Picker(tr("İlk taksit ayı", "First installment month"),
+                               selection: $firstInstallmentMonth) {
+                            ForEach(installmentMonthOptions, id: \.self) { m in
+                                Text(m.formatted(.dateTime.month(.wide).year().locale(appLocale))).tag(m)
                             }
                         }
-                        Text(tr("Kalan: \(totalInstallments - currentInstallment) ay sonra bitecek", "Ends in \(totalInstallments - currentInstallment) months"))
+                        Text(installmentStatusText)
                             .font(.caption)
                             .foregroundStyle(.secondary)
                     }
@@ -360,7 +397,8 @@ struct AddFixedPaymentView: View {
                         } else {
                             kind = .installment
                             totalInstallments = total
-                            currentInstallment = payment.installmentNumber(inMonth: .now) ?? total
+                            firstInstallmentMonth = Calendar.current
+                                .dateInterval(of: .month, for: first)!.start
                         }
                     } else {
                         kind = .recurring
@@ -420,9 +458,9 @@ struct AddFixedPaymentView: View {
             firstPayment = nil
         case .installment:
             total = totalInstallments
-            // "Şu an 5. taksitteyim" → ilk taksit 4 ay önceydi
-            firstPayment = Calendar.current.date(byAdding: .month,
-                                                 value: -(currentInstallment - 1), to: .now)
+            // Başlangıç ayı doğrudan kullanıcıdan alınır; gelecekte başlayan
+            // krediler de böylece girilebiliyor
+            firstPayment = firstInstallmentMonth
         case .oneTime:
             // Tek seferlik = 1 taksitlik ödeme, seçilen ayda
             total = 1
