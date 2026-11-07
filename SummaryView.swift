@@ -113,7 +113,7 @@ struct SummaryView: View {
                             FixedPaymentsView(startMonthOffset: categoryMonthOffset)
                         } label: {
                             StatCard(
-                                title: tr("Ödemelerim", "My Payments"),
+                                title: tr("Sabit Giderler", "Fixed Expenses"),
                                 amount: fixedTotal,
                                 icon: "building.columns.fill",
                                 colors: [.blue, .cyan]
@@ -318,7 +318,7 @@ struct MonthSpendingCard: View {
         NavigationLink {
             DailyExpensesView(startMonthOffset: monthOffset)
         } label: {
-            StatCard(title: tr("Harcamalarım", "My Spending"),
+            StatCard(title: tr("Kredi Kartı Harcamalarım", "Credit Card Spending"),
                      amount: monthExpenses.reduce(0) { $0 + $1.amount },
                      icon: "creditcard.fill",
                      colors: [.pink, .red])

@@ -32,7 +32,10 @@ struct StatCard: View {
             Label(title, systemImage: icon)
                 .font(.subheadline.weight(.semibold))
                 .foregroundStyle(.white.opacity(0.9))
-                .lineLimit(1)
+                // "Kredi Kartı Harcamalarım" gibi uzun başlıklar tek satıra
+                // sığmayıp kırpılıyordu; iki satıra kadar sarsın
+                .lineLimit(2)
+                .multilineTextAlignment(.leading)
                 .minimumScaleFactor(0.75)
             Text(masked ? "₺***.***,**" : amount.formatted(.currency(code: "TRY")))
                 .font(.title2.bold())
