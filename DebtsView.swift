@@ -60,6 +60,9 @@ struct DebtsView: View {
     @Binding var loggedInUser: String?
     @Environment(\.modelContext) private var modelContext
     @Query(sort: \Debt.date, order: .reverse) private var debts: [Debt]
+    // Genel borç tablosu için: banka kredilerinin kalan borcu
+    @Query private var payments: [FixedPayment]
+    @Query private var paidRecords: [PaidPayment]
     @State private var showingAddSheet = false
     @State private var editingDebt: Debt?
     @State private var priceError: String?
@@ -71,6 +74,18 @@ struct DebtsView: View {
     private var totalTL: Double {
         debts.reduce(0) { $0 + $1.valueTL }
     }
+
+    // Taksitli kredilerin kalan borcu (kredi kartı ve süresiz ödemeler hariç)
+    private var loanDebt: Double {
+        payments.compactMap { $0.remainingDebt(paidRecords: paidRecords) }
+            .reduce(0, +)
+    }
+
+    private var loanCount: Int {
+        payments.filter { ($0.remainingInstallments(paidRecords: paidRecords) ?? 0) > 0 }.count
+    }
+
+    private var overallDebt: Double { totalTL + loanDebt }
 
     // Kur farkından toplam borç artışı (emtia borçları)
     private var totalIncrease: Double {
@@ -102,6 +117,40 @@ struct DebtsView: View {
                     )
                     .listRowInsets(EdgeInsets())
                     .listRowBackground(Color.clear)
+                }
+
+                // Genel borç durumu: kişilere olan borçlar + banka kredileri.
+                // Kredi kartları buraya girmez; onlar aylık ekstre, kalan
+                // bir anapara borcu değil.
+                if loanDebt > 0 {
+                    Section {
+                        LabeledContent {
+                            Text(totalTL, format: .currency(code: "TRY"))
+                        } label: {
+                            Label(tr("Kişilere borcum", "Owed to people"),
+                                  systemImage: "person.2.fill")
+                        }
+                        LabeledContent {
+                            Text(loanDebt, format: .currency(code: "TRY"))
+                        } label: {
+                            Label(tr("Kredi borcum (\(loanCount) kredi)",
+                                     "Loan debt (\(loanCount) loans)"),
+                                  systemImage: "building.columns.fill")
+                        }
+                        LabeledContent {
+                            Text(overallDebt, format: .currency(code: "TRY"))
+                                .font(.headline)
+                                .foregroundStyle(.red)
+                        } label: {
+                            Text(tr("Toplam", "Total"))
+                                .font(.headline)
+                        }
+                    } header: {
+                        Text(tr("Genel Borç Durumum", "Overall Debt"))
+                    } footer: {
+                        Text(tr("Kredi borcu, kalan taksitlerin toplamıdır; kredi kartları dahil değildir. Ayrıntı için Sabit Giderler ekranına bak.",
+                                "Loan debt is the sum of remaining installments; credit cards are not included. See the Fixed Expenses screen for details."))
+                    }
                 }
 
                 Section {

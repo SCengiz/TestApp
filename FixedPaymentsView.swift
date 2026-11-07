@@ -5,6 +5,7 @@ struct FixedPaymentsView: View {
     @Environment(\.modelContext) private var modelContext
     @Query(sort: \FixedPayment.dueDay) private var payments: [FixedPayment]
     @Query private var monthlyAmounts: [PaymentMonthAmount]
+    @Query private var paidRecords: [PaidPayment]
     @State private var showingAddSheet = false
     @State private var editingPayment: FixedPayment?
     // Özet ekranındaki dönem seçiliyken açılınca aynı dönemle başlar
@@ -32,6 +33,28 @@ struct FixedPaymentsView: View {
                 .filter { $0.isActive(inMonth: month) }
                 .reduce(0) { $0 + $1.amount(inMonth: month, monthlyAmounts: monthlyAmounts) }
         }
+    }
+
+    // Taksitli ve tutarı sabit kredilerin kalan borcu (kredi kartı hariç).
+    // Bugüne göre hesaplanır; seçili dönemden bağımsızdır.
+    private var loans: [(payment: FixedPayment, remainingCount: Int, remainingDebt: Double)] {
+        payments.compactMap { payment in
+            guard let count = payment.remainingInstallments(paidRecords: paidRecords),
+                  count > 0,
+                  let debt = payment.remainingDebt(paidRecords: paidRecords)
+            else { return nil }
+            return (payment, count, debt)
+        }
+        .sorted { $0.remainingDebt > $1.remainingDebt }
+    }
+
+    private var totalLoanDebt: Double {
+        loans.reduce(0) { $0 + $1.remainingDebt }
+    }
+
+    // Kredilerin tamamının biteceği ay
+    private var lastLoanMonth: Date? {
+        loans.compactMap { $0.payment.lastInstallmentMonth() }.max()
     }
 
     private var cardTitle: String {
@@ -64,6 +87,48 @@ struct FixedPaymentsView: View {
                 }
                 .listRowInsets(EdgeInsets())
                 .listRowBackground(Color.clear)
+            }
+
+            // Kalan kredi borcu: taksitli ve tutarı sabit ödemeler.
+            // Kredi kartı gibi tutarı her ay değişen ve süresiz olanlar
+            // buraya girmez, çünkü onların bir "bitiş"i yok.
+            if !loans.isEmpty {
+                Section {
+                    HStack {
+                        Text(tr("Kalan toplam", "Remaining total"))
+                            .font(.headline)
+                        Spacer()
+                        Text(totalLoanDebt, format: .currency(code: "TRY"))
+                            .font(.headline)
+                            .foregroundStyle(.red)
+                    }
+
+                    ForEach(loans, id: \.payment.persistentModelID) { item in
+                        HStack(spacing: 12) {
+                            RowIcon(systemName: PaymentCategory.named(item.payment.category).icon,
+                                    color: PaymentCategory.named(item.payment.category).color)
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text(item.payment.name)
+                                Text(tr("\(item.remainingCount) taksit × \(item.payment.amount.formatted(.currency(code: "TRY")))",
+                                        "\(item.remainingCount) × \(item.payment.amount.formatted(.currency(code: "TRY")))"))
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                            }
+                            Spacer()
+                            Text(item.remainingDebt, format: .currency(code: "TRY"))
+                                .font(.callout.weight(.semibold))
+                        }
+                    }
+                } header: {
+                    Text(tr("Kalan Kredi Borcum", "Remaining Loan Debt"))
+                } footer: {
+                    if let last = lastLoanMonth {
+                        Text(tr("Kredi kartları hariç. Son taksit: \(last.formatted(.dateTime.month(.wide).year().locale(appLocale))).",
+                                "Excluding credit cards. Last installment: \(last.formatted(.dateTime.month(.wide).year().locale(appLocale)))."))
+                    } else {
+                        Text(tr("Kredi kartları hariç.", "Excluding credit cards."))
+                    }
+                }
             }
 
             Section {

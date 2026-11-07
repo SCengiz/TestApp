@@ -286,6 +286,54 @@ func refreshAllAssetPrices(_ context: ModelContext) async -> String? {
     return priceError
 }
 
+extension FixedPayment {
+    // Kalan taksit sayısı. Yalnızca taksit sayısı belli VE tutarı sabit olan
+    // ödemeler için anlamlıdır; kredi kartı ve fatura gibi tutarı her ay
+    // değişenlerde ya da süresiz ödemelerde nil döner.
+    //
+    // İçinde bulunulan ay, "Ödedim" işareti yoksa kalanlara dahildir.
+    func remainingInstallments(asOf month: Date = .now,
+                               paidRecords: [PaidPayment] = [],
+                               calendar: Calendar = .current) -> Int? {
+        guard let total = totalInstallments,
+              let first = firstPaymentDate,
+              !PaymentCategory.named(category).amountVaries,
+              let monthStart = calendar.dateInterval(of: .month, for: month)?.start,
+              let firstMonth = calendar.dateInterval(of: .month, for: first)?.start
+        else { return nil }
+
+        let diff = calendar.dateComponents([.month], from: firstMonth, to: monthStart).month ?? 0
+        let number = diff + 1
+        if number < 1 { return total }   // henüz başlamadı: tamamı borç
+        if number > total { return 0 }   // bitti
+
+        var remaining = total - number + 1 // bu ay dahil
+        if PaymentReminders.isPaid(self, inMonth: monthStart,
+                                   paidRecords: paidRecords, calendar: calendar) {
+            remaining -= 1
+        }
+        return max(0, remaining)
+    }
+
+    // Kalan toplam borç (kalan taksit × aylık tutar)
+    func remainingDebt(asOf month: Date = .now,
+                       paidRecords: [PaidPayment] = [],
+                       calendar: Calendar = .current) -> Double? {
+        guard let count = remainingInstallments(asOf: month, paidRecords: paidRecords,
+                                                calendar: calendar) else { return nil }
+        return Double(count) * amount
+    }
+
+    // Son taksitin düştüğü ay
+    func lastInstallmentMonth(calendar: Calendar = .current) -> Date? {
+        guard let total = totalInstallments, let first = firstPaymentDate,
+              let firstMonth = calendar.dateInterval(of: .month, for: first)?.start
+        else { return nil }
+        return calendar.date(byAdding: .month, value: total - 1, to: firstMonth)
+    }
+}
+
+
 extension Asset {
     // Fiyat DEĞİŞMEDİYSE hiçbir şey yazılmaz.
     //
