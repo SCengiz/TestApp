@@ -6,28 +6,23 @@ struct DailyExpensesView: View {
     @Query(sort: \Expense.date, order: .reverse) private var expenses: [Expense]
     @State private var showingAddSheet = false
     @State private var editingExpense: Expense? // dokunulan harcama düzenlenir
-    // Özet ekranındaki ay seçiliyken açılınca aynı ayla başlar
-    @State private var monthOffset: Int
+    // Özet ekranındaki dönem seçiliyken açılınca aynı dönemle başlar
+    @State private var period: PeriodSelection
 
-    init(startMonthOffset: Int = 0) {
-        _monthOffset = State(initialValue: startMonthOffset)
+    init(period: PeriodSelection = .thisMonth()) {
+        _period = State(initialValue: period)
     }
-
 
     private var calendar: Calendar { .current }
 
-    // Görüntülenen ay
-    private var selectedMonth: Date {
-        let thisMonth = calendar.dateInterval(of: .month, for: .now)!.start
-        return calendar.date(byAdding: .month, value: monthOffset, to: thisMonth)!
-    }
+    // Görüntülenen ay (yeni kayıt eklerken varsayılan ay olarak da kullanılır)
+    private var selectedMonth: Date { period.startMonth }
 
-    // Seçili ayın harcamaları. @Query zaten tarihe göre tersten sıralı geliyor,
-    // filtre bu sırayı bozmuyor; ayrıca sıralamaya gerek yok.
+    // Seçili dönemin harcamaları. @Query zaten tarihe göre tersten sıralı
+    // geliyor, filtre bu sırayı bozmuyor; ayrıca sıralamaya gerek yok.
     private var monthExpenses: [Expense] {
-        expenses.filter {
-            calendar.isDate($0.date, equalTo: selectedMonth, toGranularity: .month)
-        }
+        let range = period.interval
+        return expenses.filter { $0.date >= range.start && $0.date < range.end }
     }
 
     private var monthTotal: Double {
@@ -35,9 +30,10 @@ struct DailyExpensesView: View {
     }
 
     private var cardTitle: String {
-        monthOffset == 0
-            ? tr("Bu Ay Toplam", "This Month Total")
-            : selectedMonth.formatted(.dateTime.month(.wide).year().locale(appLocale))
+        if period.startOffset == 0 && !period.isRange {
+            return tr("Bu Ay Toplam", "This Month Total")
+        }
+        return period.title
     }
 
     // Harcamaları günlere göre grupla (günler ve gün içi kayıtlar kronolojik).
@@ -64,15 +60,17 @@ struct DailyExpensesView: View {
                     icon: "cart.fill",
                     colors: [.pink, .red]
                 )
-                // Ay gezinme okları: 3 ay geri / 3 ay ileri
+                // Oklar komşu aylar için; takvim düğmesi herhangi bir aya
+                // atlamak ya da ay aralığı seçmek için
                 .overlay(alignment: .trailing) {
                     HStack(spacing: 8) {
-                        monthArrow("chevron.left", enabled: monthOffset > -3) {
-                            monthOffset -= 1
+                        monthArrow("chevron.left", enabled: true) {
+                            period.shift(by: -1)
                         }
-                        monthArrow("chevron.right", enabled: monthOffset < 3) {
-                            monthOffset += 1
+                        monthArrow("chevron.right", enabled: true) {
+                            period.shift(by: 1)
                         }
+                        PeriodPickerButton(period: $period, tint: .white)
                     }
                     .padding(.trailing, 14)
                 }
@@ -136,9 +134,9 @@ struct DailyExpensesView: View {
         .overlay {
             if groupedByDay.isEmpty {
                 ContentUnavailableView(
-                    monthOffset > 0 ? tr("Bu aya planlanmış harcama yok", "No planned spending this month") : tr("Bu ayda harcama yok", "No spending this month"),
+                    period.startOffset > 0 ? tr("Bu aya planlanmış harcama yok", "No planned spending this month") : tr("Bu dönemde harcama yok", "No spending in this period"),
                     systemImage: "cart",
-                    description: Text(monthOffset == 0
+                    description: Text(period.startOffset == 0 && !period.isRange
                                       ? tr("Sağ üstteki + ile ilk harcamanı ekle.", "Add your first expense with + at the top right.")
                                       : tr("Karttaki oklarla aylar arasında gezinebilirsin.", "Use the arrows on the card to browse months."))
                 )

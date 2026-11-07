@@ -7,21 +7,17 @@ struct FixedPaymentsView: View {
     @Query private var monthlyAmounts: [PaymentMonthAmount]
     @State private var showingAddSheet = false
     @State private var editingPayment: FixedPayment?
-    // Özet ekranındaki ay seçiliyken açılınca aynı ayla başlar
-    @State private var monthOffset: Int
+    // Özet ekranındaki dönem seçiliyken açılınca aynı dönemle başlar
+    @State private var period: PeriodSelection
 
-    init(startMonthOffset: Int = 0) {
-        _monthOffset = State(initialValue: startMonthOffset)
+    init(period: PeriodSelection = .thisMonth()) {
+        _period = State(initialValue: period)
     }
-
 
     private var calendar: Calendar { .current }
 
-    // Görüntülenen ay
-    private var selectedMonth: Date {
-        let thisMonth = calendar.dateInterval(of: .month, for: .now)!.start
-        return calendar.date(byAdding: .month, value: monthOffset, to: thisMonth)!
-    }
+    // Görüntülenen ay (aralık seçiliyse başlangıç ayı)
+    private var selectedMonth: Date { period.startMonth }
 
     // Seçili ayda geçerli ödemeler (biten taksitler ve başka aya özel
     // tek seferlikler o ayda listelenmez)
@@ -29,12 +25,17 @@ struct FixedPaymentsView: View {
         payments.filter { $0.isActive(inMonth: selectedMonth) }
     }
 
+    // Tek ayda o ayın toplamı; aralık seçiliyse aralıktaki bütün ayların toplamı
     private var monthlyTotal: Double {
-        monthPayments.reduce(0) { $0 + $1.amount(inMonth: selectedMonth, monthlyAmounts: monthlyAmounts) }
+        period.months.reduce(0) { running, month in
+            running + payments
+                .filter { $0.isActive(inMonth: month) }
+                .reduce(0) { $0 + $1.amount(inMonth: month, monthlyAmounts: monthlyAmounts) }
+        }
     }
 
     private var cardTitle: String {
-        monthOffset == 0
+        period.startOffset == 0 && !period.isRange
             ? tr("Bu Ay Toplam", "This Month Total")
             : selectedMonth.formatted(.dateTime.month(.wide).year().locale(appLocale))
     }
@@ -51,12 +52,13 @@ struct FixedPaymentsView: View {
                 // Ay gezinme okları: 3 ay geri / 3 ay ileri
                 .overlay(alignment: .trailing) {
                     HStack(spacing: 8) {
-                        monthArrow("chevron.left", enabled: monthOffset > -3) {
-                            monthOffset -= 1
+                        monthArrow("chevron.left", enabled: true) {
+                            period.shift(by: -1)
                         }
-                        monthArrow("chevron.right", enabled: monthOffset < 3) {
-                            monthOffset += 1
+                        monthArrow("chevron.right", enabled: true) {
+                            period.shift(by: 1)
                         }
+                        PeriodPickerButton(period: $period, tint: .white)
                     }
                     .padding(.trailing, 14)
                 }
@@ -95,7 +97,7 @@ struct FixedPaymentsView: View {
             } header: {
                 Text(tr("Sabit Ödemeler", "Fixed Payments"))
             } footer: {
-                Text(monthOffset == 0
+                Text(period.startOffset == 0 && !period.isRange
                      ? tr("Düzenlemek veya silmek için ödemeye dokun. Karttaki oklarla geçmiş ve gelecek ayların planını görebilirsin.", "Tap a payment to edit or delete. Use the arrows on the card to see past and future months.")
                      : tr("Bu ayda ödenen/ödenecek kalemler. Değişiklikler tüm aylara yansır.", "Payments due in this month. Changes apply to all months."))
             }
@@ -117,11 +119,11 @@ struct FixedPaymentsView: View {
         .overlay {
             if monthPayments.isEmpty {
                 ContentUnavailableView(
-                    monthOffset == 0
+                    period.startOffset == 0 && !period.isRange
                         ? tr("Henüz sabit ödeme yok", "No fixed payments yet")
-                        : tr("Bu aya ödeme yok", "No payments this month"),
+                        : tr("Bu dönemde ödeme yok", "No payments in this period"),
                     systemImage: "creditcard",
-                    description: Text(monthOffset == 0
+                    description: Text(period.startOffset == 0 && !period.isRange
                                       ? tr("Kredi kartı ekstresi, kredi taksidi gibi her ay tekrarlayan ödemeleri + ile ekle.", "Add recurring payments like card statements or loan installments with +.")
                                       : tr("Karttaki oklarla aylar arasında gezinebilirsin.", "Use the arrows on the card to browse months."))
                 )

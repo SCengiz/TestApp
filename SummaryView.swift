@@ -11,7 +11,7 @@ struct SummaryView: View {
     @State private var chartTap: Date? // grafiğe dokunulan ay
     @State private var detailMonth: MonthSelection? // dökümü açılan ay
     @State private var selectedCategory: ExpenseCategory? // detayı açılan kategori
-    @State private var categoryMonthOffset = 0 // Harcama Dağılımı: -3...+3 ay
+    @State private var period = PeriodSelection.thisMonth() // tek ay ya da aralık
 
     private var calendar: Calendar { .current }
 
@@ -39,17 +39,20 @@ struct SummaryView: View {
     // Ham "amount" alanı DEĞİL, o ayın tutarı kullanılır: kredi kartı gibi tutarı
     // her ay değişen ödemelerde ekstre girilmemişse o ay 0 sayılır.
     private var fixedTotal: Double {
-        payments
-            .filter { $0.isActive(inMonth: categoryMonth, calendar: calendar) }
-            .reduce(0) { $0 + $1.amount(inMonth: categoryMonth, monthlyAmounts: monthlyAmounts,
-                                        calendar: calendar) }
+        period.months.reduce(0) { running, month in
+            running + payments
+                .filter { $0.isActive(inMonth: month, calendar: calendar) }
+                .reduce(0) { $0 + $1.amount(inMonth: month, monthlyAmounts: monthlyAmounts,
+                                            calendar: calendar) }
+        }
     }
 
     // Aylık durum: 3 ay geri + bu ay + 3 ay ileri, sadece sabit giderler
     // (Günlük harcamalar kredi kartıyla yapılıp ekstre olarak sabitlerde ödendiği
     //  için toplam gider = sabit giderler; ayrıca toplamak çift sayma olur.)
     private var monthlyStatus: [(date: Date, fixed: Double, isFuture: Bool)] {
-        let thisMonth = calendar.dateInterval(of: .month, for: .now)!.start
+        // Seçili ayın etrafındaki 7 ay: hangi aya gidersen grafik de oraya kayar
+        let thisMonth = categoryMonth
         return (-3...3).map { offset in
             let month = calendar.date(byAdding: .month, value: offset, to: thisMonth)!
             let fixed = payments
@@ -60,42 +63,43 @@ struct SummaryView: View {
         }
     }
 
-    // Harcama Dağılımı'nda görüntülenen ay (oklarla -3...+3 gezilir)
-    private var categoryMonth: Date {
-        let thisMonth = calendar.dateInterval(of: .month, for: .now)!.start
-        return calendar.date(byAdding: .month, value: categoryMonthOffset, to: thisMonth)!
-    }
+    // Seçili dönemin başlangıç ayı (ödeme planı grafiği buna göre ortalanır)
+    private var categoryMonth: Date { period.startMonth }
 
-    // Sayfanın tepesindeki ay seçici: hem iki kutuyu hem de dağılımı yönetir
+    // Sayfanın tepesindeki dönem seçici: iki kutuyu ve dağılımı birlikte yönetir.
+    // Oklarda sınır yok; takvim düğmesi istenen aya atlamak ya da ay aralığı
+    // seçmek için.
     private var monthPicker: some View {
-        HStack(spacing: 12) {
+        HStack(spacing: 10) {
             Button {
-                withAnimation { categoryMonthOffset -= 1 }
+                withAnimation { period.shift(by: -1) }
             } label: {
                 Image(systemName: "chevron.left")
                     .font(.body.weight(.bold))
-                    .foregroundStyle(categoryMonthOffset > -3 ? Color.accentColor : .gray.opacity(0.35))
+                    .foregroundStyle(Color.accentColor)
                     .frame(width: 34, height: 34)
                     .background(Circle().fill(Color(.secondarySystemGroupedBackground)))
             }
             .buttonStyle(.plain)
-            .disabled(categoryMonthOffset <= -3)
 
-            Text(categoryMonth, format: .dateTime.month(.wide).year().locale(appLocale))
+            Text(period.title)
                 .font(.headline)
+                .lineLimit(1)
+                .minimumScaleFactor(0.7)
                 .frame(maxWidth: .infinity)
 
             Button {
-                withAnimation { categoryMonthOffset += 1 }
+                withAnimation { period.shift(by: 1) }
             } label: {
                 Image(systemName: "chevron.right")
                     .font(.body.weight(.bold))
-                    .foregroundStyle(categoryMonthOffset < 3 ? Color.accentColor : .gray.opacity(0.35))
+                    .foregroundStyle(Color.accentColor)
                     .frame(width: 34, height: 34)
                     .background(Circle().fill(Color(.secondarySystemGroupedBackground)))
             }
             .buttonStyle(.plain)
-            .disabled(categoryMonthOffset >= 3)
+
+            PeriodPickerButton(period: $period)
         }
     }
 
@@ -107,10 +111,10 @@ struct SummaryView: View {
 
                     // Kutulara dokununca ilgili sayfa açılır
                     HStack(spacing: 12) {
-                        MonthSpendingCard(month: categoryMonth, monthOffset: categoryMonthOffset)
+                        MonthSpendingCard(period: period)
 
                         NavigationLink {
-                            FixedPaymentsView(startMonthOffset: categoryMonthOffset)
+                            FixedPaymentsView(period: period)
                         } label: {
                             StatCard(
                                 title: tr("Sabit Giderler", "Fixed Expenses"),
@@ -123,8 +127,7 @@ struct SummaryView: View {
                     .buttonStyle(.plain)
                     .fixedSize(horizontal: false, vertical: true)
 
-                    CategoryBreakdownCard(month: categoryMonth,
-                                          monthOffset: categoryMonthOffset,
+                    CategoryBreakdownCard(period: period,
                                           onSelect: { selectedCategory = $0 })
 
                     // Aylık durum: 6 ay geri + bu ay + 6 ay ileri, sabit giderler (gelecek = plan)
@@ -183,7 +186,7 @@ struct SummaryView: View {
             .navigationTitle(tr("Giderler", "Expenses"))
             // Kategoriye dokununca alttan açılan yarım ekran detay paneli
             .sheet(item: $selectedCategory) { category in
-                CategoryDetailSheet(category: category, month: categoryMonth)
+                CategoryDetailSheet(category: category, period: period)
                 .presentationDetents([.medium, .large])
                 .presentationDragIndicator(.visible)
             }
@@ -222,15 +225,12 @@ struct SummaryView: View {
 // Kategoriye dokununca açılan yarım ekran detay paneli
 struct CategoryDetailSheet: View {
     let category: ExpenseCategory
-    // Yalnızca o ayın kayıtları sorgulanır
+    // Yalnızca seçili dönemin kayıtları sorgulanır
     @Query(sort: \Expense.date, order: .reverse) private var expenses: [Expense]
 
-    init(category: ExpenseCategory, month: Date) {
+    init(category: ExpenseCategory, period: PeriodSelection) {
         self.category = category
-        let calendar = Calendar.current
-        let interval = calendar.dateInterval(of: .month, for: month)
-            ?? DateInterval(start: month, duration: 0)
-        let start = interval.start, end = interval.end
+        let start = period.interval.start, end = period.interval.end
         let name = category.name
         _expenses = Query(filter: #Predicate<Expense> {
             $0.date >= start && $0.date < end && $0.category == name
@@ -300,15 +300,12 @@ struct CategoryDetailSheet: View {
 // (akıcılık için 16 ms gerekiyor) ve arayüz gözle görülür şekilde kasıyordu.
 
 struct MonthSpendingCard: View {
-    let monthOffset: Int
+    let period: PeriodSelection
     @Query private var monthExpenses: [Expense]
 
-    init(month: Date, monthOffset: Int) {
-        self.monthOffset = monthOffset
-        let calendar = Calendar.current
-        let interval = calendar.dateInterval(of: .month, for: month)
-            ?? DateInterval(start: month, duration: 0)
-        let start = interval.start, end = interval.end
+    init(period: PeriodSelection) {
+        self.period = period
+        let start = period.interval.start, end = period.interval.end
         _monthExpenses = Query(filter: #Predicate<Expense> {
             $0.date >= start && $0.date < end
         })
@@ -316,7 +313,7 @@ struct MonthSpendingCard: View {
 
     var body: some View {
         NavigationLink {
-            DailyExpensesView(startMonthOffset: monthOffset)
+            DailyExpensesView(period: period)
         } label: {
             StatCard(title: tr("Kredi Kartı Harcamalarım", "Credit Card Spending"),
                      amount: monthExpenses.reduce(0) { $0 + $1.amount },
@@ -327,17 +324,14 @@ struct MonthSpendingCard: View {
 }
 
 struct CategoryBreakdownCard: View {
-    let monthOffset: Int
+    let period: PeriodSelection
     var onSelect: (ExpenseCategory) -> Void
     @Query private var monthExpenses: [Expense]
 
-    init(month: Date, monthOffset: Int, onSelect: @escaping (ExpenseCategory) -> Void) {
-        self.monthOffset = monthOffset
+    init(period: PeriodSelection, onSelect: @escaping (ExpenseCategory) -> Void) {
+        self.period = period
         self.onSelect = onSelect
-        let calendar = Calendar.current
-        let interval = calendar.dateInterval(of: .month, for: month)
-            ?? DateInterval(start: month, duration: 0)
-        let start = interval.start, end = interval.end
+        let start = period.interval.start, end = period.interval.end
         _monthExpenses = Query(filter: #Predicate<Expense> {
             $0.date >= start && $0.date < end
         })
@@ -372,7 +366,7 @@ struct CategoryBreakdownCard: View {
                 .font(.headline)
 
             if items.isEmpty {
-                Text(monthOffset > 0
+                Text(period.startOffset > 0
                      ? tr("Bu aya planlanmış harcama yok (taksitli alışverişler burada görünür).",
                           "No planned spending for this month (installments show up here).")
                      : tr("Bu ayda harcama yok.", "No spending this month."))

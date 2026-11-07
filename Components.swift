@@ -200,3 +200,212 @@ func localizedDataName(_ name: String) -> String {
     ]
     return map[name] ?? name
 }
+
+// Ekranların baktığı dönem: tek bir ay ya da ay aralığı.
+// Her iki uç da bugünün ayına göre "kaç ay" olarak tutulur, böylece
+// ekranlar arasında taşınabiliyor ve takvim ilerleyince kendiliğinden kayıyor.
+struct PeriodSelection: Equatable {
+    var startOffset: Int = 0
+    var endOffset: Int = 0 // tek ay seçiliyken startOffset ile aynı
+
+    var isRange: Bool { endOffset != startOffset }
+
+    static func thisMonth() -> PeriodSelection { PeriodSelection() }
+
+    private static var calendar: Calendar { .current }
+
+    private static var currentMonth: Date {
+        calendar.dateInterval(of: .month, for: .now)!.start
+    }
+
+    func month(at offset: Int) -> Date {
+        Self.calendar.date(byAdding: .month, value: offset, to: Self.currentMonth)!
+    }
+
+    var startMonth: Date { month(at: min(startOffset, endOffset)) }
+    var endMonth: Date { month(at: max(startOffset, endOffset)) }
+
+    // Sorgularda kullanılan zaman aralığı: başlangıç ayının ilkinden
+    // bitiş ayının sonuna kadar
+    var interval: DateInterval {
+        let cal = Self.calendar
+        let start = cal.dateInterval(of: .month, for: startMonth)?.start ?? startMonth
+        let end = cal.dateInterval(of: .month, for: endMonth)?.end ?? endMonth
+        return DateInterval(start: start, end: max(end, start))
+    }
+
+    // Aralıktaki ayların tamamı (tek ay seçiliyse tek elemanlı)
+    var months: [Date] {
+        let cal = Self.calendar
+        var result: [Date] = []
+        var cursor = startMonth
+        while cursor < interval.end {
+            result.append(cursor)
+            guard let next = cal.date(byAdding: .month, value: 1, to: cursor) else { break }
+            cursor = next
+        }
+        return result.isEmpty ? [startMonth] : result
+    }
+
+    var title: String {
+        if !isRange {
+            return startMonth.formatted(.dateTime.month(.wide).year().locale(appLocale))
+        }
+        let from = startMonth.formatted(.dateTime.month(.abbreviated).year().locale(appLocale))
+        let to = endMonth.formatted(.dateTime.month(.abbreviated).year().locale(appLocale))
+        return "\(from) – \(to)"
+    }
+
+    // Oklarla kaydırma: aralık seçiliyken pencere bütün olarak kayar
+    mutating func shift(by months: Int) {
+        startOffset += months
+        endOffset += months
+    }
+}
+
+// Dönem seçici: istenen aya atlama ve ay aralığı seçme.
+//
+// Oklar komşu aylarda gezinmek için; bu düğme "beş yıl önceki şubatı aç" ya da
+// "2025'in tamamını göster" içindir. Hiçbir kayıt silinmediği için eski aylar
+// her zaman erişilebilir.
+struct PeriodPickerButton: View {
+    @Binding var period: PeriodSelection
+    var tint: Color = .accentColor
+
+    @State private var showing = false
+    @State private var rangeMode = false
+    @State private var fromYear = Calendar.current.component(.year, from: .now)
+    @State private var fromMonth = Calendar.current.component(.month, from: .now)
+    @State private var toYear = Calendar.current.component(.year, from: .now)
+    @State private var toMonth = Calendar.current.component(.month, from: .now)
+
+    private var calendar: Calendar { .current }
+
+    private var yearRange: [Int] {
+        let thisYear = calendar.component(.year, from: .now)
+        return Array((thisYear - 20)...(thisYear + 5))
+    }
+
+    var body: some View {
+        Button {
+            prepare()
+            showing = true
+        } label: {
+            Image(systemName: period.isRange ? "calendar.badge.clock" : "calendar")
+                .font(.body.weight(.semibold))
+                .foregroundStyle(tint)
+                .frame(width: 34, height: 34)
+                .background(Circle().fill(Color(.secondarySystemGroupedBackground)))
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel(tr("Dönem seç", "Choose period"))
+        .sheet(isPresented: $showing) { sheet }
+    }
+
+    private var sheet: some View {
+        NavigationStack {
+            VStack(spacing: 12) {
+                Picker("", selection: $rangeMode.animation()) {
+                    Text(tr("Tek Ay", "Single Month")).tag(false)
+                    Text(tr("Aralık", "Range")).tag(true)
+                }
+                .pickerStyle(.segmented)
+                .padding(.horizontal)
+
+                monthWheels(title: rangeMode ? tr("Başlangıç", "From") : nil,
+                            year: $fromYear, month: $fromMonth)
+
+                if rangeMode {
+                    monthWheels(title: tr("Bitiş", "To"), year: $toYear, month: $toMonth)
+                }
+
+                Text(tr("Hiçbir kayıt silinmez; istediğin kadar geriye gidebilirsin.",
+                        "Nothing is ever deleted; you can go as far back as you like."))
+                    .font(.footnote)
+                    .foregroundStyle(.secondary)
+                    .multilineTextAlignment(.center)
+                    .padding(.horizontal)
+
+                Spacer(minLength: 0)
+            }
+            .padding(.top, 8)
+            .navigationTitle(tr("Dönem Seç", "Choose Period"))
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button(tr("Vazgeç", "Cancel")) { showing = false }
+                }
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button(tr("Bu Ay", "Today")) {
+                        period = .thisMonth()
+                        showing = false
+                    }
+                }
+                ToolbarItem(placement: .confirmationAction) {
+                    Button(tr("Göster", "Show")) {
+                        apply()
+                        showing = false
+                    }
+                }
+            }
+        }
+        .presentationDetents([.height(rangeMode ? 520 : 340)])
+    }
+
+    @ViewBuilder
+    private func monthWheels(title: String?, year: Binding<Int>, month: Binding<Int>) -> some View {
+        VStack(alignment: .leading, spacing: 2) {
+            if let title {
+                Text(title)
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(.secondary)
+                    .padding(.horizontal)
+            }
+            HStack(spacing: 0) {
+                Picker(tr("Ay", "Month"), selection: month) {
+                    ForEach(1...12, id: \.self) { m in Text(monthName(m)).tag(m) }
+                }
+                .pickerStyle(.wheel)
+                .frame(maxWidth: .infinity)
+
+                Picker(tr("Yıl", "Year"), selection: year) {
+                    ForEach(yearRange, id: \.self) { y in Text(String(y)).tag(y) }
+                }
+                .pickerStyle(.wheel)
+                .frame(maxWidth: .infinity)
+            }
+            .frame(height: 150)
+        }
+    }
+
+    private func monthName(_ month: Int) -> String {
+        guard let date = calendar.date(from: DateComponents(year: 2000, month: month, day: 1))
+        else { return String(month) }
+        return date.formatted(.dateTime.month(.wide).locale(appLocale))
+    }
+
+    private func prepare() {
+        rangeMode = period.isRange
+        fromYear = calendar.component(.year, from: period.startMonth)
+        fromMonth = calendar.component(.month, from: period.startMonth)
+        toYear = calendar.component(.year, from: period.endMonth)
+        toMonth = calendar.component(.month, from: period.endMonth)
+    }
+
+    private func offset(year: Int, month: Int) -> Int? {
+        let thisMonth = calendar.dateInterval(of: .month, for: .now)!.start
+        guard let target = calendar.date(from: DateComponents(year: year, month: month, day: 1))
+        else { return nil }
+        return calendar.dateComponents([.month], from: thisMonth, to: target).month
+    }
+
+    private func apply() {
+        guard let start = offset(year: fromYear, month: fromMonth) else { return }
+        if rangeMode, let end = offset(year: toYear, month: toMonth) {
+            // Ters seçilse bile düzgün çalışsın
+            period = PeriodSelection(startOffset: min(start, end), endOffset: max(start, end))
+        } else {
+            period = PeriodSelection(startOffset: start, endOffset: start)
+        }
+    }
+}
