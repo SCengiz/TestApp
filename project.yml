@@ -19,6 +19,10 @@ targets:
       path: Info.plist
       properties:
         CFBundleDisplayName: İyi Bütçe
+        # Telefondaki sürümün doğrulanabilmesi için yapı numarası.
+        # Info.plist xcodegen tarafından BURADAN üretilir; dosyayı elle
+        # düzenlemek işe yaramaz, her generate'te üzerine yazılır.
+        CFBundleVersion: $(CURRENT_PROJECT_VERSION)
         UILaunchScreen: {}
         UISupportedInterfaceOrientations:
           - UIInterfaceOrientationPortrait
