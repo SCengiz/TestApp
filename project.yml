@@ -28,7 +28,7 @@ targets:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.soraycengiz.TestApp
         MARKETING_VERSION: "1.0"
-        CURRENT_PROJECT_VERSION: "20261108"
+        CURRENT_PROJECT_VERSION: "20261108b"
         CODE_SIGN_STYLE: Automatic
         DEVELOPMENT_TEAM: CQZBRVT8JN
         TARGETED_DEVICE_FAMILY: "1"

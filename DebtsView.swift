@@ -65,8 +65,6 @@ struct DebtsView: View {
     @Query private var payments: [FixedPayment]
     @Query private var paidRecords: [PaidPayment]
     @Query private var monthlyAmounts: [PaymentMonthAmount]
-    @State private var showingAddSheet = false
-    @State private var editingDebt: Debt?
     @State private var priceError: String?
     @State private var isRefreshing = false
     @State private var lastUpdate: Date?
@@ -111,9 +109,11 @@ struct DebtsView: View {
                 Section {
                     StatCard(
                         title: tr("Toplam Borcum", "Total Debt"),
-                        amount: totalTL,
-                        icon: "person.2.fill",
+                        amount: overallDebt,
+                        icon: "creditcard.and.123",
                         colors: [.red, .orange],
+                        // Rozet kişilere olan emtia borçlarındaki kur artışını
+                        // gösterir; kredilerde kur riski yok
                         profit: hasCommodityDebt ? totalIncrease : nil,
                         profitPercent: totalIncreasePercent,
                         invertProfitColors: true
@@ -122,17 +122,24 @@ struct DebtsView: View {
                     .listRowBackground(Color.clear)
                 }
 
-                // Genel borç durumu: kişilere olan borçlar + banka kredileri.
-                // Kredi kartları buraya girmez; onlar aylık ekstre, kalan
-                // bir anapara borcu değil.
-                if loanDebt > 0 {
-                    Section {
+                // Borç dağılımı. Ayrıntılar kendi ekranlarında:
+                // kişilere olan borçlar ve banka kredileri ayrı ayrı.
+                // Kredi kartları hiçbirine girmez; onlar aylık ekstre,
+                // kalan bir anapara borcu değil.
+                Section {
+                    NavigationLink {
+                        PersonDebtsDetailView()
+                    } label: {
                         LabeledContent {
                             Text(totalTL, format: .currency(code: "TRY"))
                         } label: {
-                            Label(tr("Kişilere borcum", "Owed to people"),
+                            Label(tr("Kişilere borcum (\(debts.count))",
+                                     "Owed to people (\(debts.count))"),
                                   systemImage: "person.2.fill")
                         }
+                    }
+
+                    if loanDebt > 0 {
                         NavigationLink {
                             LoanDebtDetailView()
                         } label: {
@@ -144,66 +151,12 @@ struct DebtsView: View {
                                       systemImage: "building.columns.fill")
                             }
                         }
-                        LabeledContent {
-                            Text(overallDebt, format: .currency(code: "TRY"))
-                                .font(.headline)
-                                .foregroundStyle(.red)
-                        } label: {
-                            Text(tr("Toplam", "Total"))
-                                .font(.headline)
-                        }
-                    } header: {
-                        Text(tr("Genel Borç Durumum", "Overall Debt"))
-                    } footer: {
-                        Text(tr("Kredi borcu, kalan taksitlerin toplamıdır; kredi kartları dahil değildir. Kredi kredi dökümü için satıra dokun.",
-                                "Loan debt is the sum of remaining installments; credit cards are not included. Tap the row for a loan-by-loan breakdown."))
                     }
-                }
-
-                Section {
-                    ForEach(debts) { debt in
-                        let kind = DebtKind(rawValue: debt.kind) ?? .tl
-                        Button {
-                            editingDebt = debt
-                        } label: {
-                            HStack(spacing: 12) {
-                                RowIcon(systemName: kind.icon, color: kind.color)
-                                VStack(alignment: .leading, spacing: 2) {
-                                    Text(debt.name)
-                                        .foregroundStyle(.primary)
-                                    Text(subtitle(for: debt, kind: kind))
-                                        .font(.caption)
-                                        .foregroundStyle(.secondary)
-                                }
-                                Spacer()
-                                Text(debt.valueTL, format: .currency(code: "TRY"))
-                                    .font(.callout.weight(.semibold))
-                                    .foregroundStyle(.primary)
-                                Image(systemName: "chevron.right")
-                                    .font(.caption.weight(.semibold))
-                                    .foregroundStyle(.tertiary)
-                            }
-                        }
-                        .buttonStyle(.plain)
-                    }
-                    .onDelete(perform: deleteDebts)
                 } header: {
-                    HStack {
-                        Text(tr("Borçlarım", "My Debts"))
-                        Spacer()
-                        if isRefreshing {
-                            ProgressView()
-                                .controlSize(.mini)
-                        }
-                    }
+                    Text(tr("Borç Dağılımım", "Debt Breakdown"))
                 } footer: {
-                    if let priceError {
-                        Text("⚠️ \(priceError)")
-                    } else if let lastUpdate {
-                        Text(tr("Kurlar güncel · son güncelleme \(lastUpdate.formatted(date: .omitted, time: .shortened)). Aşağı çekerek yenileyebilirsin; ödediğin borca dokunup silebilirsin.", "Rates up to date · last update \(lastUpdate.formatted(date: .omitted, time: .shortened)). Pull to refresh; tap a paid debt to delete."))
-                    } else {
-                        Text(tr("Altın ve dolar borçları güncel satış kurundan TL'ye çevrilir; aşağı çekerek kurları yenile. Ödediğin borca dokunup silebilirsin.", "Gold and dollar debts convert to TL at the current sell rate; pull to refresh. Tap a paid debt to delete."))
-                    }
+                    Text(tr("Dökümü görmek için satıra dokun. Kredi borcu kalan taksitlerin toplamıdır; kredi kartları dahil değildir.",
+                            "Tap a row for the breakdown. Loan debt is the sum of remaining installments; credit cards are not included."))
                 }
             }
             .navigationTitle(tr("Borçlar", "Debts"))
@@ -211,29 +164,17 @@ struct DebtsView: View {
                 ToolbarItem(placement: .topBarLeading) {
                     ProfileButton(loggedInUser: $loggedInUser)
                 }
-                ToolbarItem(placement: .topBarTrailing) {
-                    Button {
-                        showingAddSheet = true
-                    } label: {
-                        Label(tr("Borç Ekle", "Add Debt"), systemImage: "plus")
-                    }
-                }
             }
             .refreshable {
                 await refreshRates()
             }
-            .sheet(isPresented: $showingAddSheet) {
-                DebtFormView(debt: nil)
-            }
-            .sheet(item: $editingDebt) { debt in
-                DebtFormView(debt: debt)
-            }
             .overlay {
-                if debts.isEmpty {
+                if debts.isEmpty && loanDebt == 0 {
                     ContentUnavailableView(
                         tr("Henüz borç yok", "No debts yet"),
                         systemImage: "person.2",
-                        description: Text(tr("Sağ üstteki + ile elden aldığın borçları ekle: TL, dolar veya altın.", "Add debts with + at the top right: TL, dollars or gold."))
+                        description: Text(tr("Kişilere borcunu bu ekrandan, kredilerini Sabit Giderler'den ekleyebilirsin.",
+                                             "Add personal debts here and loans from Fixed Expenses."))
                     )
                 }
             }
@@ -252,22 +193,6 @@ struct DebtsView: View {
             .onChange(of: debts.count) {
                 Task { await refreshRates() }
             }
-        }
-    }
-
-    private func subtitle(for debt: Debt, kind: DebtKind) -> String {
-        let qty = debt.quantity.formatted(.number.precision(.fractionLength(0...2)))
-        let date = debt.date.formatted(.dateTime.day().month(.abbreviated).year().locale(appLocale))
-        if kind == .tl {
-            return "\(kind.title) · \(date)"
-        }
-        let rate = debt.lastKnownRate.formatted(.currency(code: "TRY"))
-        return "\(qty) \(kind.unitLabel) × \(rate) · \(date)"
-    }
-
-    private func deleteDebts(at offsets: IndexSet) {
-        for index in offsets {
-            modelContext.delete(debts[index])
         }
     }
 
@@ -537,5 +462,157 @@ struct LoanDebtDetailView: View {
                                                             "You have no fixed payments with installments.")))
             }
         }
+    }
+}
+
+// Borçlar ekranındaki "Kişilere borcum" satırına dokununca açılan liste.
+// Elden alınan borçlar burada: ekleme, düzenleme, silme ve kur yenileme.
+struct PersonDebtsDetailView: View {
+    @Environment(\.modelContext) private var modelContext
+    @Query(sort: \Debt.date, order: .reverse) private var debts: [Debt]
+    @State private var showingAddSheet = false
+    @State private var editingDebt: Debt?
+    @State private var priceError: String?
+    @State private var isRefreshing = false
+    @State private var lastUpdate: Date?
+
+    private var totalTL: Double { debts.reduce(0) { $0 + $1.valueTL } }
+    private var hasCommodityDebt: Bool { debts.contains { $0.kind != "tl" } }
+    private var totalIncrease: Double { debts.reduce(0) { $0 + $1.increaseTL } }
+
+    private var totalIncreasePercent: Double? {
+        let base = debts.reduce(0) { $0 + $1.initialValueTL }
+        guard base > 0 else { return nil }
+        return totalIncrease / base * 100
+    }
+
+    var body: some View {
+        List {
+            Section {
+                StatCard(title: tr("Kişilere Borcum", "Owed to People"),
+                         amount: totalTL,
+                         icon: "person.2.fill",
+                         colors: [.red, .orange],
+                         profit: hasCommodityDebt ? totalIncrease : nil,
+                         profitPercent: totalIncreasePercent,
+                         invertProfitColors: true)
+                    .listRowInsets(EdgeInsets())
+                    .listRowBackground(Color.clear)
+            }
+
+            Section {
+                ForEach(debts) { debt in
+                    let kind = DebtKind(rawValue: debt.kind) ?? .tl
+                    Button {
+                        editingDebt = debt
+                    } label: {
+                        HStack(spacing: 12) {
+                            RowIcon(systemName: kind.icon, color: kind.color)
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text(debt.name)
+                                    .foregroundStyle(.primary)
+                                Text(subtitle(for: debt, kind: kind))
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                            }
+                            Spacer()
+                            Text(debt.valueTL, format: .currency(code: "TRY"))
+                                .font(.callout.weight(.semibold))
+                                .foregroundStyle(.primary)
+                            Image(systemName: "chevron.right")
+                                .font(.caption.weight(.semibold))
+                                .foregroundStyle(.tertiary)
+                        }
+                    }
+                    .buttonStyle(.plain)
+                }
+                .onDelete(perform: deleteDebts)
+            } header: {
+                HStack {
+                    Text(tr("Borçlarım", "My Debts"))
+                    Spacer()
+                    if isRefreshing { ProgressView().controlSize(.mini) }
+                }
+            } footer: {
+                if let priceError {
+                    Text("⚠️ \(priceError)")
+                } else if let lastUpdate {
+                    Text(tr("Kurlar güncel · son güncelleme \(lastUpdate.formatted(date: .omitted, time: .shortened)). Aşağı çekerek yenileyebilirsin; ödediğin borca dokunup silebilirsin.",
+                            "Rates up to date · last update \(lastUpdate.formatted(date: .omitted, time: .shortened)). Pull to refresh; tap a paid debt to delete."))
+                } else {
+                    Text(tr("Altın ve dolar borçları güncel satış kurundan TL'ye çevrilir; aşağı çekerek kurları yenile. Ödediğin borca dokunup silebilirsin.",
+                            "Gold and dollar debts convert to TL at the current sell rate; pull to refresh. Tap a paid debt to delete."))
+                }
+            }
+        }
+        .navigationTitle(tr("Kişilere Borcum", "Owed to People"))
+        .navigationBarTitleDisplayMode(.inline)
+        .toolbar {
+            ToolbarItem(placement: .topBarTrailing) {
+                Button {
+                    showingAddSheet = true
+                } label: {
+                    Label(tr("Borç Ekle", "Add Debt"), systemImage: "plus")
+                }
+            }
+        }
+        .refreshable { await refreshRates() }
+        .sheet(isPresented: $showingAddSheet) { DebtFormView(debt: nil) }
+        .sheet(item: $editingDebt) { debt in DebtFormView(debt: debt) }
+        .overlay {
+            if debts.isEmpty {
+                ContentUnavailableView(
+                    tr("Henüz borç yok", "No debts yet"),
+                    systemImage: "person.2",
+                    description: Text(tr("Sağ üstteki + ile elden aldığın borçları ekle: TL, dolar veya altın.",
+                                         "Add debts with + at the top right: TL, dollars or gold."))
+                )
+            }
+        }
+        .onAppear { Task { await refreshRates() } }
+    }
+
+    private func subtitle(for debt: Debt, kind: DebtKind) -> String {
+        let qty = debt.quantity.formatted(.number.precision(.fractionLength(0...2)))
+        let date = debt.date.formatted(.dateTime.day().month(.abbreviated).year().locale(appLocale))
+        if kind == .tl { return "\(kind.title) · \(date)" }
+        let rate = debt.lastKnownRate.formatted(.currency(code: "TRY"))
+        return "\(qty) \(kind.unitLabel) × \(rate) · \(date)"
+    }
+
+    private func deleteDebts(at offsets: IndexSet) {
+        for index in offsets { modelContext.delete(debts[index]) }
+    }
+
+    @MainActor
+    private func refreshRates() async {
+        let fxDebts = debts.filter { $0.kind != "tl" }
+        guard !fxDebts.isEmpty else { return }
+        isRefreshing = true
+        defer { isRefreshing = false }
+        priceError = nil
+        guard let market = try? await PriceService.fetchMarketPrices() else {
+            priceError = tr("Kurlar alınamadı; son bilinen kurlar kullanılıyor.",
+                            "Could not fetch rates; using last known.")
+            return
+        }
+        for debt in fxDebts {
+            let rate: Double?
+            switch debt.kind {
+            case "usd":    rate = market.usdSell
+            case "gram":   rate = market.goldGramSell
+            case "ceyrek": rate = market.ceyrekSell
+            default:       rate = nil
+            }
+            // Kur DEĞİŞMEDİYSE yazma: her yazma bütün ekranları yeniden çizdirir
+            if let rate, abs(debt.lastKnownRate - rate) > 0.0001 {
+                debt.lastKnownRate = rate
+                if debt.initialRate == nil { debt.initialRate = rate }
+            } else if let rate, debt.initialRate == nil {
+                debt.initialRate = rate
+            }
+        }
+        if modelContext.hasChanges { try? modelContext.save() }
+        lastUpdate = .now
     }
 }
