@@ -19,7 +19,7 @@
 	<key>CFBundleShortVersionString</key>
 	<string>1.0</string>
 	<key>CFBundleVersion</key>
-	<string>1</string>
+	<string>$(CURRENT_PROJECT_VERSION)</string>
 	<key>NSMicrophoneUsageDescription</key>
 	<string>Harcamalarını sesle girebilmen için mikrofon erişimi gerekiyor.</string>
 	<key>NSSpeechRecognitionUsageDescription</key>
