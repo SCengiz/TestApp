@@ -67,6 +67,7 @@ struct BackupPayment: Codable {
     var category: String
     var totalInstallments: Int?
     var firstPaymentDate: Date?
+    var interestRate: Double? // kredinin yıllık faiz oranı (%)
 }
 
 struct BackupPaidPayment: Codable {
@@ -214,7 +215,8 @@ enum BackupService {
         file.payments = all(FixedPayment.self).map {
             BackupPayment(name: $0.name, amount: $0.amount, dueDay: $0.dueDay,
                           category: $0.category, totalInstallments: $0.totalInstallments,
-                          firstPaymentDate: $0.firstPaymentDate)
+                          firstPaymentDate: $0.firstPaymentDate,
+                          interestRate: $0.interestRate)
         }
         file.paidPayments = all(PaidPayment.self).map {
             BackupPaidPayment(paymentName: $0.paymentName, monthStart: $0.monthStart,
@@ -352,7 +354,8 @@ enum BackupService {
             context.insert(FixedPayment(name: item.name, amount: item.amount,
                                         dueDay: item.dueDay, category: item.category,
                                         totalInstallments: item.totalInstallments,
-                                        firstPaymentDate: item.firstPaymentDate))
+                                        firstPaymentDate: item.firstPaymentDate,
+                                        interestRate: item.interestRate))
         }
         for item in file.paidPayments {
             context.insert(PaidPayment(paymentName: item.paymentName,

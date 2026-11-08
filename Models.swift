@@ -439,15 +439,22 @@ final class FixedPayment {
     var totalInstallments: Int? = nil // toplam taksit sayısı (örn. 12)
     var firstPaymentDate: Date? = nil // ilk taksitin ödendiği ay
 
+    // Kredinin yıllık faiz oranı (%). Yalnızca kayıt ve gösterim içindir;
+    // taksit tutarı buradan HESAPLANMAZ, kullanıcı tutarı kendi girer.
+    // Opsiyonel ve varsayılanı boş: eski kayıtlar olduğu gibi açılır.
+    var interestRate: Double? = nil
+
 
     init(name: String, amount: Double, dueDay: Int, category: String = "Diğer",
-         totalInstallments: Int? = nil, firstPaymentDate: Date? = nil) {
+         totalInstallments: Int? = nil, firstPaymentDate: Date? = nil,
+         interestRate: Double? = nil) {
         self.name = name
         self.amount = amount
         self.dueDay = dueDay
         self.category = category
         self.totalInstallments = totalInstallments
         self.firstPaymentDate = firstPaymentDate
+        self.interestRate = interestRate
     }
 }
 

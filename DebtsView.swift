@@ -88,6 +88,28 @@ struct DebtsView: View {
 
     private var overallDebt: Double { totalTL + loanDebt }
 
+    // Borç dağılımı satırı: başlık üstte, tutar hemen altında.
+    // Yan yana yazınca uzun tutarlar başlığı sıkıştırıyordu.
+    private func debtRow(icon: String, color: Color, title: String,
+                         detail: String, amount: Double) -> some View {
+        HStack(spacing: 12) {
+            RowIcon(systemName: icon, color: color)
+            VStack(alignment: .leading, spacing: 3) {
+                Text(title)
+                    .font(.body.weight(.medium))
+                    .foregroundStyle(.primary)
+                Text(amount, format: .currency(code: "TRY"))
+                    .font(.title3.weight(.semibold))
+                    .foregroundStyle(.primary)
+                Text(detail)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+            Spacer(minLength: 0)
+        }
+        .padding(.vertical, 4)
+    }
+
     // Kur farkından toplam borç artışı (emtia borçları)
     private var totalIncrease: Double {
         debts.reduce(0) { $0 + $1.increaseTL }
@@ -130,26 +152,22 @@ struct DebtsView: View {
                     NavigationLink {
                         PersonDebtsDetailView()
                     } label: {
-                        LabeledContent {
-                            Text(totalTL, format: .currency(code: "TRY"))
-                        } label: {
-                            Label(tr("Kişilere borcum (\(debts.count))",
-                                     "Owed to people (\(debts.count))"),
-                                  systemImage: "person.2.fill")
-                        }
+                        debtRow(icon: "person.2.fill",
+                                color: .orange,
+                                title: tr("Kişilere Borcum", "Owed to People"),
+                                detail: tr("\(debts.count) kişi", "\(debts.count) people"),
+                                amount: totalTL)
                     }
 
                     if loanDebt > 0 {
                         NavigationLink {
                             LoanDebtDetailView()
                         } label: {
-                            LabeledContent {
-                                Text(loanDebt, format: .currency(code: "TRY"))
-                            } label: {
-                                Label(tr("Kredi borcum (\(loanCount) kredi)",
-                                         "Loan debt (\(loanCount) loans)"),
-                                      systemImage: "building.columns.fill")
-                            }
+                            debtRow(icon: "building.columns.fill",
+                                    color: .blue,
+                                    title: tr("Kredi Borcum", "Loan Debt"),
+                                    detail: tr("\(loanCount) kredi", "\(loanCount) loans"),
+                                    amount: loanDebt)
                         }
                     }
                 } header: {
@@ -365,6 +383,15 @@ struct LoanDebtDetailView: View {
 
     private var totalDebt: Double { loans.reduce(0) { $0 + $1.remainingDebt } }
 
+    // Kalan taksit ve varsa faiz oranı. Oran yalnızca gösterim içindir.
+    private func loanSubtitle(_ payment: FixedPayment, remaining: Int) -> String {
+        var parts = [tr("\(remaining) taksit kaldı", "\(remaining) installments left")]
+        if let rate = payment.interestRate {
+            parts.append("%" + rate.formatted(.number.precision(.fractionLength(0...2))))
+        }
+        return parts.joined(separator: " · ")
+    }
+
     private var lastMonth: Date? {
         loans.compactMap { $0.payment.lastInstallmentMonth() }.max()
     }
@@ -406,8 +433,7 @@ struct LoanDebtDetailView: View {
                                     color: PaymentCategory.named(item.payment.category).color)
                             VStack(alignment: .leading, spacing: 2) {
                                 Text(item.payment.name)
-                                Text(tr("\(item.remainingCount) taksit kaldı",
-                                        "\(item.remainingCount) installments left"))
+                                Text(loanSubtitle(item.payment, remaining: item.remainingCount))
                                     .font(.caption)
                                     .foregroundStyle(.secondary)
                             }

@@ -179,7 +179,11 @@ struct FixedPaymentsView: View {
         }
         if let total = payment.totalInstallments,
            let number = payment.installmentNumber(inMonth: selectedMonth) {
-            return tr("Taksit \(number)/\(total) · kalan \(total - number) ay · Her ayın \(payment.dueDay). günü", "Installment \(number)/\(total) · \(total - number) months left · day \(payment.dueDay)")
+            let rate = payment.interestRate.map {
+                " · %" + $0.formatted(.number.precision(.fractionLength(0...2)))
+            } ?? ""
+            return tr("Taksit \(number)/\(total) · kalan \(total - number) ay\(rate) · Her ayın \(payment.dueDay). günü",
+                      "Installment \(number)/\(total) · \(total - number) months left\(rate) · day \(payment.dueDay)")
         }
         if let total = payment.totalInstallments {
             return tr("Taksit bitti (\(total)/\(total)) · Her ayın \(payment.dueDay). günü", "Installments finished (\(total)/\(total)) · day \(payment.dueDay)")
@@ -225,6 +229,8 @@ struct AddFixedPaymentView: View {
     // Vade gününden ötürü ilk taksit çoğu kredide diğerlerinden farklı olur
     @State private var firstInstallmentDiffers = false
     @State private var firstInstallmentAmount: Double?
+    // Yalnızca kayıt için; taksit tutarı bundan hesaplanmaz
+    @State private var interestRate: Double?
     @State private var oneTimeMonth: Date = Calendar.current.dateInterval(of: .month, for: .now)!.start
 
     // Taksitli ödemede ilk taksit ayı: 48 ay geri, 24 ay ileri
@@ -353,6 +359,11 @@ struct AddFixedPaymentView: View {
                             .font(.caption)
                             .foregroundStyle(.secondary)
 
+                        TextField(tr("Faiz oranı (%) — isteğe bağlı",
+                                     "Interest rate (%) — optional"),
+                                  value: $interestRate, format: .number)
+                            .keyboardType(.decimalPad)
+
                         Toggle(tr("İlk taksit farklı", "First installment differs"),
                                isOn: $firstInstallmentDiffers.animation())
                         if firstInstallmentDiffers {
@@ -378,7 +389,8 @@ struct AddFixedPaymentView: View {
                     case .recurring:
                         Text(tr("Fatura, abonelik gibi her ay tekrar eden ödemeler için.", "For payments repeating every month, like bills or subscriptions."))
                     case .installment:
-                        Text(tr("Kredi taksidi gibi belirli sayıda ödemesi olanlar için.", "For payments with a set number of installments, like loans."))
+                        Text(tr("Kredi taksidi gibi belirli sayıda ödemesi olanlar için. Faiz oranı yalnızca kayıt içindir; taksit tutarını sen girersin, orandan hesaplanmaz.",
+                                "For payments with a set number of installments, like loans. The interest rate is stored for reference only; the installment amount is the one you enter."))
                     case .oneTime:
                         Text(tr("Sadece seçtiğin aya işlenir; diğer ayların planını etkilemez.", "Applies only to the selected month."))
                     }
@@ -424,6 +436,7 @@ struct AddFixedPaymentView: View {
                     name = payment.name
                     dueDay = payment.dueDay
                     category = payment.category
+                    interestRate = payment.interestRate
                     // Tutarı değişen kategorilerde o aya kayıtlı tutar gelir;
                     // kayıt yoksa alan boş kalır (o ayın tutarı henüz girilmemiş)
                     if PaymentCategory.named(payment.category).amountVaries {
@@ -538,6 +551,7 @@ struct AddFixedPaymentView: View {
             payment.category = category
             payment.totalInstallments = total
             payment.firstPaymentDate = firstPayment
+            payment.interestRate = kind == .installment ? interestRate : nil
             // Ad değişirse aya özel tutar kayıtları da yeni adı izlesin
             if oldName != name {
                 for record in monthlyAmounts where record.paymentName == oldName {
@@ -552,7 +566,9 @@ struct AddFixedPaymentView: View {
             modelContext.insert(FixedPayment(name: name, amount: amount, dueDay: dueDay,
                                              category: category,
                                              totalInstallments: total,
-                                             firstPaymentDate: firstPayment))
+                                             firstPaymentDate: firstPayment,
+                                             interestRate: kind == .installment
+                                                 ? interestRate : nil))
         }
 
         // Tutarı her ay değişen ödemelerde girilen tutar o aya yazılır
