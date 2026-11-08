@@ -71,6 +71,7 @@ struct SavingsView: View {
     @State private var selectedMonth: Date?
     @State private var chartTap: Date? // grafiğe dokunulan ay
     @State private var detailMonth: MonthSelection?
+    @State private var period = PeriodSelection.thisMonth() // tek ay ya da aralık
     @State private var showingAccountForm = false
     @State private var priceError: String?
     @State private var isRefreshing = false
@@ -79,6 +80,17 @@ struct SavingsView: View {
     private let autoRefresh = Timer.publish(every: 30, on: .main, in: .common).autoconnect()
 
     private var calendar: Calendar { .current }
+
+    private func savingsArrow(_ icon: String, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            Image(systemName: icon)
+                .font(.body.weight(.bold))
+                .foregroundStyle(.white)
+                .frame(width: 34, height: 34)
+                .background(Circle().fill(.white.opacity(0.18)))
+        }
+        .buttonStyle(.plain)
+    }
 
     private var total: Double {
         assets.reduce(0) { $0 + $1.value }
@@ -125,12 +137,44 @@ struct SavingsView: View {
 
     // Son 6 ay + bu ay
     private var monthlySavings: [(date: Date, total: Double)] {
+        period.chartMonths(trailing: 7).map { month in (month, savings(for: month)) }
+    }
+
+    // Bir ayın birikimi: içinde bulunulan ay canlı toplam, geçmiş aylar
+    // o ayın kayıtlı fotoğrafı
+    private func savings(for month: Date) -> Double {
         let thisMonth = calendar.dateInterval(of: .month, for: .now)!.start
-        return (-6...0).map { offset in
-            let month = calendar.date(byAdding: .month, value: offset, to: thisMonth)!
-            let value = offset == 0 ? total : historicalTotal(for: month)
-            return (month, value)
+        return calendar.isDate(month, equalTo: thisMonth, toGranularity: .month)
+            ? total
+            : historicalTotal(for: month)
+    }
+
+    // Birikim bir BAKİYEDİR, akış değil: aralık seçildiğinde aylar toplanmaz,
+    // dönem sonundaki değer gösterilir; rozette dönem içindeki değişim yazar.
+    private var periodValue: Double { savings(for: period.endMonth) }
+
+    private var periodChange: Double? {
+        guard period.isRange else { return nil }
+        guard let before = calendar.date(byAdding: .month, value: -1, to: period.startMonth)
+        else { return nil }
+        return periodValue - savings(for: before)
+    }
+
+    private var periodChangePercent: Double? {
+        guard let change = periodChange,
+              let before = calendar.date(byAdding: .month, value: -1, to: period.startMonth)
+        else { return nil }
+        let base = savings(for: before)
+        guard base > 0 else { return nil }
+        return change / base * 100
+    }
+
+    private var savingsCardTitle: String {
+        if period.isRange {
+            return tr("\(period.title) Sonu Birikimim", "Savings at end of \(period.title)")
         }
+        if period.startOffset == 0 { return tr("Toplam Birikimim", "Total Savings") }
+        return tr("\(period.title) Birikimim", "Savings · \(period.title)")
     }
 
     private func historicalTotal(for month: Date) -> Double {
@@ -151,13 +195,25 @@ struct SavingsView: View {
             List {
                 Section {
                     StatCard(
-                        title: tr("Toplam Birikimim", "Total Savings"),
-                        amount: total,
+                        title: savingsCardTitle,
+                        amount: periodValue,
                         icon: "chart.line.uptrend.xyaxis",
                         colors: [.purple, .indigo],
-                        profit: hasAnyInvestment ? cumulativeProfit : nil,
-                        profitPercent: cumulativeProfitPercent
+                        // Aralıkta rozet dönem içindeki değişimi, tek ayda
+                        // kümülatif kâr/zararı gösterir
+                        profit: period.isRange ? periodChange
+                                               : (hasAnyInvestment ? cumulativeProfit : nil),
+                        profitPercent: period.isRange ? periodChangePercent
+                                                      : cumulativeProfitPercent
                     )
+                    .overlay(alignment: .trailing) {
+                        HStack(spacing: 8) {
+                            savingsArrow("chevron.left") { period.shift(by: -1) }
+                            savingsArrow("chevron.right") { period.shift(by: 1) }
+                            PeriodPickerButton(period: $period, tint: .white)
+                        }
+                        .padding(.trailing, 12)
+                    }
                     .listRowInsets(EdgeInsets())
                     .listRowBackground(Color.clear)
                 }

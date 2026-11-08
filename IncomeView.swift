@@ -12,9 +12,21 @@ struct IncomeView: View {
     @State private var selectedMonth: Date? // grafikte dokunulan ay
     @State private var chartTap: Date? // grafiğe dokunulan ay
     @State private var detailMonth: MonthSelection? // dökümü açılan ay
+    @State private var period = PeriodSelection.thisMonth() // tek ay ya da aralık
     @AppStorage("hideIncomeAmounts") private var amountsHidden = false // gizlilik modu
 
     private var calendar: Calendar { .current }
+
+    private func monthArrow(_ icon: String, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            Image(systemName: icon)
+                .font(.body.weight(.bold))
+                .foregroundStyle(.white)
+                .frame(width: 34, height: 34)
+                .background(Circle().fill(.white.opacity(0.18)))
+        }
+        .buttonStyle(.plain)
+    }
 
     // Her gelir kaynağına sırasına göre renk ata
     private var incomeColors: [String: Color] {
@@ -41,11 +53,33 @@ struct IncomeView: View {
     // Bu ay ve gelecek: güncel kaynakların toplamı (adaptif)
     private var monthlyIncome: [(date: Date, total: Double, isFuture: Bool)] {
         let thisMonth = calendar.dateInterval(of: .month, for: .now)!.start
-        return (-3...3).map { offset in
-            let month = calendar.date(byAdding: .month, value: offset, to: thisMonth)!
-            let total = offset >= 0 ? monthlyTotal : historicalTotal(for: month)
-            return (month, total, offset > 0)
+        return period.chartMonths(radius: 3).map { month in
+            (month, income(for: month), month > thisMonth)
         }
+    }
+
+    // Bir ayın geliri: geçmiş aylar o ayın kayıtlı fotoğrafı, bu ay ve
+    // sonrası güncel kaynakların toplamı
+    private func income(for month: Date) -> Double {
+        let thisMonth = calendar.dateInterval(of: .month, for: .now)!.start
+        return month >= thisMonth ? monthlyTotal : historicalTotal(for: month)
+    }
+
+    // Seçili dönemin geliri. Tek ay seçiliyse o ayın geliri; aralık
+    // seçiliyse aralıktaki bütün ayların TOPLAMI (gelir bir akıştır).
+    private var periodIncome: Double {
+        period.months.reduce(0) { $0 + income(for: $1) }
+    }
+
+    private var incomeCardTitle: String {
+        if period.isRange {
+            return tr("\(period.title) Toplam Gelir", "Total Income · \(period.title)")
+        }
+        if period.startOffset == 0 { return tr("Aylık Gelirim", "Monthly Income") }
+        if period.startOffset > 0 {
+            return tr("\(period.title) Planı", "\(period.title) Plan")
+        }
+        return tr("\(period.title) Geliri", "\(period.title) Income")
     }
 
     // Geçmiş bir ayın geliri: o ayın fotoğrafı; yoksa en yakın önceki fotoğraf
@@ -68,25 +102,30 @@ struct IncomeView: View {
             List {
                 Section {
                     StatCard(
-                        title: tr("Aylık Gelirim", "Monthly Income"),
-                        amount: monthlyTotal,
+                        title: incomeCardTitle,
+                        amount: periodIncome,
                         icon: "banknote.fill",
                         colors: [.green, .mint],
                         masked: amountsHidden
                     )
-                    // Gizlilik: kartın sağındaki gözle tutarları sakla/göster
+                    // Sağda: dönem gezinmesi ve gizlilik
                     .overlay(alignment: .trailing) {
-                        Button {
-                            amountsHidden.toggle()
-                        } label: {
-                            Image(systemName: amountsHidden ? "eye.slash.fill" : "eye.fill")
-                                .font(.title3)
-                                .foregroundStyle(.white)
-                                .frame(width: 44, height: 44)
-                                .background(Circle().fill(.white.opacity(0.18)))
+                        HStack(spacing: 8) {
+                            monthArrow("chevron.left") { period.shift(by: -1) }
+                            monthArrow("chevron.right") { period.shift(by: 1) }
+                            PeriodPickerButton(period: $period, tint: .white)
+                            Button {
+                                amountsHidden.toggle()
+                            } label: {
+                                Image(systemName: amountsHidden ? "eye.slash.fill" : "eye.fill")
+                                    .font(.body.weight(.semibold))
+                                    .foregroundStyle(.white)
+                                    .frame(width: 34, height: 34)
+                                    .background(Circle().fill(.white.opacity(0.18)))
+                            }
+                            .buttonStyle(.plain)
                         }
-                        .buttonStyle(.plain)
-                        .padding(.trailing, 14)
+                        .padding(.trailing, 12)
                     }
                     .listRowInsets(EdgeInsets())
                     .listRowBackground(Color.clear)
