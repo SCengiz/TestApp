@@ -295,6 +295,14 @@ struct AddFixedPaymentView: View {
                             Label(cat.displayName, systemImage: cat.icon).tag(cat.name)
                         }
                     }
+                    // Kredi zaten taksitli bir şeydir. Tür "Süresiz"de kalınca
+                    // ilk taksit ayı hiç sorulmuyor ve ödeme her ay (içinde
+                    // bulunulan ay dahil) görünüyordu; yeni kayıtta tür
+                    // kendiliğinden Taksitli'ye geçiyor.
+                    .onChange(of: category) { _, newValue in
+                        guard payment == nil else { return }
+                        if newValue == "Kredi" { kind = .installment }
+                    }
 
                     Picker(tr("Ödeme günü", "Payment day"), selection: $dueDay) {
                         ForEach(1...28, id: \.self) { day in
@@ -320,6 +328,14 @@ struct AddFixedPaymentView: View {
                         }
                     }
                     .pickerStyle(.segmented)
+
+                    if kind == .recurring {
+                        Label(tr("Süresiz ödeme HER AY görünür; bitiş tarihi yoktur. Kredi gibi belirli sayıda taksiti olanlar için \"Taksitli\" seç.",
+                                 "An open-ended payment shows EVERY month with no end date. Choose \"Installments\" for loans."),
+                              systemImage: "info.circle")
+                            .font(.footnote)
+                            .foregroundStyle(.secondary)
+                    }
 
                     if kind == .installment {
                         Picker(tr("Toplam taksit", "Total installments"), selection: $totalInstallments) {
@@ -394,6 +410,16 @@ struct AddFixedPaymentView: View {
                 }
             }
             .onAppear {
+                // YENİ kayıt, bakılan ayla açılır.
+                //
+                // Önceden ilk taksit ayı her zaman bugünün ayına kuruluydu:
+                // Aralık ekranındayken kredi eklediğinde, kullanıcı ayrıca
+                // değiştirmedikçe ilk taksit Kasım'a düşüyordu.
+                if payment == nil {
+                    let viewed = calendar.dateInterval(of: .month, for: month)!.start
+                    firstInstallmentMonth = viewed
+                    oneTimeMonth = viewed
+                }
                 if let payment {
                     name = payment.name
                     dueDay = payment.dueDay
