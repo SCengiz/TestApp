@@ -1,5 +1,6 @@
 import SwiftUI
 import SwiftData
+import Charts
 
 // Borç türleri
 enum DebtKind: String, CaseIterable, Identifiable {
@@ -63,6 +64,7 @@ struct DebtsView: View {
     // Genel borç tablosu için: banka kredilerinin kalan borcu
     @Query private var payments: [FixedPayment]
     @Query private var paidRecords: [PaidPayment]
+    @Query private var monthlyAmounts: [PaymentMonthAmount]
     @State private var showingAddSheet = false
     @State private var editingDebt: Debt?
     @State private var priceError: String?
@@ -77,8 +79,9 @@ struct DebtsView: View {
 
     // Taksitli kredilerin kalan borcu (kredi kartı ve süresiz ödemeler hariç)
     private var loanDebt: Double {
-        payments.compactMap { $0.remainingDebt(paidRecords: paidRecords) }
-            .reduce(0, +)
+        payments.compactMap {
+            $0.remainingDebt(paidRecords: paidRecords, monthlyAmounts: monthlyAmounts)
+        }.reduce(0, +)
     }
 
     private var loanCount: Int {
@@ -130,12 +133,16 @@ struct DebtsView: View {
                             Label(tr("Kişilere borcum", "Owed to people"),
                                   systemImage: "person.2.fill")
                         }
-                        LabeledContent {
-                            Text(loanDebt, format: .currency(code: "TRY"))
+                        NavigationLink {
+                            LoanDebtDetailView()
                         } label: {
-                            Label(tr("Kredi borcum (\(loanCount) kredi)",
-                                     "Loan debt (\(loanCount) loans)"),
-                                  systemImage: "building.columns.fill")
+                            LabeledContent {
+                                Text(loanDebt, format: .currency(code: "TRY"))
+                            } label: {
+                                Label(tr("Kredi borcum (\(loanCount) kredi)",
+                                         "Loan debt (\(loanCount) loans)"),
+                                      systemImage: "building.columns.fill")
+                            }
                         }
                         LabeledContent {
                             Text(overallDebt, format: .currency(code: "TRY"))
@@ -148,8 +155,8 @@ struct DebtsView: View {
                     } header: {
                         Text(tr("Genel Borç Durumum", "Overall Debt"))
                     } footer: {
-                        Text(tr("Kredi borcu, kalan taksitlerin toplamıdır; kredi kartları dahil değildir. Ayrıntı için Sabit Giderler ekranına bak.",
-                                "Loan debt is the sum of remaining installments; credit cards are not included. See the Fixed Expenses screen for details."))
+                        Text(tr("Kredi borcu, kalan taksitlerin toplamıdır; kredi kartları dahil değildir. Kredi kredi dökümü için satıra dokun.",
+                                "Loan debt is the sum of remaining installments; credit cards are not included. Tap the row for a loan-by-loan breakdown."))
                     }
                 }
 
@@ -407,4 +414,128 @@ struct DebtFormView: View {
 #Preview {
     DebtsView(loggedInUser: .constant("soray"))
         .modelContainer(for: [Debt.self], inMemory: true)
+}
+
+// Borçlar ekranındaki "Kredi borcum" satırına dokununca açılan döküm.
+//
+// Yalnızca taksit sayısı belli VE tutarı sabit ödemeler listelenir; kredi
+// kartı ile fatura gibi tutarı her ay değişenlerin ve süresiz ödemelerin
+// kalan bir anaparası olmadığı için burada yer almazlar.
+struct LoanDebtDetailView: View {
+    @Query(sort: \FixedPayment.dueDay) private var payments: [FixedPayment]
+    @Query private var paidRecords: [PaidPayment]
+    @Query private var monthlyAmounts: [PaymentMonthAmount]
+
+    private var loans: [(payment: FixedPayment, remainingCount: Int, remainingDebt: Double)] {
+        payments.compactMap { payment in
+            guard let count = payment.remainingInstallments(paidRecords: paidRecords),
+                  count > 0,
+                  let debt = payment.remainingDebt(paidRecords: paidRecords,
+                                                   monthlyAmounts: monthlyAmounts)
+            else { return nil }
+            return (payment, count, debt)
+        }
+        .sorted { $0.remainingDebt > $1.remainingDebt }
+    }
+
+    private var totalDebt: Double { loans.reduce(0) { $0 + $1.remainingDebt } }
+
+    private var lastMonth: Date? {
+        loans.compactMap { $0.payment.lastInstallmentMonth() }.max()
+    }
+
+    // Önümüzdeki aylarda kredilere ödenecek tutar (yük ne zaman hafifliyor)
+    private var upcomingLoad: [(month: Date, amount: Double)] {
+        let calendar = Calendar.current
+        let thisMonth = calendar.dateInterval(of: .month, for: .now)!.start
+        guard let last = lastMonth else { return [] }
+        let span = calendar.dateComponents([.month], from: thisMonth, to: last).month ?? 0
+        guard span >= 0 else { return [] }
+        return (0...min(span, 23)).compactMap { offset in
+            guard let month = calendar.date(byAdding: .month, value: offset, to: thisMonth)
+            else { return nil }
+            let amount = payments
+                .filter { $0.remainingInstallments(paidRecords: paidRecords) != nil }
+                .filter { $0.isActive(inMonth: month) }
+                .reduce(0.0) { $0 + $1.amount(inMonth: month, monthlyAmounts: monthlyAmounts) }
+            return (month, amount)
+        }
+    }
+
+    var body: some View {
+        List {
+            Section {
+                StatCard(title: tr("Kalan Kredi Borcum", "Remaining Loan Debt"),
+                         amount: totalDebt,
+                         icon: "building.columns.fill",
+                         colors: [.blue, .indigo])
+                    .listRowInsets(EdgeInsets())
+                    .listRowBackground(Color.clear)
+            }
+
+            Section {
+                ForEach(loans, id: \.payment.persistentModelID) { item in
+                    VStack(alignment: .leading, spacing: 6) {
+                        HStack(spacing: 12) {
+                            RowIcon(systemName: PaymentCategory.named(item.payment.category).icon,
+                                    color: PaymentCategory.named(item.payment.category).color)
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text(item.payment.name)
+                                Text(tr("\(item.remainingCount) taksit kaldı",
+                                        "\(item.remainingCount) installments left"))
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                            }
+                            Spacer()
+                            Text(item.remainingDebt, format: .currency(code: "TRY"))
+                                .font(.callout.weight(.semibold))
+                        }
+                        if let end = item.payment.lastInstallmentMonth() {
+                            Text(tr("Son taksit: \(end.formatted(.dateTime.month(.wide).year().locale(appLocale)))",
+                                    "Last installment: \(end.formatted(.dateTime.month(.wide).year().locale(appLocale)))"))
+                                .font(.caption2)
+                                .foregroundStyle(.tertiary)
+                        }
+                    }
+                }
+            } header: {
+                Text(tr("Kredilerim", "My Loans"))
+            }
+
+            if !upcomingLoad.isEmpty {
+                Section {
+                    Chart(upcomingLoad, id: \.month) { item in
+                        BarMark(x: .value("Ay", item.month, unit: .month),
+                                y: .value("Tutar", item.amount))
+                            .foregroundStyle(Color.blue.gradient)
+                            .cornerRadius(3)
+                    }
+                    .frame(height: 180)
+                    .chartXAxis {
+                        AxisMarks(values: .stride(by: .month, count: 3)) {
+                            AxisValueLabel(format: .dateTime.month(.narrow).year(.twoDigits)
+                                .locale(appLocale))
+                        }
+                    }
+                } header: {
+                    Text(tr("Aylık Kredi Yükü", "Monthly Loan Load"))
+                } footer: {
+                    if let last = lastMonth {
+                        Text(tr("Taksitler bittikçe yük düşer. Son taksit \(last.formatted(.dateTime.month(.wide).year().locale(appLocale))).",
+                                "The load drops as installments end. Last one is \(last.formatted(.dateTime.month(.wide).year().locale(appLocale)))."))
+                    }
+                }
+            }
+        }
+        .navigationTitle(tr("Kredi Borcum", "Loan Debt"))
+        .navigationBarTitleDisplayMode(.inline)
+        .overlay {
+            if loans.isEmpty {
+                ContentUnavailableView(tr("Kredi borcun yok", "No loan debt"),
+                                       systemImage: "checkmark.seal",
+                                       description: Text(tr("Taksitli bir sabit giderin olmadığı için burada gösterilecek bir şey yok.",
+                                                            "You have no fixed payments with installments.")))
+            }
+        }
+    }
 }

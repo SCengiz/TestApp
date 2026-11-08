@@ -256,6 +256,29 @@ struct PeriodSelection: Equatable {
         return "\(from) – \(to)"
     }
 
+    // Grafiklerde gösterilecek aylar.
+    //
+    // Tek ay seçiliyken ekranın kendi penceresi kullanılır (Gelirler seçili ayın
+    // etrafında, Birikimler seçili ayla biten). Aralık seçiliyse aralığın
+    // kendisi gösterilir; çok uzun aralıklarda son `maxCount` ay alınır, yoksa
+    // hem okunmaz hem de ay başına hesap yapan grafiklerde yavaşlar.
+    func chartMonths(radius: Int? = nil, trailing: Int? = nil, maxCount: Int = 24) -> [Date] {
+        if isRange {
+            let all = months
+            return all.count <= maxCount ? all : Array(all.suffix(maxCount))
+        }
+        let cal = Calendar.current
+        if let radius {
+            return (-radius...radius).compactMap {
+                cal.date(byAdding: .month, value: $0, to: startMonth)
+            }
+        }
+        let count = trailing ?? 7
+        return (-(count - 1)...0).compactMap {
+            cal.date(byAdding: .month, value: $0, to: startMonth)
+        }
+    }
+
     // Oklarla kaydırma: aralık seçiliyken pencere bütün olarak kayar
     mutating func shift(by months: Int) {
         startOffset += months

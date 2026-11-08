@@ -315,13 +315,30 @@ extension FixedPayment {
         return max(0, remaining)
     }
 
-    // Kalan toplam borç (kalan taksit × aylık tutar)
+    // Kalan toplam borç.
+    //
+    // Taksitler eşit olmayabilir (vade gününden ötürü ilk taksit genelde
+    // farklıdır), bu yüzden sayı × tutar yerine kalan ayların tutarları
+    // tek tek toplanır.
     func remainingDebt(asOf month: Date = .now,
                        paidRecords: [PaidPayment] = [],
+                       monthlyAmounts: [PaymentMonthAmount] = [],
                        calendar: Calendar = .current) -> Double? {
         guard let count = remainingInstallments(asOf: month, paidRecords: paidRecords,
-                                                calendar: calendar) else { return nil }
-        return Double(count) * amount
+                                                calendar: calendar),
+              let total = totalInstallments,
+              let first = firstPaymentDate,
+              let firstMonth = calendar.dateInterval(of: .month, for: first)?.start
+        else { return nil }
+        guard count > 0 else { return 0 }
+
+        // Kalanlar, son taksitten geriye doğru `count` adet
+        let remainingMonths = ((total - count)...(total - 1)).compactMap {
+            calendar.date(byAdding: .month, value: $0, to: firstMonth)
+        }
+        return remainingMonths.reduce(0) {
+            $0 + amount(inMonth: $1, monthlyAmounts: monthlyAmounts, calendar: calendar)
+        }
     }
 
     // Son taksitin düştüğü ay
@@ -450,16 +467,18 @@ extension FixedPayment {
     // gelecek ayların tutarı henüz belli değildir; satır 0 TL gösterilir.
     func amount(inMonth month: Date, monthlyAmounts: [PaymentMonthAmount] = [],
                 calendar: Calendar = .current) -> Double {
-        // Sabit tutarlı ödemeler (kira, kredi taksidi) her ay aynıdır
-        guard PaymentCategory.named(category).amountVaries else { return amount }
-
-        // Tutarı değişen ödemelerde o aya girilmiş tutar varsa o kullanılır
+        // O aya özel bir tutar yazılmışsa her zaman o geçerlidir.
+        // Kredi kartı ekstresinin aylık tutarı da, kredinin vade gününden
+        // ötürü farklı olan ilk taksidi de bu kayıtla tutulur.
         if let record = monthlyAmounts.first(where: {
             $0.paymentName == name
                 && calendar.isDate($0.monthStart, equalTo: month, toGranularity: .month)
         }) {
             return record.amount
         }
+
+        // Sabit tutarlı ödemeler (kira, kredi taksidi) her ay aynıdır
+        guard PaymentCategory.named(category).amountVaries else { return amount }
 
         // Kaydı yoksa 0: o ayın tutarı bilinmiyor demektir.
         //

@@ -5,7 +5,6 @@ struct FixedPaymentsView: View {
     @Environment(\.modelContext) private var modelContext
     @Query(sort: \FixedPayment.dueDay) private var payments: [FixedPayment]
     @Query private var monthlyAmounts: [PaymentMonthAmount]
-    @Query private var paidRecords: [PaidPayment]
     @State private var showingAddSheet = false
     @State private var editingPayment: FixedPayment?
     // Özet ekranındaki dönem seçiliyken açılınca aynı dönemle başlar
@@ -33,28 +32,6 @@ struct FixedPaymentsView: View {
                 .filter { $0.isActive(inMonth: month) }
                 .reduce(0) { $0 + $1.amount(inMonth: month, monthlyAmounts: monthlyAmounts) }
         }
-    }
-
-    // Taksitli ve tutarı sabit kredilerin kalan borcu (kredi kartı hariç).
-    // Bugüne göre hesaplanır; seçili dönemden bağımsızdır.
-    private var loans: [(payment: FixedPayment, remainingCount: Int, remainingDebt: Double)] {
-        payments.compactMap { payment in
-            guard let count = payment.remainingInstallments(paidRecords: paidRecords),
-                  count > 0,
-                  let debt = payment.remainingDebt(paidRecords: paidRecords)
-            else { return nil }
-            return (payment, count, debt)
-        }
-        .sorted { $0.remainingDebt > $1.remainingDebt }
-    }
-
-    private var totalLoanDebt: Double {
-        loans.reduce(0) { $0 + $1.remainingDebt }
-    }
-
-    // Kredilerin tamamının biteceği ay
-    private var lastLoanMonth: Date? {
-        loans.compactMap { $0.payment.lastInstallmentMonth() }.max()
     }
 
     private var cardTitle: String {
@@ -87,48 +64,6 @@ struct FixedPaymentsView: View {
                 }
                 .listRowInsets(EdgeInsets())
                 .listRowBackground(Color.clear)
-            }
-
-            // Kalan kredi borcu: taksitli ve tutarı sabit ödemeler.
-            // Kredi kartı gibi tutarı her ay değişen ve süresiz olanlar
-            // buraya girmez, çünkü onların bir "bitiş"i yok.
-            if !loans.isEmpty {
-                Section {
-                    HStack {
-                        Text(tr("Kalan toplam", "Remaining total"))
-                            .font(.headline)
-                        Spacer()
-                        Text(totalLoanDebt, format: .currency(code: "TRY"))
-                            .font(.headline)
-                            .foregroundStyle(.red)
-                    }
-
-                    ForEach(loans, id: \.payment.persistentModelID) { item in
-                        HStack(spacing: 12) {
-                            RowIcon(systemName: PaymentCategory.named(item.payment.category).icon,
-                                    color: PaymentCategory.named(item.payment.category).color)
-                            VStack(alignment: .leading, spacing: 2) {
-                                Text(item.payment.name)
-                                Text(tr("\(item.remainingCount) taksit × \(item.payment.amount.formatted(.currency(code: "TRY")))",
-                                        "\(item.remainingCount) × \(item.payment.amount.formatted(.currency(code: "TRY")))"))
-                                    .font(.caption)
-                                    .foregroundStyle(.secondary)
-                            }
-                            Spacer()
-                            Text(item.remainingDebt, format: .currency(code: "TRY"))
-                                .font(.callout.weight(.semibold))
-                        }
-                    }
-                } header: {
-                    Text(tr("Kalan Kredi Borcum", "Remaining Loan Debt"))
-                } footer: {
-                    if let last = lastLoanMonth {
-                        Text(tr("Kredi kartları hariç. Son taksit: \(last.formatted(.dateTime.month(.wide).year().locale(appLocale))).",
-                                "Excluding credit cards. Last installment: \(last.formatted(.dateTime.month(.wide).year().locale(appLocale)))."))
-                    } else {
-                        Text(tr("Kredi kartları hariç.", "Excluding credit cards."))
-                    }
-                }
             }
 
             Section {
@@ -287,6 +222,9 @@ struct AddFixedPaymentView: View {
     // başlangıç geriye doğru hesaplanıyordu; bu yüzden GELECEKTE başlayan bir
     // krediyi girmek mümkün değildi, ilk taksit hep içinde bulunulan aya düşüyordu.
     @State private var firstInstallmentMonth: Date = Calendar.current.dateInterval(of: .month, for: .now)!.start
+    // Vade gününden ötürü ilk taksit çoğu kredide diğerlerinden farklı olur
+    @State private var firstInstallmentDiffers = false
+    @State private var firstInstallmentAmount: Double?
     @State private var oneTimeMonth: Date = Calendar.current.dateInterval(of: .month, for: .now)!.start
 
     // Taksitli ödemede ilk taksit ayı: 48 ay geri, 24 ay ileri
@@ -398,6 +336,18 @@ struct AddFixedPaymentView: View {
                         Text(installmentStatusText)
                             .font(.caption)
                             .foregroundStyle(.secondary)
+
+                        Toggle(tr("İlk taksit farklı", "First installment differs"),
+                               isOn: $firstInstallmentDiffers.animation())
+                        if firstInstallmentDiffers {
+                            TextField(tr("İlk taksit tutarı (TL)", "First installment amount (TL)"),
+                                      value: $firstInstallmentAmount, format: .number)
+                                .keyboardType(.decimalPad)
+                            Text(tr("Vade gününe göre ilk taksit genelde farklı olur. Yukarıdaki aylık tutar diğer taksitler için kullanılır.",
+                                    "The first installment often differs because of the value date. The monthly amount above is used for the rest."))
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                        }
                     }
 
                     if kind == .oneTime {
@@ -464,8 +414,18 @@ struct AddFixedPaymentView: View {
                         } else {
                             kind = .installment
                             totalInstallments = total
-                            firstInstallmentMonth = Calendar.current
+                            let firstMonth = Calendar.current
                                 .dateInterval(of: .month, for: first)!.start
+                            firstInstallmentMonth = firstMonth
+                            // İlk aya özel bir tutar yazılmışsa forma getir
+                            if let recorded = monthlyAmounts.first(where: {
+                                $0.paymentName == payment.name
+                                    && calendar.isDate($0.monthStart, equalTo: firstMonth,
+                                                       toGranularity: .month)
+                            }) {
+                                firstInstallmentDiffers = true
+                                firstInstallmentAmount = recorded.amount
+                            }
                         }
                     } else {
                         kind = .recurring
@@ -498,9 +458,17 @@ struct AddFixedPaymentView: View {
         }?.amount
     }
 
-    // Tutarı değişen ödemelerde girilen tutarı o aya kaydet
-    private func storeMonthlyAmount(_ value: Double, for name: String) {
-        let monthStart = calendar.dateInterval(of: .month, for: month)!.start
+    private func removeMonthlyAmount(for name: String, in targetMonth: Date) {
+        let monthStart = calendar.dateInterval(of: .month, for: targetMonth)!.start
+        for record in monthlyAmounts where record.paymentName == name
+            && calendar.isDate(record.monthStart, equalTo: monthStart, toGranularity: .month) {
+            modelContext.delete(record)
+        }
+    }
+
+    // Girilen tutarı belirli bir aya kaydet (varsayılan: düzenlenen ay)
+    private func storeMonthlyAmount(_ value: Double, for name: String, in targetMonth: Date? = nil) {
+        let monthStart = calendar.dateInterval(of: .month, for: targetMonth ?? month)!.start
         if let existing = monthlyAmounts.first(where: {
             $0.paymentName == name
                 && calendar.isDate($0.monthStart, equalTo: monthStart, toGranularity: .month)
@@ -564,6 +532,16 @@ struct AddFixedPaymentView: View {
         // Tutarı her ay değişen ödemelerde girilen tutar o aya yazılır
         if selectedCategoryVaries {
             storeMonthlyAmount(amount, for: name)
+        }
+
+        // İlk taksit farklıysa, o aya özel tutar olarak kaydedilir.
+        // Farklı değilse eski bir kayıt kalmasın diye silinir.
+        if kind == .installment {
+            if firstInstallmentDiffers, let firstAmount = firstInstallmentAmount, firstAmount > 0 {
+                storeMonthlyAmount(firstAmount, for: name, in: firstInstallmentMonth)
+            } else {
+                removeMonthlyAmount(for: name, in: firstInstallmentMonth)
+            }
         }
         try? modelContext.save()
         refreshReminders()
